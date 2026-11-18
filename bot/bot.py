@@ -269,7 +269,6 @@ async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• {p('WARNING', '⚠️')} Shaxsiy rasmlaringiz bilan shantaj qilishayotgan bo‘lsa;\n"
         f"• {p('WARNING', '⚠️')} Akkauntingiz buzilib, pul talab qilishayotgan bo‘lsa — <b>HECH QACHON QO‘RQMANG VA YASHIRMANG!</b>\n\n"
         f"{p('CALL', '📞')} <b>Tezkor ishonch raqamlari:</b>\n"
-        f"• Maktab psixologi kabineti: 4-maktab 2-qavat, 204-xona\n"
         f"• O‘zbekiston Kiberxavfsizlik markazi: <b>1133</b>\n"
         f"• Bolalar ishonch telefoni: <b>1111</b>\n\n"
         f"{p('CHAT', '💬')} Istalgan vaqtda muammoingizni shu botga yozib qoldirishingiz mumkin (shaxsingiz to‘liq sir saqlanadi)."
@@ -930,11 +929,9 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 )
                 
         analysis_msg += (
-            f"{p('HACKER', '🕵️‍♂️')} <b>VIDEODAGI MAXSUS OSINT VA FON XAVFLARI:</b>\n"
-            f"1. {p('CALL', '🔊')} <b>Ovoz tahlili (Audio OSINT):</b> Orqa fondagi suhbatlar, maktab qo‘ng‘irog‘i, metro bekati e’loni yoki ko‘cha shovqini orqali joylashuvingiz bilib olinadi.\n"
-            f"2. {p('SCHOOL', '🏫')} <b>Harakatdagi kadrlar:</b> Kamera burilganda ko‘rinib qolgan xona raqami, o‘qituvchi, deraza orqasidagi do‘kon nomi yoki avtomobil davlat raqami.\n"
-            f"3. {p('TIMER', '☀️')} <b>Soya va yorug‘lik (Chronolocation):</b> Quyosh tushish burchagi orqali video olingan aniq soat va dunyo tomoni (Shimol/Janub) hisoblanadi.\n\n"
-            f"{p('SHIELD', '🛡️')} <b>Maslahat:</b> Ijtimoiy tarmoqqa video yuklashdan avval orqa fondagi shaxsiy obyektlarni tekshiring va audio yo‘lakdagi begona gaplarni o‘chiring!"
+            f"{p('HACKER', '🕵️‍♂️')} <b>VIDEODAGI TEXNIK VA AUDIO TAHLIL:</b>\n"
+            f"• {p('CALL', '🔊')} <b>Ovoz yo‘lagi:</b> Fon shovqini va audio parametrlar tekshirildi.\n"
+            f"• {p('TIMER', '⏱️')} <b>Texnik ko‘rsatkichlar:</b> Kadr chastotasi, o‘lcham va kodek parametrlari aniqlandi.\n"
         )
         
         await msg.reply_text(analysis_msg, parse_mode="HTML", disable_web_page_preview=True)
@@ -1050,12 +1047,10 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             f"• ⚠️ <i>Kiber-Xavf: Chipta, sertifikat yoki chekdagi QR-kodlar orqali shaxsiy hisoblar yoki ma’lumotlar o‘g‘irlanadi!</i>\n\n"
         )
 
-    # Reverse Search & Warning
+    # Reverse Search
     analysis_msg += (
-        f"{p('GLOBE', '🌐')} <b>4. TESKARI QIDIRUV (REVERSE SEARCH) XAVFI:</b>\n"
-        f"Firibgarlar ushbu suratni <b>Google Lens</b> yoki <b>Yandex Images</b> orqali qidirib, "
-        f"boshqa tarmoqlardagi (VK, Telegram, Facebook) akkauntlaringizni fosh qilishi mumkin!\n\n"
-        f"{p('SHIELD', '🛡️')} <b>Tavsiya:</b> Instagram/Telegram profilingizni «Private» qiling va deraza/maktab foni ko‘ringan suratlarni yuklamang!"
+        f"{p('GLOBE', '🌐')} <b>4. TESKARI QIDIRUV (REVERSE SEARCH):</b>\n"
+        f"Surat bo‘yicha internetdagi ochiq ma’lumotlarni qidirish uchun quyidagi tugmalardan foydalanishingiz mumkin:\n"
     )
     
     keyboard = InlineKeyboardMarkup([

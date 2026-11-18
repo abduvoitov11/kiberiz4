@@ -120,7 +120,7 @@ slides_data = [
         "cards": [
             ("📸 OSINT Skaner Moduli", "Surat yuborilganda undagi GPS koordinatalar, kamera modeli va fon xavflari fosh etiladi.", NEON_CYAN),
             ("🧪 'Raqamli Iz' Testi", "5 ta savol orqali foydalanuvchining shaxsiy xavfsizlik balini (0-100%) hisoblab beradi.", NEON_GREEN),
-            ("🚨 Anonim SOS Tugmasi", "Kiberbulling yoki shantajga uchragan o‘quvchilar maktab psixologiga maxfiy xabar yuborishi mumkin.", ACCENT_RED)
+            ("🚨 Anonim SOS Tugmasi", "Kiberbulling yoki shantajga uchragan o‘quvchilar tezkor ishonch xizmatlariga murojaat qilishi mumkin.", ACCENT_RED)
         ]
     },
     # 9. 5-MINUTE CHECKLIST
