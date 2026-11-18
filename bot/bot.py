@@ -37,6 +37,9 @@ except ImportError:
 
 from telegram import (
     Update,
+    Message,
+    CallbackQuery,
+    Bot,
     ReplyKeyboardMarkup,
     KeyboardButton,
     InlineKeyboardButton,
@@ -172,6 +175,125 @@ def p(name: str, fallback: str = "•") -> str:
     if emoji_id:
         return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
     return fallback
+
+EMOJI_MAP = {
+    '🇺🇿': E['FLAG_UZ'],
+    '🛡️': E['SHIELD'], '🛡': E['SHIELD'],
+    '🔍': E['SEARCH'], '🔎': E['SEARCH'],
+    '🖼️': E['EXIF_PHOTO'], '🖼': E['EXIF_PHOTO'], '📸': E['EXIF_PHOTO'], '🎞': E['EXIF_PHOTO'], '🎬': E['EXIF_PHOTO'],
+    '⚠️': E['WARNING'], '⚠': E['WARNING'],
+    '🚨': E['SOS'],
+    '🔒': E['LOCK'], '🔓': E['LOCK'],
+    '🔐': E['KEY_LOCK'],
+    '🔑': E['KEY'],
+    '✅': E['CHECK'],
+    '❌': E['CROSS'], '🚫': E['CROSS'],
+    '🏫': E['SCHOOL'], '🎒': E['SCHOOL'],
+    '👨‍🏫': E['TEACHER'],
+    '👨‍💻': E['HACKER'], '🕵️‍♂️': E['HACKER'], '🕵': E['HACKER'], '👤': E['HACKER'], '🐙': E['HACKER'],
+    '🏠': E['HOUSE'], '🚪': E['HOUSE'],
+    '🏢': E['BUILDING'], '🏬': E['BUILDING'], '🏦': E['BUILDING'], '🛣️': E['BUILDING'], '🛣': E['BUILDING'], '🚗': E['BUILDING'], '🛒': E['BUILDING'], '📍': E['BUILDING'],
+    '💻': E['LAPTOP'], '🎮': E['LAPTOP'], '📦': E['LAPTOP'],
+    '📱': E['PHONE'], '📞': E['CALL'], '🔊': E['CALL'],
+    '⏰': E['TIMER'], '⏱️': E['TIMER'], '⏱': E['TIMER'], '📅': E['TIMER'], '🌙': E['TIMER'], '🌅': E['TIMER'], '☀️': E['TIMER'], '☀': E['TIMER'], '🌤️': E['TIMER'], '🌤': E['TIMER'],
+    '🌐': E['GLOBE'], '🔗': E['GLOBE'], '🗺️': E['GLOBE'], '🗺': E['GLOBE'],
+    '🚀': E['ROCKET'],
+    '🧪': E['TEST'],
+    '💡': E['LIGHT'], '👉': E['LIGHT'], '🎵': E['LIGHT'],
+    '👋': E['WAVE'],
+    '⭐': E['STAR'], '🎯': E['STAR'], '🎰': E['STAR'], '⚽': E['STAR'],
+    '📊': E['STATS'], '💸': E['STATS'],
+    'ℹ️': E['INFO'], 'ℹ': E['INFO'], '📝': E['INFO'], '📑': E['INFO'], '📄': E['INFO'], '✏️': E['INFO'], '✏': E['INFO'], '📐': E['INFO'],
+    '👀': E['EYES'],
+    '💬': E['CHAT'], '✈️': E['CHAT'], '✈': E['CHAT'], '🎣': E['SEARCH'],
+    '💣': E['BOMB'], '🛑': E['BOMB'], '🔞': E['BOMB'], '☠️': E['BOMB'], '☠': E['BOMB'], '💊': E['BOMB'],
+    '🔥': E['FIRE'],
+    '💎': E['DIAMOND'],
+    '🏆': E['TROPHY'],
+    '🔄': E['REFRESH'],
+    '💯': E['HUNDRED'],
+    '🟢': E['GREEN'],
+    '🟡': E['YELLOW'],
+    '🔴': E['RED'],
+    '⚙️': E['GEAR'], '⚙': E['GEAR']
+}
+
+_SORTED_EMOJIS = sorted(EMOJI_MAP.keys(), key=len, reverse=True)
+_EMOJI_REGEX = re.compile('(' + '|'.join(re.escape(k) for k in _SORTED_EMOJIS) + ')')
+
+def auto_premium(text: str) -> str:
+    """Ensures EVERY unicode emoji in HTML text is converted to a Telegram Premium animated tag."""
+    if not text or not isinstance(text, str):
+        return text
+    parts = re.split(r'(<tg-emoji[^>]*>.*?</tg-emoji>)', text)
+    res = []
+    for p_part in parts:
+        if p_part.startswith('<tg-emoji'):
+            res.append(p_part)
+        else:
+            def repl(m):
+                em = m.group(1)
+                eid = EMOJI_MAP.get(em)
+                if eid:
+                    return f'<tg-emoji emoji-id="{eid}">{em}</tg-emoji>'
+                return em
+            res.append(_EMOJI_REGEX.sub(repl, p_part))
+    return ''.join(res)
+
+# Auto-inject premium animated emojis across all Telegram messaging methods
+_orig_reply_text = Message.reply_text
+async def _custom_reply_text(self, text, *args, **kwargs):
+    if text and isinstance(text, str):
+        text = auto_premium(text)
+    if "parse_mode" not in kwargs:
+        kwargs["parse_mode"] = "HTML"
+    return await _orig_reply_text(self, text, *args, **kwargs)
+Message.reply_text = _custom_reply_text
+
+_orig_edit_text = Message.edit_text
+async def _custom_edit_text(self, text, *args, **kwargs):
+    if text and isinstance(text, str):
+        text = auto_premium(text)
+    if "parse_mode" not in kwargs:
+        kwargs["parse_mode"] = "HTML"
+    return await _orig_edit_text(self, text, *args, **kwargs)
+Message.edit_text = _custom_edit_text
+
+_orig_edit_message_text = CallbackQuery.edit_message_text
+async def _custom_edit_message_text(self, text, *args, **kwargs):
+    if text and isinstance(text, str):
+        text = auto_premium(text)
+    if "parse_mode" not in kwargs:
+        kwargs["parse_mode"] = "HTML"
+    return await _orig_edit_message_text(self, text, *args, **kwargs)
+CallbackQuery.edit_message_text = _custom_edit_message_text
+
+_orig_reply_document = Message.reply_document
+async def _custom_reply_document(self, *args, **kwargs):
+    if "caption" in kwargs and isinstance(kwargs["caption"], str):
+        kwargs["caption"] = auto_premium(kwargs["caption"])
+        if "parse_mode" not in kwargs:
+            kwargs["parse_mode"] = "HTML"
+    return await _orig_reply_document(self, *args, **kwargs)
+Message.reply_document = _custom_reply_document
+
+_orig_reply_photo = Message.reply_photo
+async def _custom_reply_photo(self, *args, **kwargs):
+    if "caption" in kwargs and isinstance(kwargs["caption"], str):
+        kwargs["caption"] = auto_premium(kwargs["caption"])
+        if "parse_mode" not in kwargs:
+            kwargs["parse_mode"] = "HTML"
+    return await _orig_reply_photo(self, *args, **kwargs)
+Message.reply_photo = _custom_reply_photo
+
+_orig_send_message = Bot.send_message
+async def _custom_send_message(self, chat_id, text, *args, **kwargs):
+    if text and isinstance(text, str):
+        text = auto_premium(text)
+    if "parse_mode" not in kwargs:
+        kwargs["parse_mode"] = "HTML"
+    return await _orig_send_message(self, chat_id, text, *args, **kwargs)
+Bot.send_message = _custom_send_message
 
 # Main persistent reply keyboard with Telegram Premium icon custom emojis
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
@@ -1262,7 +1384,7 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🛡️ Suratni tozalash (EXIF-siz yuklab olish)", callback_data="sanitize", icon_custom_emoji_id=E["SHIELD"])],
+        [InlineKeyboardButton("Suratni tozalash (EXIF-siz yuklab olish)", callback_data="sanitize", icon_custom_emoji_id=E["SHIELD"])],
         [
             InlineKeyboardButton("Google Lens qidiruv", url="https://lens.google.com/", icon_custom_emoji_id=E["SEARCH"]),
             InlineKeyboardButton("Yandex Images", url="https://yandex.com/images/search?rpt=imageview", icon_custom_emoji_id=E["GLOBE"])
@@ -1486,15 +1608,15 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("Telegram", url=f"https://t.me/{raw}"),
-                InlineKeyboardButton("Instagram", url=f"https://instagram.com/{raw}")
+                InlineKeyboardButton("Telegram", url=f"https://t.me/{raw}", icon_custom_emoji_id=E["CALL"]),
+                InlineKeyboardButton("Instagram", url=f"https://instagram.com/{raw}", icon_custom_emoji_id=E["EXIF_PHOTO"])
             ],
             [
-                InlineKeyboardButton("TikTok", url=f"https://tiktok.com/@{raw}"),
-                InlineKeyboardButton("GitHub", url=f"https://github.com/{raw}")
+                InlineKeyboardButton("TikTok", url=f"https://tiktok.com/@{raw}", icon_custom_emoji_id=E["FIRE"]),
+                InlineKeyboardButton("GitHub", url=f"https://github.com/{raw}", icon_custom_emoji_id=E["LAPTOP"])
             ],
             [
-                InlineKeyboardButton("WhatsMyName (Global Qidiruv)", url="https://whatsmyname.app/")
+                InlineKeyboardButton("WhatsMyName (Global Qidiruv)", url="https://whatsmyname.app/", icon_custom_emoji_id=E["SEARCH"])
             ]
         ])
         await update.message.reply_text(resp, parse_mode="HTML", reply_markup=keyboard)
