@@ -607,9 +607,15 @@ def audit_username(u: str):
     score = max(min(score, 100), 15)
     return score, warnings, insights, platforms_found, raw
 
+URL_REGEX = re.compile(
+    r'(https?://[^\s]+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:/[^\s]*)?)',
+    re.IGNORECASE
+)
+
 def audit_link(url_text: str):
     """Audits a URL for phishing, malicious TLDs, and scam keywords."""
-    full_url = url_text.strip()
+    full_url = url_text.strip().rstrip('.,;!?')
+    is_http_only = full_url.startswith('http://')
     if not full_url.startswith(('http://', 'https://')):
         full_url = 'https://' + full_url
         
@@ -618,16 +624,19 @@ def audit_link(url_text: str):
     path = parsed.path.lower()
     
     warnings = []
+    features = []
     risk = 10
     
     # 1. Suspicious TLD
-    suspicious_tlds = ('.xyz', '.top', '.buzz', '.tk', '.ml', '.ga', '.cf', '.gq', '.club', '.online', '.site', '.click', '.monster')
+    suspicious_tlds = ('.xyz', '.top', '.buzz', '.tk', '.ml', '.ga', '.cf', '.gq', '.club', '.online', '.site', '.click', '.monster', '.icu', '.vip', '.rest')
     if any(domain.endswith(tld) for tld in suspicious_tlds):
         warnings.append("🚨 <b>Xavfli domen zonasi:</b> Firibgarlar ko‘p foydalanadigan bepul yoki xavfli domen kengaytmasi.")
         risk += 35
+    elif any(domain.endswith(tld) for tld in ('.uz', '.edu.uz', '.gov.uz')):
+        features.append("🇺🇿 <b>O‘zbekiston milliy domen zonasi (.uz)</b> — rasmiy reyestr nazorati mavjud.")
 
     # 2. Phishing keywords
-    phish_words = ['bonus', 'sovrin', 'yutuq', 'click', 'payme', 'humo', 'uzcard', 'login', 'parol', 'verify', 'telegram-free', 'ovoz']
+    phish_words = ['bonus', 'sovrin', 'yutuq', 'click', 'payme', 'humo', 'uzcard', 'login', 'parol', 'verify', 'telegram-free', 'ovoz', 'invest', 'daromad', 'pul-ishlash']
     matched_words = [w for w in phish_words if w in domain or w in path]
     if matched_words:
         warnings.append(f"⚠️ <b>Shubhali kalit so‘zlar:</b> <i>«{', '.join(matched_words)}»</i> (Ovoz berish, pul yoki soxta bonus tuzog‘i).")
@@ -638,8 +647,29 @@ def audit_link(url_text: str):
         warnings.append("🚨 <b>To‘g‘ridan-to‘g‘ri IP manzil:</b> Domen nomi o‘rniga shubhali server IP manzili ko‘rsatilgan.")
         risk += 45
         
+    # 4. HTTP vs HTTPS warning
+    if is_http_only:
+        warnings.append("🔓 <b>Xavfsiz ulanish (SSL) yo‘q:</b> Sayt <code>http://</code> orqali ishlamoqda. Ma’lumotlar shifrlanmaydi!")
+        risk += 15
+    else:
+        features.append("🔒 <b>Shifrlangan HTTPS ulanish</b> mavjud.")
+        
+    # 5. Live Website Title
+    site_title = ""
+    try:
+        req = urllib.request.Request(full_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            content_type = resp.headers.get("Content-Type", "")
+            if "text/html" in content_type:
+                html_raw = resp.read(8192).decode("utf-8", errors="ignore")
+                title_match = re.search(r'<title[^>]*>(.*?)</title>', html_raw, re.IGNORECASE | re.DOTALL)
+                if title_match:
+                    site_title = title_match.group(1).strip()
+    except Exception:
+        pass
+        
     risk = min(risk, 98)
-    return risk, warnings, domain
+    return risk, warnings, features, domain, site_title
 
 # ==========================================
 # REAL OSINT HELPER (JPG, PNG, HEIC, ZIP)
@@ -1215,46 +1245,53 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     elif "Veb-Platforma" in text:
         await web_command(update, context)
-    elif text.startswith(("http://", "https://")) or ("." in text.split()[0] and not text.startswith("/") and len(text.split()) == 1):
+    elif URL_REGEX.search(text.strip()) and not text.strip().startswith("@"):
         # URL / Link Audit
-        first_token = text.strip().split()[0]
-        if any(ext in first_token.lower() for ext in (".uz", ".com", ".ru", ".net", ".org", ".xyz", ".top", ".me", ".io", ".site", ".click", "t.me/")):
-            risk, warnings, domain = audit_link(first_token)
-            
-            filled = int(risk / 10)
-            bar = "█" * filled + "░" * (10 - filled)
-            if risk >= 60:
-                verdict = f"🚨 JIDDIY FISHING VA FIRIBGARLIK TUZOG‘I ({risk}%)"
-            elif risk >= 35:
-                verdict = f"⚠️ SHUBHALI / EHTIYOT BO‘LING ({risk}%)"
-            else:
-                verdict = f"✅ NISBATAN XAVFSIZ SAYT ({risk}%)"
-                
-            resp = (
-                f"{p('GLOBE', '🌐')} <b>HAVOLA (URL) OSINT VA FISHING TEKSHIRUVI:</b>\n\n"
-                f"🔗 <b>Domen:</b> <code>{html.escape(domain)}</code>\n"
-                f"📊 <b>Xavf Ko‘rsatkichi:</b> <code>[{bar}]</code>\n"
-                f"<b>Xulosa:</b> {verdict}\n\n"
-            )
-            if warnings:
-                resp += f"{p('WARNING', '⚠️')} <b>Aniqlangan xavfli belgilar:</b>\n"
-                for w in warnings:
-                    resp += f"• {w}\n"
-                resp += "\n"
-            else:
-                resp += f"{p('CHECK', '✅')} <i>Ochiq fishing belgilari topilmadi.</i>\n\n"
-                
-            resp += (
-                f"{p('SHIELD', '🛡️')} <b>Kiber-Qoida:</b> «Ovoz bering», «Telegram Premium bepul», «Sovg‘a yutib oldingiz» "
-                f"mazmunidagi havolalarga HECH QACHON telefon raqam yoki SMS kod kiritmang!"
-            )
-            await update.message.reply_text(resp, parse_mode="HTML")
-            return
+        m_url = URL_REGEX.search(text.strip())
+        matched_url = m_url.group(1).rstrip('.,;!?')
+        risk, warnings, features, domain, site_title = audit_link(matched_url)
+        
+        filled = int(risk / 10)
+        bar = "█" * filled + "░" * (10 - filled)
+        if risk >= 60:
+            verdict = f"🚨 JIDDIY FISHING VA FIRIBGARLIK TUZOG‘I ({risk}%)"
+        elif risk >= 35:
+            verdict = f"⚠️ SHUBHALI / EHTIYOT BO‘LING ({risk}%)"
         else:
-            await update.message.reply_text(
-                f"{p('INFO', 'ℹ️')} Iltimos, to‘liq domen manzilini kiriting (masalan: <code>sayt.uz</code> yoki <code>https://...</code>).",
-                parse_mode="HTML"
-            )
+            verdict = f"✅ NISBATAN XAVFSIZ SAYT ({risk}%)"
+            
+        resp = (
+            f"{p('GLOBE', '🌐')} <b>HAVOLA (URL) OSINT VA FISHING TEKSHIRUVI:</b>\n\n"
+            f"🔗 <b>Kiritilgan manzil:</b> <code>{html.escape(matched_url)}</code>\n"
+            f"🌐 <b>Asosiy Domen:</b> <code>{html.escape(domain)}</code>\n"
+        )
+        if site_title:
+            resp += f"📑 <b>Sayt nomi / Title:</b> <i>«{html.escape(site_title[:90])}»</i>\n"
+            
+        resp += (
+            f"📊 <b>Xavf Ko‘rsatkichi:</b> <code>[{bar}]</code>\n"
+            f"<b>Xulosa:</b> {verdict}\n\n"
+        )
+        if warnings:
+            resp += f"{p('WARNING', '⚠️')} <b>Aniqlangan xavfli belgilar:</b>\n"
+            for w in warnings:
+                resp += f"• {w}\n"
+            resp += "\n"
+        else:
+            resp += f"{p('CHECK', '✅')} <i>Ochiq fishing belgilari topilmadi.</i>\n\n"
+            
+        if features:
+            resp += f"{p('SHIELD', '🛡️')} <b>Xavfsizlik parametrlari:</b>\n"
+            for ft in features:
+                resp += f"• {ft}\n"
+            resp += "\n"
+            
+        resp += (
+            f"{p('SHIELD', '🛡️')} <b>Kiber-Qoida:</b> «Ovoz bering», «Telegram Premium bepul», «Sovg‘a yutib oldingiz» "
+            f"mazmunidagi havolalarga HECH QACHON telefon raqam yoki SMS kod kiritmang!"
+        )
+        await update.message.reply_text(resp, parse_mode="HTML")
+        return
     elif text.startswith("@") or (len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)):
         # Username OSINT Audit
         score, warnings, insights, platforms_found, raw = audit_username(text)
