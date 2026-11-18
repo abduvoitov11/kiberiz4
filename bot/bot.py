@@ -688,6 +688,24 @@ def audit_link(url_text: str):
     risk = min(risk, 98)
     return risk, warnings, features, domain, site_title
 
+def get_website_screenshot(url: str):
+    """Captures a safe, isolated cloud sandbox screenshot of a website."""
+    full_url = url.strip().rstrip('.,;!?')
+    if not full_url.startswith(('http://', 'https://')):
+        full_url = 'https://' + full_url
+    try:
+        encoded = urllib.parse.quote_plus(full_url)
+        # WordPress mshots provides fast, isolated cloud sandbox screenshots
+        mshots = f"https://s0.wp.com/mshots/v1/{encoded}?w=1280&h=800"
+        req = urllib.request.Request(mshots, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            data = resp.read()
+            if len(data) > 5000:
+                return data
+    except Exception as e:
+        logging.warning(f"Screenshot fetch error: {e}")
+    return None
+
 # ==========================================
 # REAL OSINT HELPER (JPG, PNG, HEIC, ZIP)
 # ==========================================
@@ -1309,6 +1327,23 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"mazmunidagi havolalarga HECH QACHON telefon raqam yoki SMS kod kiritmang!"
         )
         await update.message.reply_text(resp, parse_mode="HTML")
+        
+        # Capture safe isolated cloud screenshot
+        screenshot_bytes = get_website_screenshot(matched_url)
+        if screenshot_bytes:
+            caption = (
+                f"📸 <b>SAYTNING XAVFSIZ SKRINSHOTI (SANDBOX):</b>\n\n"
+                f"🛡️ <i>Begona va shubhali havola ichiga o‘zingiz kirmasdan, "
+                f"uning ko‘rinishini shu yerda bexavotir ko‘rishingiz mumkin!</i>"
+            )
+            try:
+                await update.message.reply_photo(
+                    photo=io.BytesIO(screenshot_bytes),
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logging.warning(f"Error replying screenshot photo: {e}")
         return
     elif text.startswith("@") or (len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)):
         # Username OSINT Audit
