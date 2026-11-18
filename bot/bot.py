@@ -276,7 +276,7 @@ async def web_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Platformani ochish uchun quyidagi tugmani bosing:"
     )
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Veb-Platformani ochish", url="http://localhost:8080", icon_custom_emoji_id=E["ROCKET"])]
+        [InlineKeyboardButton("Veb-Platformani ochish", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["ROCKET"])]
     ])
     await update.message.reply_text(web_text, parse_mode="HTML", reply_markup=keyboard)
 
