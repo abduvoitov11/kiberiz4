@@ -57,6 +57,12 @@ def resolve_path(candidates):
             return c
     return candidates[0]
 
+START_BANNER_PATH = resolve_path([
+    os.path.join(BASE_DIR, "start_banner.jpg"),
+    "/home/torabek/KiberIz4/bot/start_banner.jpg",
+    "/home/torabek/KiberIz4/start_banner.jpg"
+])
+
 LOGO_PATH = resolve_path([
     os.path.join(BASE_DIR, "kiberiz_logo.png"),
     os.path.join(BASE_DIR, "../assets/kiberiz_logo.png"),
@@ -191,20 +197,20 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🧪 <i>Sinov uchun GPS-li tayyor rasm olish: /sample buyrug‘ini bosing.</i>"
     )
     
-    if os.path.exists(LOGO_PATH):
-        with open(LOGO_PATH, "rb") as photo:
-            await update.message.reply_photo(
-                photo=photo,
-                caption=welcome_text,
-                parse_mode="HTML",
-                reply_markup=MAIN_KEYBOARD
-            )
-    else:
-        await update.message.reply_text(
-            welcome_text,
-            parse_mode="HTML",
-            reply_markup=MAIN_KEYBOARD
-        )
+    # 1. Avval rasmni yuborish
+    if os.path.exists(START_BANNER_PATH):
+        try:
+            with open(START_BANNER_PATH, "rb") as photo:
+                await update.message.reply_photo(photo=photo)
+        except Exception as e:
+            logging.error(f"Error sending start banner photo: {e}")
+            
+    # 2. Keyin esa to'liq tavsif va menyu tugmalarini yuborish
+    await update.message.reply_text(
+        welcome_text,
+        parse_mode="HTML",
+        reply_markup=MAIN_KEYBOARD
+    )
 
 async def sample_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Sends a sample image with real GPS EXIF metadata for testing OSINT."""
