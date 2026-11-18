@@ -54,19 +54,26 @@
       left: 50%;
       transform: translate(-50%, -50%);
     }
+    .scrollbar-none::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-none {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
   </style>
 </head>
 <body class="min-h-screen bg-[#070b14] overflow-x-hidden selection:bg-cyan-500 selection:text-black">
 
   <!-- NAVIGATION -->
-  <nav class="sticky top-0 z-50 glass-card border-b border-slate-800/80 px-6 py-4 flex items-center justify-between">
-    <div class="flex items-center space-x-3">
-      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-cyan-500/20">
+  <nav class="sticky top-0 z-50 glass-card border-b border-slate-800/80 px-3.5 sm:px-6 py-2.5 sm:py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-2.5 sm:space-x-3">
+      <div class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-lg sm:text-xl shadow-lg shadow-cyan-500/20 flex-shrink-0">
         <i class="fa-solid fa-fingerprint"></i>
       </div>
       <div>
-        <span class="text-xl font-extrabold tracking-wider text-white">KIBER<span class="text-cyan-400">IZ-4</span></span>
-        <span class="block text-[11px] font-semibold text-emerald-400 tracking-widest uppercase">4-maktab raqamli qalqoni</span>
+        <span class="text-lg sm:text-xl font-extrabold tracking-wider text-white">KIBER<span class="text-cyan-400">IZ-4</span></span>
+        <span class="block text-[9px] sm:text-[11px] font-semibold text-emerald-400 tracking-wider sm:tracking-widest uppercase">4-maktab raqamli qalqoni</span>
       </div>
     </div>
     <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
@@ -76,72 +83,72 @@
       <a href="#cases" class="hover:text-cyan-400 transition">3 ta Xavf</a>
       <a href="#calculator" class="hover:text-cyan-400 transition">Xavf Kalkulyatori</a>
     </div>
-    <a href="https://t.me/kiberiz_bot" target="_blank" class="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs uppercase tracking-wider flex items-center space-x-2 shadow-lg shadow-cyan-500/25 transition transform hover:scale-105">
-      <i class="fa-brands fa-telegram text-base"></i>
-      <span>Telegram Bot (@kiberiz_bot)</span>
+    <a href="https://t.me/kiberiz_bot" target="_blank" class="px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center space-x-1.5 sm:space-x-2 shadow-lg shadow-cyan-500/25 transition transform hover:scale-105 flex-shrink-0">
+      <i class="fa-brands fa-telegram text-sm sm:text-base"></i>
+      <span><span class="hidden sm:inline">Telegram Bot </span>@kiberiz_bot</span>
     </a>
   </nav>
 
   <!-- HERO SECTION -->
-  <header class="relative px-6 pt-16 pb-20 max-w-6xl mx-auto text-center">
-    <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-widest mb-6">
+  <header class="relative px-4 sm:px-6 pt-10 sm:pt-16 pb-12 sm:pb-20 max-w-6xl mx-auto text-center">
+    <div class="inline-flex items-center space-x-2 px-3 sm:px-4 py-1.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wider sm:tracking-widest mb-4 sm:mb-6">
       <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-      <span>Ochiq manbalar tahlili (OSINT) & Profil xavfsizligi</span>
+      <span>OSINT & Profil xavfsizligi</span>
     </div>
-    <h1 class="text-4xl md:text-6xl font-black tracking-tight text-white mb-6 leading-tight">
+    <h1 class="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-black tracking-tight text-white mb-4 sm:mb-6 leading-tight">
       Internet hech narsani unutmaydi: <br>
       <span class="bg-gradient-to-r from-cyan-400 via-sky-300 to-emerald-400 bg-clip-text text-transparent neon-glow">
         O‘z raqamli izingni boshqar!
       </span>
     </h1>
-    <p class="max-w-3xl mx-auto text-slate-400 text-base md:text-lg mb-10 leading-relaxed">
-      Siz ijtimoiy tarmoqqa joylagan bitta oddiy fotosurat orqali firibgarlar qaysi maktabda o‘qishingiz, qaysi ko‘chada yashashingiz va qachon uyda yolg‘iz ekanligingizni qanday topadi? 
+    <p class="max-w-3xl mx-auto text-slate-400 text-xs sm:text-base md:text-lg mb-8 sm:mb-10 leading-relaxed px-1">
+      Siz ijtimoiy tarmoqqa joylagan bitta oddiy fotosurat orqali firibgarlar nimalarni bilib olishi mumkin? 
       <b>«KiberIz-4»</b> — bu xavflarni ko‘z oldingizda fosh qiluvchi va profilingizni 5 daqiqada himoyalovchi raqamli laboratoriya.
     </p>
 
     <!-- METRICS CARD -->
-    <div class="flex justify-center mb-12">
-      <div class="glass-card px-8 py-5 rounded-2xl border-cyan-500/30 text-center shadow-lg shadow-cyan-500/10">
-        <div class="text-4xl font-black text-cyan-400 mb-1">85%</div>
-        <div class="text-xs text-slate-400 uppercase font-semibold tracking-wider">Tahlil aniqligi</div>
+    <div class="flex justify-center mb-8 sm:mb-12">
+      <div class="glass-card px-6 sm:px-8 py-3.5 sm:py-5 rounded-2xl border-cyan-500/30 text-center shadow-lg shadow-cyan-500/10">
+        <div class="text-3xl sm:text-4xl font-black text-cyan-400 mb-0.5 sm:mb-1">85%</div>
+        <div class="text-[10px] sm:text-xs text-slate-400 uppercase font-semibold tracking-wider">Tahlil aniqligi</div>
       </div>
     </div>
   </header>
 
   <!-- SECTION: KIBER-RADAR (HAVOLA VA NIKNEYM SKANERI) -->
-  <section id="radar" class="py-16 px-6 max-w-6xl mx-auto border-t border-slate-800/80">
-    <div class="text-center mb-10">
-      <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 text-xs font-bold uppercase tracking-wider mb-4">
+  <section id="radar" class="py-10 sm:py-16 px-4 sm:px-6 max-w-6xl mx-auto border-t border-slate-800/80">
+    <div class="text-center mb-6 sm:mb-10">
+      <div class="inline-flex items-center space-x-2 px-3 sm:px-4 py-1.5 rounded-full bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 text-[10px] sm:text-xs font-bold uppercase tracking-wider mb-3 sm:mb-4">
         <i class="fa-solid fa-satellite-dish animate-pulse"></i>
         <span>AI Kiber-Qalqon & Qonuniy Audit</span>
       </div>
-      <h2 class="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight">
+      <h2 class="text-2xl sm:text-3xl md:text-5xl font-black text-white mb-2 sm:mb-4 tracking-tight">
         📡 Kiber-Radar: <span class="bg-gradient-to-r from-cyan-400 via-sky-300 to-emerald-400 bg-clip-text text-transparent">Havola & Nikneym Skaneri</span>
       </h2>
-      <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
-        Ijtimoiy tarmoqlar (Telegram, Instagram, YouTube, TikTok) havolasi yoki nikneymini kiriting — tizim 1 soniyada Oliy Sud taqiqlagan kanallar, qimor, 18+, narkotik va fishing tuzoqlarini aniqlab beradi.
+      <p class="text-slate-400 max-w-2xl mx-auto text-xs sm:text-sm md:text-base leading-relaxed px-1">
+        Ijtimoiy tarmoqlar (Telegram, Instagram, YouTube) havolasi yoki nikneymini kiriting — tizim 1 soniyada Oliy Sud taqiqlagan kanallar, qimor, 18+ va fishing tuzoqlarini aniqlab beradi.
       </p>
     </div>
 
     <!-- RADAR SEARCH CONSOLE -->
-    <div class="glass-card p-6 md:p-8 rounded-3xl border-cyan-500/30 shadow-2xl shadow-cyan-950/50 mb-10">
-      <div class="flex flex-col md:flex-row gap-3 items-center">
+    <div class="glass-card p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border-cyan-500/30 shadow-2xl shadow-cyan-950/50 mb-6 sm:mb-10">
+      <div class="flex flex-col md:flex-row gap-2.5 sm:gap-3 items-center">
         <div class="relative flex-1 w-full">
-          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-cyan-400 text-lg">
+          <div class="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 flex items-center pointer-events-none text-cyan-400 text-base sm:text-lg">
             <i class="fa-solid fa-crosshairs"></i>
           </div>
           <input 
             type="text" 
             id="radarInput" 
-            placeholder="Havola (kun.uz, t.me/..., 1xbet.com) yoki nikneym (@sarvar_2008) kiriting..." 
-            class="w-full pl-12 pr-10 py-4 rounded-2xl bg-slate-900/90 border border-slate-700/80 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-white placeholder-slate-500 text-sm md:text-base outline-none transition font-medium"
+            placeholder="Havola (kun.uz, t.me/..., 1xbet.com) yoki nikneym kiriting..." 
+            class="w-full pl-10 sm:pl-12 pr-9 sm:pr-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-slate-900/90 border border-slate-700/80 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-white placeholder-slate-500 text-xs sm:text-sm md:text-base outline-none transition font-medium"
             onkeydown="if(event.key==='Enter') runRadarScan()"
           >
           <button 
             type="button" 
             id="radarClearBtn"
             onclick="document.getElementById('radarInput').value=''; document.getElementById('radarInput').focus();"
-            class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 text-sm"
+            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-slate-300 text-xs sm:text-sm"
             title="Tozalash"
           >
             <i class="fa-solid fa-circle-xmark"></i>
@@ -150,49 +157,54 @@
         <button 
           id="btnRadarScan" 
           onclick="runRadarScan()"
-          class="w-full md:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm uppercase tracking-wider flex items-center justify-center space-x-2.5 shadow-lg shadow-cyan-500/30 transition transform hover:scale-[1.02] active:scale-[0.98]"
+          class="w-full md:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg shadow-cyan-500/30 transition transform hover:scale-[1.02] active:scale-[0.98]"
         >
-          <i class="fa-solid fa-radar text-base" id="radarBtnIcon"></i>
+          <i class="fa-solid fa-radar text-sm sm:text-base" id="radarBtnIcon"></i>
           <span>SKANERLASH</span>
         </button>
       </div>
 
-      <!-- DEMO QUICK PILLS -->
-      <div class="mt-5 pt-4 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
-        <span class="text-xs font-semibold text-slate-400 mr-1"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i>Tezkor sinov:</span>
-        <button onclick="setRadarSample('kun.uz')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-400 text-xs font-medium transition flex items-center space-x-1.5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-          <span>kun.uz</span>
-        </button>
-        <button onclick="setRadarSample('emaktab.uz')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-400 text-xs font-medium transition flex items-center space-x-1.5">
-          <i class="fa-solid fa-graduation-cap text-emerald-400 text-[11px]"></i>
-          <span>emaktab.uz</span>
-        </button>
-        <button onclick="setRadarSample('youtube.com')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-red-500/30 text-red-400 text-xs font-medium transition flex items-center space-x-1.5">
-          <i class="fa-brands fa-youtube text-red-500 text-[11px]"></i>
-          <span>youtube.com</span>
-        </button>
-        <button onclick="setRadarSample('google.com')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-sky-500/30 text-sky-400 text-xs font-medium transition flex items-center space-x-1.5">
-          <i class="fa-brands fa-google text-sky-400 text-[11px]"></i>
-          <span>google.com</span>
-        </button>
-        <button onclick="setRadarSample('telegram.org')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-400 text-xs font-medium transition flex items-center space-x-1.5">
-          <i class="fa-brands fa-telegram text-cyan-400 text-[11px]"></i>
-          <span>telegram.org</span>
-        </button>
-        <button onclick="setRadarSample('instagram.com')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-pink-500/30 text-pink-400 text-xs font-medium transition flex items-center space-x-1.5">
-          <i class="fa-brands fa-instagram text-pink-400 text-[11px]"></i>
-          <span>instagram.com</span>
-        </button>
+      <!-- DEMO QUICK PILLS (HORIZONTALLY SCROLLABLE ON MOBILE, NO WRAP SQUISHING) -->
+      <div class="mt-4 pt-3 border-t border-slate-800/80">
+        <div class="flex items-center space-x-1.5 mb-2.5 text-xs font-semibold text-slate-400">
+          <i class="fa-solid fa-bolt text-amber-400"></i>
+          <span>Tezkor sinov namunalari:</span>
+        </div>
+        <div class="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none sm:flex-wrap">
+          <button onclick="setRadarSample('kun.uz')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-400 text-xs font-medium transition flex items-center space-x-1.5 whitespace-nowrap">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>kun.uz</span>
+          </button>
+          <button onclick="setRadarSample('emaktab.uz')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-400 text-xs font-medium transition flex items-center space-x-1.5 whitespace-nowrap">
+            <i class="fa-solid fa-graduation-cap text-emerald-400 text-[11px]"></i>
+            <span>emaktab.uz</span>
+          </button>
+          <button onclick="setRadarSample('youtube.com')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-red-500/30 text-red-400 text-xs font-medium transition flex items-center space-x-1.5 whitespace-nowrap">
+            <i class="fa-brands fa-youtube text-red-500 text-[11px]"></i>
+            <span>youtube.com</span>
+          </button>
+          <button onclick="setRadarSample('google.com')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-sky-500/30 text-sky-400 text-xs font-medium transition flex items-center space-x-1.5 whitespace-nowrap">
+            <i class="fa-brands fa-google text-sky-400 text-[11px]"></i>
+            <span>google.com</span>
+          </button>
+          <button onclick="setRadarSample('telegram.org')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-400 text-xs font-medium transition flex items-center space-x-1.5 whitespace-nowrap">
+            <i class="fa-brands fa-telegram text-cyan-400 text-[11px]"></i>
+            <span>telegram.org</span>
+          </button>
+          <button onclick="setRadarSample('instagram.com')" class="flex-shrink-0 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-pink-500/30 text-pink-400 text-xs font-medium transition flex items-center space-x-1.5 whitespace-nowrap">
+            <i class="fa-brands fa-instagram text-pink-400 text-[11px]"></i>
+            <span>instagram.com</span>
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- RADAR VISUAL DISPLAY & RESULTS DUAL CONTAINER -->
-    <div class="grid lg:grid-cols-12 gap-8 items-start">
+    <div class="grid lg:grid-cols-12 gap-6 lg:gap-8 items-start">
       
       <!-- LEFT: FUTURISTIC RADAR SCREEN (5 cols) -->
-      <div class="lg:col-span-5 glass-card p-6 rounded-3xl border-cyan-500/20 flex flex-col items-center">
-        <div class="w-full flex justify-between items-center mb-4 text-xs font-mono text-cyan-400">
+      <div class="lg:col-span-5 glass-card p-4 sm:p-6 rounded-2xl sm:rounded-3xl border-cyan-500/20 flex flex-col items-center">
+        <div class="w-full flex justify-between items-center mb-3 sm:mb-4 text-xs font-mono text-cyan-400">
           <span class="flex items-center space-x-1.5">
             <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
             <span>RADAR: AKTIV TIZIM</span>
@@ -203,8 +215,8 @@
           </button>
         </div>
 
-        <!-- CIRCULAR RADAR SCREEN -->
-        <div class="relative w-64 h-64 md:w-72 md:h-72 rounded-full bg-slate-950/90 border-2 border-cyan-500/40 shadow-inner overflow-hidden flex items-center justify-center my-2">
+        <!-- CIRCULAR RADAR SCREEN (SCALED FOR MOBILE WITHOUT SQUEEZING) -->
+        <div class="relative w-56 h-56 sm:w-64 sm:h-64 md:w-72 md:h-72 rounded-full bg-slate-950/90 border-2 border-cyan-500/40 shadow-inner overflow-hidden flex items-center justify-center my-1 sm:my-2">
           <!-- Concentric range rings -->
           <div class="radar-ring w-[95%] h-[95%]"></div>
           <div class="radar-ring w-[70%] h-[70%]"></div>
@@ -236,40 +248,40 @@
         </div>
 
         <!-- TERMINAL LOG DISPLAY -->
-        <div class="w-full mt-4 p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-400 space-y-1">
+        <div class="w-full mt-3 sm:mt-4 p-2.5 sm:p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[10px] sm:text-[11px] text-slate-400 space-y-1">
           <div class="flex items-center justify-between text-slate-500 border-b border-slate-800 pb-1 mb-1">
             <span>TERMINAL TELEMETRIYASI</span>
             <span class="text-emerald-400">ONLINE</span>
           </div>
-          <div id="radarLogLine1" class="text-cyan-400">» Tizim tayyor holatda. Manzil kiriting.</div>
-          <div id="radarLogLine2" class="text-slate-500">» Oliy Sud & Kiber-baza yuklangan (2 057+ manba).</div>
-          <div id="radarLogLine3" class="text-slate-500">» Tayyor turibdi...</div>
+          <div id="radarLogLine1" class="text-cyan-400 truncate">» Tizim tayyor holatda. Manzil kiriting.</div>
+          <div id="radarLogLine2" class="text-slate-500 truncate">» Oliy Sud & Kiber-baza yuklangan (2 057+ manba).</div>
+          <div id="radarLogLine3" class="text-slate-500 truncate">» Tayyor turibdi...</div>
         </div>
       </div>
 
       <!-- RIGHT: DIAGNOSTIC RESULT CARD (7 cols) -->
-      <div class="lg:col-span-7 glass-card p-6 md:p-8 rounded-3xl border-slate-800" id="radarResultCard">
+      <div class="lg:col-span-7 glass-card p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border-slate-800" id="radarResultCard">
         <!-- Standby State Placeholder -->
-        <div id="radarStandbyState" class="py-12 text-center space-y-4">
-          <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-3xl mx-auto">
+        <div id="radarStandbyState" class="py-8 sm:py-12 text-center space-y-3 sm:space-y-4">
+          <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-2xl sm:text-3xl mx-auto">
             <i class="fa-solid fa-shield-halved"></i>
           </div>
-          <h3 class="text-xl font-bold text-white">Kiber-Radar diagnostikasi kutilmoqda</h3>
-          <p class="text-xs md:text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
-            Yuqoridagi maydonga ijtimoiy tarmoq profili, veb-sayt havolasi yoki Telegram kanalini kiritib, <b>«Skanerlash»</b> tugmasini bosing yoki namunalardan birini tanlang.
+          <h3 class="text-lg sm:text-xl font-bold text-white">Kiber-Radar diagnostikasi kutilmoqda</h3>
+          <p class="text-xs sm:text-sm text-slate-400 max-w-md mx-auto leading-relaxed px-2">
+            Yuqoridagi maydonga havola yoki nikneym kiriting yoki tezkordan tanlang.
           </p>
-          <div class="pt-4 grid grid-cols-2 md:grid-cols-3 gap-3 max-w-lg mx-auto text-left text-xs">
-            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+          <div class="pt-3 sm:pt-4 grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 max-w-lg mx-auto text-left text-xs">
+            <div class="p-2.5 sm:p-3 rounded-xl bg-slate-900 border border-slate-800">
               <span class="block text-purple-400 font-bold mb-0.5">⚖️ Oliy Sud</span>
-              <span class="text-[11px] text-slate-400">2 057+ ekstremistik kanal</span>
+              <span class="text-[10px] sm:text-[11px] text-slate-400">2 057+ ekstremistik kanal</span>
             </div>
-            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+            <div class="p-2.5 sm:p-3 rounded-xl bg-slate-900 border border-slate-800">
               <span class="block text-rose-400 font-bold mb-0.5">🎰 Qimor / Bukmeker</span>
-              <span class="text-[11px] text-slate-400">1xbet, mostbet, aviator</span>
+              <span class="text-[10px] sm:text-[11px] text-slate-400">1xbet, mostbet, aviator</span>
             </div>
-            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 col-span-2 md:col-span-1">
+            <div class="p-2.5 sm:p-3 rounded-xl bg-slate-900 border border-slate-800">
               <span class="block text-emerald-400 font-bold mb-0.5">🇺🇿 .UZ Reyestri</span>
-              <span class="text-[11px] text-slate-400">Milliy rasmiy zona nazorati</span>
+              <span class="text-[10px] sm:text-[11px] text-slate-400">Milliy rasmiy zona nazorati</span>
             </div>
           </div>
         </div>
@@ -301,38 +313,38 @@
   </section>
 
   <!-- SECTION 1: OSINT SURAT TAHLIL LABARATORIYASI -->
-  <section id="osint" class="py-16 px-6 max-w-6xl mx-auto">
-    <div class="text-center mb-12">
-      <h2 class="text-2xl md:text-4xl font-extrabold text-white mb-3">
+  <section id="osint" class="py-10 sm:py-16 px-4 sm:px-6 max-w-6xl mx-auto">
+    <div class="text-center mb-6 sm:mb-12">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mb-2 sm:mb-3">
         🔬 OSINT Surat Tahlilatori
       </h2>
-      <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
+      <p class="text-slate-400 max-w-2xl mx-auto text-xs sm:text-sm md:text-base leading-relaxed px-1">
         Suratingizni quyidagi maydonga tashlang — tizim undagi yashirin EXIF metama’lumotlari (GPS, sana, kamera) va vizual fon xavflarini tahlil qilib beradi.
       </p>
     </div>
 
-    <div class="grid md:grid-cols-2 gap-8 items-start">
+    <div class="grid md:grid-cols-2 gap-6 sm:gap-8 items-start">
       <!-- UPLOAD DROPZONE -->
-      <div class="glass-card p-8 rounded-3xl border-2 border-dashed border-cyan-500/30 hover:border-cyan-400 transition text-center cursor-pointer flex flex-col items-center justify-center min-h-[340px]" id="dropZone" onclick="document.getElementById('fileInput').click()">
+      <div class="glass-card p-4 sm:p-8 rounded-2xl sm:rounded-3xl border-2 border-dashed border-cyan-500/30 hover:border-cyan-400 transition text-center cursor-pointer flex flex-col items-center justify-center min-h-[280px] sm:min-h-[340px]" id="dropZone" onclick="document.getElementById('fileInput').click()">
         <input type="file" id="fileInput" accept="image/*,.heic,.zip" class="hidden" onchange="handleFile(this.files[0])">
-        <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition">
+        <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-2xl sm:text-3xl mb-3 sm:mb-4 group-hover:scale-110 transition">
           <i class="fa-solid fa-cloud-arrow-up"></i>
         </div>
-        <h3 class="text-lg font-bold text-white mb-2">Fotosurat yoki ZIP arxivni tanlang</h3>
-        <p class="text-xs text-slate-400 max-w-xs mb-4">JPG, PNG, HEIC yoki ZIP formatidagi suratlarni tashlang</p>
-        <span class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-cyan-400 border border-slate-700">Faylni tanlash</span>
-        <div class="mt-5 pt-4 border-t border-slate-800/80 w-full">
-          <div class="text-[11px] text-slate-400 mb-2 font-medium">Yoki sinov uchun tayyor namunani bosing:</div>
-          <div class="flex flex-wrap gap-2 justify-center">
-            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_gps_school4.jpg', 'sample_gps_school4.jpg')" class="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
+        <h3 class="text-base sm:text-lg font-bold text-white mb-1 sm:mb-2">Fotosurat yoki ZIP arxivni tanlang</h3>
+        <p class="text-[11px] sm:text-xs text-slate-400 max-w-xs mb-3 sm:mb-4">JPG, PNG, HEIC yoki ZIP formatidagi suratlarni tashlang</p>
+        <span class="px-3.5 sm:px-4 py-1.5 sm:py-2 rounded-xl bg-slate-800 text-xs font-semibold text-cyan-400 border border-slate-700">Faylni tanlash</span>
+        <div class="mt-4 sm:mt-5 pt-3 sm:pt-4 border-t border-slate-800/80 w-full">
+          <div class="text-[10px] sm:text-[11px] text-slate-400 mb-2 font-medium">Yoki sinov uchun tayyor namunani bosing:</div>
+          <div class="flex flex-col sm:flex-row gap-2 justify-center w-full">
+            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_gps_school4.jpg', 'sample_gps_school4.jpg')" class="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
               <i class="fa-solid fa-location-dot"></i>
               <span>1-namuna: GPS-li surat</span>
             </button>
-            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_clean_telegram.jpg', 'sample_clean_telegram.jpg')" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
+            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_clean_telegram.jpg', 'sample_clean_telegram.jpg')" class="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
               <i class="fa-solid fa-shield-halved"></i>
-              <span>2-namuna: Tozalangan surat</span>
+              <span>2-namuna: Tozalangan</span>
             </button>
-            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_photos.zip', 'sample_photos.zip')" class="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
+            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_photos.zip', 'sample_photos.zip')" class="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
               <i class="fa-solid fa-file-zipper"></i>
               <span>3-namuna: ZIP arxiv</span>
             </button>
@@ -344,24 +356,24 @@
       </div>
 
       <!-- SCAN RESULTS PANEL -->
-      <div class="glass-card p-8 rounded-3xl border-slate-800 relative">
-        <h3 class="text-lg font-bold text-white mb-4 flex items-center justify-between">
+      <div class="glass-card p-4 sm:p-8 rounded-2xl sm:rounded-3xl border-slate-800 relative">
+        <h3 class="text-base sm:text-lg font-bold text-white mb-3 sm:mb-4 flex items-center justify-between">
           <span><i class="fa-solid fa-radar text-cyan-400 mr-2"></i> Tahlil Natijalari</span>
-          <span id="scanBadge" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400">Kutilmoqda...</span>
+          <span id="scanBadge" class="text-[10px] sm:text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400">Kutilmoqda...</span>
         </h3>
         
-        <div id="scanContent" class="space-y-4 text-sm text-slate-300">
-          <div class="p-8 rounded-2xl bg-slate-900/50 border border-slate-800 text-center flex flex-col items-center justify-center py-10">
-            <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-3xl mb-4">
+        <div id="scanContent" class="space-y-3 sm:space-y-4 text-xs sm:text-sm text-slate-300">
+          <div class="p-5 sm:p-8 rounded-xl sm:rounded-2xl bg-slate-900/50 border border-slate-800 text-center flex flex-col items-center justify-center py-8 sm:py-10">
+            <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-2xl sm:text-3xl mb-3 sm:mb-4">
               <i class="fa-solid fa-radar animate-pulse"></i>
             </div>
-            <div class="font-bold text-white text-base mb-1">Surat hali yuklanmadi</div>
-            <div class="text-xs text-slate-400 max-w-sm leading-relaxed mb-4">
-              Haqiqiy tahlilni boshlash uchun chap tarafdagi maydonga o‘zingizning biror suratingizni (JPG, PNG, HEIC) yoki ZIP arxivni yuklang.
+            <div class="font-bold text-white text-sm sm:text-base mb-1">Surat hali yuklanmadi</div>
+            <div class="text-[11px] sm:text-xs text-slate-400 max-w-sm leading-relaxed mb-3 sm:mb-4">
+              Haqiqiy tahlilni boshlash uchun o‘zingizning biror suratingizni yoki ZIP arxivni yuklang.
             </div>
-            <div class="inline-flex items-center space-x-2 text-[11px] text-cyan-400/90 bg-cyan-950/40 px-3.5 py-1.5 rounded-lg border border-cyan-500/20">
+            <div class="inline-flex items-center space-x-1.5 text-[10px] sm:text-[11px] text-cyan-400/90 bg-cyan-950/40 px-3 py-1.5 rounded-lg border border-cyan-500/20">
               <i class="fa-solid fa-bolt"></i>
-              <span>Fayl yuklangach, tizim real vaqtda aynan o‘sha suratdan ma’lumotlarni qidiradi</span>
+              <span>Fayl yuklangach, real vaqtda tahlil qilinadi</span>
             </div>
           </div>
         </div>
@@ -370,126 +382,126 @@
   </section>
 
   <!-- SECTION 2: 3 TA ASOSIY XAVF KEYS-LAR -->
-  <section id="cases" class="py-16 px-6 max-w-6xl mx-auto bg-slate-950/40 rounded-3xl my-12 border border-slate-800/50">
-    <div class="text-center mb-12">
+  <section id="cases" class="py-10 sm:py-16 px-4 sm:px-6 max-w-6xl mx-auto bg-slate-950/40 rounded-2xl sm:rounded-3xl my-8 sm:my-12 border border-slate-800/50">
+    <div class="text-center mb-6 sm:mb-12">
       <span class="text-xs font-bold text-rose-400 uppercase tracking-widest">Real Keyslar</span>
-      <h2 class="text-2xl md:text-4xl font-extrabold text-white mt-1">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mt-1">
         Suratdagi 3 ta Katta Kiber-Xavf
       </h2>
     </div>
 
-    <div class="grid md:grid-cols-3 gap-6">
+    <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
       <!-- CASE 1 -->
-      <div class="glass-card p-6 rounded-2xl border-rose-500/20 hover:border-rose-500/50 transition">
-        <div class="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-2xl mb-4">
+      <div class="glass-card p-4 sm:p-6 rounded-2xl border-rose-500/20 hover:border-rose-500/50 transition">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-xl sm:text-2xl mb-3 sm:mb-4">
           <i class="fa-solid fa-school"></i>
         </div>
-        <h3 class="text-lg font-bold text-white mb-2">1. Maktabingiz fosh bo‘lishi</h3>
-        <p class="text-slate-400 text-xs leading-relaxed mb-4">
+        <h3 class="text-base sm:text-lg font-bold text-white mb-1.5 sm:mb-2">1. Maktabingiz fosh bo‘lishi</h3>
+        <p class="text-slate-400 text-xs leading-relaxed mb-3 sm:mb-4">
           O‘quvchi yo‘lakda selfi oladi. Ko‘krakdagi nishon, xona raqami yoki devordagi plakat orqali begona odam qaysi maktab va qaysi sinfda o‘qishingizni, darsingiz qachon tugashini aniqlaydi.
         </p>
-        <span class="text-[11px] font-semibold text-rose-400 bg-rose-950/50 px-2.5 py-1 rounded-md border border-rose-800/40">Kiberbulling va kuzatuv xavfi</span>
+        <span class="text-[10px] sm:text-[11px] font-semibold text-rose-400 bg-rose-950/50 px-2.5 py-1 rounded-md border border-rose-800/40">Kiberbulling va kuzatuv xavfi</span>
       </div>
 
       <!-- CASE 2 -->
-      <div class="glass-card p-6 rounded-2xl border-amber-500/20 hover:border-amber-500/50 transition">
-        <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-2xl mb-4">
+      <div class="glass-card p-4 sm:p-6 rounded-2xl border-amber-500/20 hover:border-amber-500/50 transition">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl sm:text-2xl mb-3 sm:mb-4">
           <i class="fa-solid fa-map-location-dot"></i>
         </div>
-        <h3 class="text-lg font-bold text-white mb-2">2. Uy manzilingiz aniqlanishi</h3>
-        <p class="text-slate-400 text-xs leading-relaxed mb-4">
+        <h3 class="text-base sm:text-lg font-bold text-white mb-1.5 sm:mb-2">2. Uy manzilingiz aniqlanishi</h3>
+        <p class="text-slate-400 text-xs leading-relaxed mb-3 sm:mb-4">
           Derazadan olingan quyosh botishi surati. Firibgarlar ko‘rinib turgan do‘kon lavhasi, bino fasadi yoki ko‘cha chirog‘i burchagi orqali uyingiz qaysi ko‘chada, hatto nechanchi qavatdaligini topadi.
         </p>
-        <span class="text-[11px] font-semibold text-amber-400 bg-amber-950/50 px-2.5 py-1 rounded-md border border-amber-800/40">Shaxsiy daxlsizlikning buzilishi</span>
+        <span class="text-[10px] sm:text-[11px] font-semibold text-amber-400 bg-amber-950/50 px-2.5 py-1 rounded-md border border-amber-800/40">Shaxsiy daxlsizlikning buzilishi</span>
       </div>
 
       <!-- CASE 3 -->
-      <div class="glass-card p-6 rounded-2xl border-purple-500/20 hover:border-purple-500/50 transition">
-        <div class="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-2xl mb-4">
+      <div class="glass-card p-4 sm:p-6 rounded-2xl border-purple-500/20 hover:border-purple-500/50 transition sm:col-span-2 md:col-span-1">
+        <div class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-xl sm:text-2xl mb-3 sm:mb-4">
           <i class="fa-solid fa-house-user"></i>
         </div>
-        <h3 class="text-lg font-bold text-white mb-2">3. «Uyda yolg‘izman» signali</h3>
-        <p class="text-slate-400 text-xs leading-relaxed mb-4">
+        <h3 class="text-base sm:text-lg font-bold text-white mb-1.5 sm:mb-2">3. «Uyda yolg‘izman» signali</h3>
+        <p class="text-slate-400 text-xs leading-relaxed mb-3 sm:mb-4">
           «Ota-onam to‘yga ketishdi, men esa yolg‘izman» mazmunidagi storislar va postlar. Bu nafaqat kiber-firibgarlar, balki uy o‘g‘rilari uchun ochiqdan-ochiq taklifnoma vazifasini o‘taydi.
         </p>
-        <span class="text-[11px] font-semibold text-purple-400 bg-purple-950/50 px-2.5 py-1 rounded-md border border-purple-800/40">Jismoniy xavfsizlik tahdidi</span>
+        <span class="text-[10px] sm:text-[11px] font-semibold text-purple-400 bg-purple-950/50 px-2.5 py-1 rounded-md border border-purple-800/40">Jismoniy xavfsizlik tahdidi</span>
       </div>
     </div>
   </section>
 
   <!-- SECTION 3: 5 DAQIQALIK CHEK-LIST -->
-  <section id="checklist" class="py-16 px-6 max-w-4xl mx-auto">
-    <div class="text-center mb-10">
+  <section id="checklist" class="py-10 sm:py-16 px-4 sm:px-6 max-w-4xl mx-auto">
+    <div class="text-center mb-6 sm:mb-10">
       <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Amaliy Himoya</span>
-      <h2 class="text-2xl md:text-4xl font-extrabold text-white mt-1">
+      <h2 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-white mt-1">
         🛡️ 5 Daqiqalik «Xavfsiz Profil» Chek-listi
       </h2>
-      <p class="text-slate-400 text-sm mt-2">Har bir qadamni bajarganingiz sari xavfsizlik balingiz oshib boradi:</p>
+      <p class="text-slate-400 text-xs sm:text-sm mt-1 sm:mt-2">Har bir qadamni bajarganingiz sari xavfsizlik balingiz oshib boradi:</p>
     </div>
 
     <!-- PROGRESS BAR -->
-    <div class="glass-card p-6 rounded-2xl mb-8">
+    <div class="glass-card p-4 sm:p-6 rounded-xl sm:rounded-2xl mb-6 sm:mb-8">
       <div class="flex justify-between items-center mb-2">
-        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Profil Himoyalanganlik Darajasi:</span>
-        <span id="scoreText" class="text-sm font-black text-cyan-400 mono">0% (0/5)</span>
+        <span class="text-[11px] sm:text-xs font-bold text-slate-300 uppercase tracking-wider">Himoyalanganlik Darajasi:</span>
+        <span id="scoreText" class="text-xs sm:text-sm font-black text-cyan-400 mono">0% (0/5)</span>
       </div>
-      <div class="w-full h-3 rounded-full bg-slate-800 overflow-hidden">
+      <div class="w-full h-2.5 sm:h-3 rounded-full bg-slate-800 overflow-hidden">
         <div id="progressBar" class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 w-0 transition-all duration-500"></div>
       </div>
     </div>
 
     <!-- CHECKLIST ITEMS -->
-    <div class="space-y-4">
+    <div class="space-y-3 sm:space-y-4">
       <!-- ITEM 1 -->
-      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
-        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+      <label class="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl flex items-start space-x-3 sm:space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-4 h-4 sm:w-5 sm:h-5 rounded border-slate-700 text-cyan-500 focus:ring-0 flex-shrink-0" onchange="updateProgress()">
         <div>
-          <div class="font-bold text-white text-sm md:text-base">1-qadam: Telefon raqamni yashirish (Telegram)</div>
-          <p class="text-slate-400 text-xs mt-1">
+          <div class="font-bold text-white text-xs sm:text-sm md:text-base">1-qadam: Telefon raqamni yashirish (Telegram)</div>
+          <p class="text-slate-400 text-[11px] sm:text-xs mt-1 leading-relaxed">
             <b>Sozlamalar ➔ Maxfiylik ➔ Telefon raqam</b> bo‘limiga kiring va uni <b>«Hech kimga»</b> qilib belgilang.
           </p>
         </div>
       </label>
 
       <!-- ITEM 2 -->
-      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
-        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+      <label class="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl flex items-start space-x-3 sm:space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-4 h-4 sm:w-5 sm:h-5 rounded border-slate-700 text-cyan-500 focus:ring-0 flex-shrink-0" onchange="updateProgress()">
         <div>
-          <div class="font-bold text-white text-sm md:text-base">2-qadam: Ikki bosqichli tekshiruv (2FA) yoqish</div>
-          <p class="text-slate-400 text-xs mt-1">
+          <div class="font-bold text-white text-xs sm:text-sm md:text-base">2-qadam: Ikki bosqichli tekshiruv (2FA) yoqish</div>
+          <p class="text-slate-400 text-[11px] sm:text-xs mt-1 leading-relaxed">
             <b>Maxfiylik ➔ Ikki bosqichli tekshiruv</b> ga kirib, maxfiy harfli-raqamli parol qo‘ying. Bu sim-karta klonlansa ham akkauntni saqlaydi.
           </p>
         </div>
       </label>
 
       <!-- ITEM 3 -->
-      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
-        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+      <label class="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl flex items-start space-x-3 sm:space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-4 h-4 sm:w-5 sm:h-5 rounded border-slate-700 text-cyan-500 focus:ring-0 flex-shrink-0" onchange="updateProgress()">
         <div>
-          <div class="font-bold text-white text-sm md:text-base">3-qadam: Suratga olayotganda GPS teglarni o‘chirish</div>
-          <p class="text-slate-400 text-xs mt-1">
+          <div class="font-bold text-white text-xs sm:text-sm md:text-base">3-qadam: Suratga olayotganda GPS teglarni o‘chirish</div>
+          <p class="text-slate-400 text-[11px] sm:text-xs mt-1 leading-relaxed">
             Telefoningiz <b>Kamera sozlamalari ➔ «Joylashuv belgisi (Location/GPS tag)»</b> ni butunlay o‘chirib qo‘ying.
           </p>
         </div>
       </label>
 
       <!-- ITEM 4 -->
-      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
-        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+      <label class="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl flex items-start space-x-3 sm:space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-4 h-4 sm:w-5 sm:h-5 rounded border-slate-700 text-cyan-500 focus:ring-0 flex-shrink-0" onchange="updateProgress()">
         <div>
-          <div class="font-bold text-white text-sm md:text-base">4-qadam: Faol seanslarni tekshirish</div>
-          <p class="text-slate-400 text-xs mt-1">
+          <div class="font-bold text-white text-xs sm:text-sm md:text-base">4-qadam: Faol seanslarni tekshirish</div>
+          <p class="text-slate-400 text-[11px] sm:text-xs mt-1 leading-relaxed">
             <b>Sozlamalar ➔ Qurilmalar</b> bo‘limiga kiring. O‘zingiz tanimagan barcha kompyuter va telefon sessiyalarini yakunlang.
           </p>
         </div>
       </label>
 
       <!-- ITEM 5 -->
-      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
-        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+      <label class="glass-card p-3.5 sm:p-5 rounded-xl sm:rounded-2xl flex items-start space-x-3 sm:space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-4 h-4 sm:w-5 sm:h-5 rounded border-slate-700 text-cyan-500 focus:ring-0 flex-shrink-0" onchange="updateProgress()">
         <div>
-          <div class="font-bold text-white text-sm md:text-base">5-qadam: Guruhlarga qo‘shishni cheklash</div>
-          <p class="text-slate-400 text-xs mt-1">
+          <div class="font-bold text-white text-xs sm:text-sm md:text-base">5-qadam: Guruhlarga qo‘shishni cheklash</div>
+          <p class="text-slate-400 text-[11px] sm:text-xs mt-1 leading-relaxed">
             <b>Maxfiylik ➔ Guruhlar va kanallar</b> bo‘limida faqat <b>«Kontaktlarim»</b> sizni guruhlarga qo‘shishiga ruxsat bering (spamlardan xalos bo‘lasiz).
           </p>
         </div>
@@ -498,19 +510,19 @@
   </section>
 
   <!-- SECTION 4: TELEGRAM BOT CALL TO ACTION -->
-  <section class="py-16 px-6 max-w-4xl mx-auto text-center">
-    <div class="glass-card p-10 rounded-3xl border border-cyan-500/30 neon-border relative overflow-hidden">
-      <div class="w-16 h-16 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-3xl mx-auto mb-4">
+  <section class="py-10 sm:py-16 px-4 sm:px-6 max-w-4xl mx-auto text-center">
+    <div class="glass-card p-6 sm:p-10 rounded-2xl sm:rounded-3xl border border-cyan-500/30 neon-border relative overflow-hidden">
+      <div class="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-2xl sm:text-3xl mx-auto mb-3 sm:mb-4">
         <i class="fa-brands fa-telegram"></i>
       </div>
-      <h2 class="text-2xl md:text-4xl font-extrabold text-white mb-3">
+      <h2 class="text-xl sm:text-2xl md:text-4xl font-extrabold text-white mb-2 sm:mb-3">
         Hoziroq Telegram Botimizni sinab ko‘ring!
       </h2>
-      <p class="text-slate-400 text-sm md:text-base max-w-xl mx-auto mb-8">
+      <p class="text-slate-400 text-xs sm:text-sm md:text-base max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed px-1">
         Suratingizni botga yuboring, kiber-viktorinada qatnashing va profilingizni real vaqt rejimida tekshiring.
       </p>
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-        <a href="https://t.me/kiberiz_bot" target="_blank" class="w-full sm:w-auto px-8 py-3.5 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-sm tracking-wider uppercase flex items-center justify-center space-x-2 shadow-xl shadow-cyan-500/20 transition transform hover:scale-105">
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+        <a href="https://t.me/kiberiz_bot" target="_blank" class="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-3.5 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs sm:text-sm tracking-wider uppercase flex items-center justify-center space-x-2 shadow-xl shadow-cyan-500/20 transition transform hover:scale-105">
           <i class="fa-solid fa-paper-plane"></i>
           <span>Botni ishga tushirish (@kiberiz_bot)</span>
         </a>
@@ -849,60 +861,62 @@
 
         active.innerHTML = `
           <!-- RISK HEADER & GAUGE -->
-          <div class="p-5 rounded-2xl bg-slate-900 border ${matchedRule.typeColor === 'purple' ? 'border-purple-500/40' : 'border-rose-500/40'} flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
-            <div class="flex items-center space-x-4">
-              <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
-                <svg class="w-16 h-16 transform -rotate-90">
-                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800" fill="transparent" />
-                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="${strokeColor}" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="0" stroke-linecap="round" />
+          <div class="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-slate-900 border ${matchedRule.typeColor === 'purple' ? 'border-purple-500/40' : 'border-rose-500/40'} flex items-center justify-between gap-3 shadow-xl">
+            <div class="flex items-center space-x-3 sm:space-x-4 min-w-0">
+              <div class="relative w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-12 h-12 sm:w-16 sm:h-16 transform -rotate-90">
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="4.5" class="text-slate-800 sm:hidden" fill="transparent" />
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="4.5" class="${strokeColor} sm:hidden" fill="transparent" stroke-dasharray="125.6" stroke-dashoffset="0" stroke-linecap="round" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800 hidden sm:block" fill="transparent" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="${strokeColor} hidden sm:block" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="0" stroke-linecap="round" />
                 </svg>
-                <span class="absolute font-black text-sm text-white">${matchedRule.risk}%</span>
+                <span class="absolute font-black text-xs sm:text-sm text-white">${matchedRule.risk}%</span>
               </div>
-              <div>
-                <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Kiber-Xavf Ko‘rsatkichi</span>
-                <h3 class="text-lg font-black text-white ${matchedRule.typeColor === 'purple' ? 'text-purple-300' : 'text-rose-400'}">KRITIK O‘TA XAVFLI MANBA</h3>
+              <div class="min-w-0">
+                <span class="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-slate-400 block truncate">Kiber-Xavf Ko‘rsatkichi</span>
+                <h3 class="text-sm sm:text-lg font-black text-white ${matchedRule.typeColor === 'purple' ? 'text-purple-300' : 'text-rose-400'} truncate">KRITIK O‘TA XAVFLI MANBA</h3>
               </div>
             </div>
-            <span class="px-4 py-2 rounded-xl text-xs font-black ${badgeBg} border shadow-lg text-center tracking-wide">
+            <span class="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black ${badgeBg} border shadow-lg text-center tracking-wide flex-shrink-0 whitespace-nowrap">
               ${matchedRule.badge}
             </span>
           </div>
 
           <!-- LEGAL CITATION ALERT -->
-          <div class="p-5 rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-2.5">
-            <div class="flex items-center space-x-2 text-rose-400 font-bold text-sm">
-              <i class="fa-solid fa-triangle-exclamation text-base"></i>
+          <div class="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-2">
+            <div class="flex items-center space-x-2 text-rose-400 font-bold text-xs sm:text-sm">
+              <i class="fa-solid fa-triangle-exclamation text-sm sm:text-base flex-shrink-0"></i>
               <span>Qonuniy Taqiq va Rasmiy Ogohlantirish:</span>
             </div>
-            <p class="text-xs text-slate-300 leading-relaxed font-medium">
+            <p class="text-[11px] sm:text-xs text-slate-300 leading-relaxed font-medium">
               ${matchedRule.law}
             </p>
           </div>
 
           <!-- DIAGNOSTIC SPEC SHEET (4 CARDS) -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">🔗 Tekshirilgan obyekt:</span>
-              <span class="font-bold text-white font-mono break-all">${escapeHtml(clean)}</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">🔗 Tekshirilgan obyekt:</span>
+              <span class="font-bold text-white font-mono break-all text-[11px] sm:text-xs">${escapeHtml(clean)}</span>
             </div>
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">📂 Aniqlangan toifa:</span>
-              <span class="font-bold text-rose-400">${matchedRule.category}</span>
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">📂 Aniqlangan toifa:</span>
+              <span class="font-bold text-rose-400 text-[11px] sm:text-xs">${matchedRule.category}</span>
             </div>
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">🔒 Xavfsizlik protokoli:</span>
-              <span class="font-bold text-rose-400"><i class="fa-solid fa-lock-open mr-1"></i>Taqiqlangan noqonuniy tarmoq</span>
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">🔒 Xavfsizlik protokoli:</span>
+              <span class="font-bold text-rose-400 text-[11px] sm:text-xs"><i class="fa-solid fa-lock-open mr-1"></i>Taqiqlangan noqonuniy tarmoq</span>
             </div>
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">⚖️ Sud / Organ maqomi:</span>
-              <span class="font-bold text-purple-400"><i class="fa-solid fa-gavel mr-1"></i>O‘zbekistonda man etilgan</span>
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">⚖️ Sud / Organ maqomi:</span>
+              <span class="font-bold text-purple-400 text-[11px] sm:text-xs"><i class="fa-solid fa-gavel mr-1"></i>O‘zbekistonda man etilgan</span>
             </div>
           </div>
 
           <!-- ACTION RECOMMENDATIONS -->
-          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
-            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block">🛡️ Xavfsizlik choralari (Harakat rejasi):</span>
-            <ul class="text-xs text-slate-300 space-y-1.5 list-disc pl-4">
+          <div class="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block">🛡️ Xavfsizlik choralari:</span>
+            <ul class="text-[11px] sm:text-xs text-slate-300 space-y-1.5 list-disc pl-4">
               ${matchedRule.advice.map(adv => `<li>${adv}</li>`).join('')}
             </ul>
           </div>
@@ -938,43 +952,45 @@
 
         active.innerHTML = `
           <!-- USERNAME RESULT HEADER -->
-          <div class="p-5 rounded-2xl bg-slate-900 border border-cyan-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
-            <div class="flex items-center space-x-4">
-              <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
-                <svg class="w-16 h-16 transform -rotate-90">
-                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800" fill="transparent" />
-                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-cyan-400" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="${175.9 * (1 - 0.65)}" stroke-linecap="round" />
+          <div class="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-slate-900 border border-cyan-500/30 flex items-center justify-between gap-3 shadow-xl">
+            <div class="flex items-center space-x-3 sm:space-x-4 min-w-0">
+              <div class="relative w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-12 h-12 sm:w-16 sm:h-16 transform -rotate-90">
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="4.5" class="text-slate-800 sm:hidden" fill="transparent" />
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="4.5" class="text-cyan-400 sm:hidden" fill="transparent" stroke-dasharray="125.6" stroke-dashoffset="${125.6 * (1 - 0.65)}" stroke-linecap="round" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800 hidden sm:block" fill="transparent" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-cyan-400 hidden sm:block" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="${175.9 * (1 - 0.65)}" stroke-linecap="round" />
                 </svg>
-                <span class="absolute font-black text-sm text-white">65%</span>
+                <span class="absolute font-black text-xs sm:text-sm text-white">65%</span>
               </div>
-              <div>
-                <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Anonimlik Ko‘rsatkichi</span>
-                <h3 class="text-lg font-black text-cyan-400">O‘RTA ANONIMLIK (IZLAR MAVJUD)</h3>
+              <div class="min-w-0">
+                <span class="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-slate-400 block truncate">Anonimlik Ko‘rsatkichi</span>
+                <h3 class="text-sm sm:text-lg font-black text-cyan-400 truncate">O‘RTA ANONIMLIK (IZLAR BOR)</h3>
               </div>
             </div>
-            <span class="px-4 py-2 rounded-xl text-xs font-black bg-cyan-950/80 text-cyan-300 border border-cyan-500/50">
-              👤 NIKNEYM AUDITI
+            <span class="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black bg-cyan-950/80 text-cyan-300 border border-cyan-500/50 flex-shrink-0 whitespace-nowrap">
+              👤 NIKNEYM
             </span>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">👤 Nikneym:</span>
-              <span class="font-bold text-white font-mono break-all">@${escapeHtml(rawUser)}</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">👤 Nikneym:</span>
+              <span class="font-bold text-white font-mono break-all text-[11px] sm:text-xs">@${escapeHtml(rawUser)}</span>
             </div>
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">📅 Oshkor bo‘lgan yosh:</span>
-              <span class="font-bold ${exposedAge ? 'text-amber-400' : 'text-emerald-400'}">${exposedAge ? `Taxminan ${exposedAge} yoshda` : 'Toza (Yil fosh bo‘lmagan)'}</span>
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">📅 Oshkor bo‘lgan yosh:</span>
+              <span class="font-bold ${exposedAge ? 'text-amber-400' : 'text-emerald-400'} text-[11px] sm:text-xs">${exposedAge ? `Taxminan ${exposedAge} yoshda` : 'Toza (Yil fosh bo‘lmagan)'}</span>
             </div>
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 sm:col-span-2">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">🎯 Qiziqish sohasi (Profiling):</span>
-              <span class="font-bold text-slate-200">${interests.length > 0 ? interests.join(', ') : 'Umumiy shaxsiy profil'}</span>
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 sm:col-span-2">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">🎯 Qiziqish sohasi (Profiling):</span>
+              <span class="font-bold text-slate-200 text-[11px] sm:text-xs">${interests.length > 0 ? interests.join(', ') : 'Umumiy shaxsiy profil'}</span>
             </div>
           </div>
 
           <!-- SOCIAL PROFILES ONE-CLICK -->
-          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
-            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block">🌐 Boshqa tarmoqlardagi raqamli izlar:</span>
+          <div class="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-900 border border-slate-800 space-y-2.5 sm:space-y-3">
+            <span class="text-[11px] sm:text-xs font-bold text-cyan-400 uppercase tracking-wider block">🌐 Boshqa tarmoqlardagi izlar:</span>
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
               <a href="https://t.me/${rawUser}" target="_blank" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center text-xs font-medium text-white transition flex items-center justify-center space-x-1.5 border border-slate-700">
                 <i class="fa-brands fa-telegram text-sky-400"></i>
@@ -1038,47 +1054,49 @@
 
         active.innerHTML = `
           <!-- SAFE RESULT HEADER -->
-          <div class="p-5 rounded-2xl bg-slate-900 border border-emerald-500/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
-            <div class="flex items-center space-x-4">
-              <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
-                <svg class="w-16 h-16 transform -rotate-90">
-                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800" fill="transparent" />
-                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-emerald-400" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="${175.9 * (1 - 0.1)}" stroke-linecap="round" />
+          <div class="p-3.5 sm:p-5 rounded-xl sm:rounded-2xl bg-slate-900 border border-emerald-500/40 flex items-center justify-between gap-3 shadow-xl">
+            <div class="flex items-center space-x-3 sm:space-x-4 min-w-0">
+              <div class="relative w-12 h-12 sm:w-16 sm:h-16 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-12 h-12 sm:w-16 sm:h-16 transform -rotate-90">
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="4.5" class="text-slate-800 sm:hidden" fill="transparent" />
+                  <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="4.5" class="text-emerald-400 sm:hidden" fill="transparent" stroke-dasharray="125.6" stroke-dashoffset="${125.6 * (1 - 0.1)}" stroke-linecap="round" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800 hidden sm:block" fill="transparent" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-emerald-400 hidden sm:block" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="${175.9 * (1 - 0.1)}" stroke-linecap="round" />
                 </svg>
-                <span class="absolute font-black text-sm text-white">10%</span>
+                <span class="absolute font-black text-xs sm:text-sm text-white">10%</span>
               </div>
-              <div>
-                <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Kiber-Xavf Ko‘rsatkichi</span>
-                <h3 class="text-lg font-black text-emerald-400">ISHONCHLI VA XAVFSIZ MANBA</h3>
+              <div class="min-w-0">
+                <span class="text-[10px] sm:text-[11px] font-mono uppercase tracking-wider text-slate-400 block truncate">Kiber-Xavf Ko‘rsatkichi</span>
+                <h3 class="text-sm sm:text-lg font-black text-emerald-400 truncate">ISHONCHLI VA XAVFSIZ MANBA</h3>
               </div>
             </div>
-            <span class="px-4 py-2 rounded-xl text-xs font-black bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 shadow-lg tracking-wide">
-              ✅ 90% XAVFSIZLIK DARAJASI
+            <span class="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 shadow-lg tracking-wide flex-shrink-0 whitespace-nowrap">
+              ✅ 90% XAVFSIZ
             </span>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">🔗 Manzil:</span>
-              <span class="font-bold text-white font-mono break-all">${escapeHtml(clean)}</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 text-xs">
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">🔗 Manzil:</span>
+              <span class="font-bold text-white font-mono break-all text-[11px] sm:text-xs">${escapeHtml(clean)}</span>
             </div>
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">🌐 Domen hududi:</span>
-              <span class="font-bold text-emerald-400"><i class="fa-solid ${domainZoneIcon} mr-1"></i>${domainZoneText}</span>
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">🌐 Domen hududi:</span>
+              <span class="font-bold text-emerald-400 text-[11px] sm:text-xs"><i class="fa-solid ${domainZoneIcon} mr-1"></i>${domainZoneText}</span>
             </div>
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">🔒 Shifrlash holati:</span>
-              <span class="font-bold ${isHttpOnly ? 'text-amber-400' : 'text-emerald-400'}"><i class="fa-solid fa-lock mr-1"></i>${isHttpOnly ? 'HTTP (Shifrlanmagan)' : 'HTTPS (Shifrlangan SSL)'}</span>
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">🔒 Shifrlash holati:</span>
+              <span class="font-bold ${isHttpOnly ? 'text-amber-400' : 'text-emerald-400'} text-[11px] sm:text-xs"><i class="fa-solid fa-lock mr-1"></i>${isHttpOnly ? 'HTTP (Shifrlanmagan)' : 'HTTPS (Shifrlangan SSL)'}</span>
             </div>
-            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
-              <span class="block text-slate-400 text-[11px] font-medium mb-1">📂 Resurs yo‘nalishi:</span>
-              <span class="font-bold text-cyan-400">${domainCategory}</span>
+            <div class="p-3 sm:p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[10px] sm:text-[11px] font-medium mb-0.5">📂 Resurs yo‘nalishi:</span>
+              <span class="font-bold text-cyan-400 text-[11px] sm:text-xs">${domainCategory}</span>
             </div>
           </div>
 
-          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+          <div class="p-3.5 sm:p-4 rounded-xl sm:rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
             <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block">💡 Kiber-Tavsiya:</span>
-            <p class="text-xs text-slate-300 leading-relaxed">
+            <p class="text-[11px] sm:text-xs text-slate-300 leading-relaxed">
               ${domainDesc}
             </p>
           </div>
@@ -1171,40 +1189,40 @@
         <!-- BROWSER MOCK WINDOW (REAL-TIME CLOUD SANDBOX SCREENSHOT) -->
         <div class="mt-4 rounded-2xl bg-slate-950 border ${isDangerous ? 'border-rose-500/40' : 'border-slate-800'} overflow-hidden shadow-2xl">
           <!-- BROWSER TOP BAR -->
-          <div class="bg-slate-900/95 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between text-xs">
-            <div class="flex items-center space-x-2">
-              <span class="w-3 h-3 rounded-full bg-rose-500 inline-block shadow-sm"></span>
-              <span class="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-sm"></span>
-              <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-sm"></span>
-              <span class="text-[11px] font-mono text-slate-400 ml-2 hidden sm:inline">
+          <div class="bg-slate-900/95 px-2.5 sm:px-4 py-2 sm:py-2.5 border-b border-slate-800 flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-1.5 sm:space-x-2 flex-shrink-0">
+              <span class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-rose-500 inline-block shadow-sm"></span>
+              <span class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-500 inline-block shadow-sm"></span>
+              <span class="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-emerald-500 inline-block shadow-sm"></span>
+              <span class="text-[11px] font-mono text-slate-400 ml-1.5 hidden md:inline">
                 <i class="fa-solid fa-display mr-1 ${isDangerous ? 'text-rose-400' : 'text-cyan-400'}"></i> Sendboks Ekrani
               </span>
             </div>
 
             <!-- ADDRESS BAR -->
-            <div class="flex-1 max-w-md mx-3 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center justify-between truncate">
+            <div class="flex-1 max-w-md mx-2 sm:mx-3 px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-[10px] sm:text-[11px] font-mono text-slate-300 flex items-center justify-between truncate">
               <div class="flex items-center space-x-1.5 truncate">
-                <i class="fa-solid ${isDangerous ? 'fa-triangle-exclamation text-rose-400' : 'fa-lock text-emerald-400'} text-[10px]"></i>
+                <i class="fa-solid ${isDangerous ? 'fa-triangle-exclamation text-rose-400' : 'fa-lock text-emerald-400'} text-[10px] flex-shrink-0"></i>
                 <span class="truncate">${escapeHtml(norm.display)}</span>
               </div>
-              <span class="text-[9px] px-1.5 py-0.5 rounded ${isDangerous ? 'bg-rose-950 text-rose-400 border border-rose-500/40' : 'bg-cyan-950 text-cyan-400 border border-cyan-500/40'} font-bold uppercase ml-2 flex-shrink-0">
+              <span class="text-[8px] sm:text-[9px] px-1.5 py-0.5 rounded ${isDangerous ? 'bg-rose-950 text-rose-400 border border-rose-500/40' : 'bg-cyan-950 text-cyan-400 border border-cyan-500/40'} font-bold uppercase ml-1.5 flex-shrink-0">
                 ${isDangerous ? 'QUARANTINE' : 'LIVE'}
               </span>
             </div>
 
             <!-- ACTIONS -->
-            <div class="flex items-center space-x-1.5">
-              <button onclick="reloadRadarScreenshot('${escapedTarget}')" title="Qayta rasmga olish" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">
-                <i class="fa-solid fa-rotate-right text-xs"></i>
+            <div class="flex items-center space-x-1 sm:space-x-1.5 flex-shrink-0">
+              <button onclick="reloadRadarScreenshot('${escapedTarget}')" title="Qayta rasmga olish" class="p-1 sm:p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">
+                <i class="fa-solid fa-rotate-right text-[11px] sm:text-xs"></i>
               </button>
-              <a href="${escapeHtml(norm.fullUrl)}" target="_blank" rel="noopener noreferrer" title="Tashqi oynada ochish" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">
-                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+              <a href="${escapeHtml(norm.fullUrl)}" target="_blank" rel="noopener noreferrer" title="Tashqi oynada ochish" class="p-1 sm:p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[11px] sm:text-xs"></i>
               </a>
             </div>
           </div>
 
           <!-- VIEWPORT (LIVE SCREENSHOT) -->
-          <div class="relative bg-[#060a12] min-h-[240px] max-h-[460px] overflow-hidden flex items-center justify-center group" id="radarScreenshotContainer">
+          <div class="relative bg-[#060a12] min-h-[190px] sm:min-h-[240px] max-h-[380px] sm:max-h-[460px] overflow-hidden flex items-center justify-center group" id="radarScreenshotContainer">
             <!-- LOADING SPINNER -->
             <div id="radarScreenshotLoader" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-10 transition-opacity">
               <div class="w-10 h-10 rounded-full border-2 ${isDangerous ? 'border-rose-500/20 border-t-rose-500' : 'border-cyan-500/20 border-t-cyan-400'} animate-spin mb-3"></div>
