@@ -420,17 +420,14 @@ async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• 🛡️ <b>Kiberxavfsizlik hodisalari bo‘yicha:</b>\n"
         f"   └ <code>+998 (55) 502-10-10</code> (yoki qisqa <b>1133</b>)\n"
         f"• ⚖️ <b>Korrupsiyani oldini olish va komplaens nazorat bo‘limi:</b>\n"
-        f"   └ <code>+998 (71) 203-55-11</code>\n"
-        f"• 👶 <b>Bolalar ishonch telefoni:</b>\n"
-        f"   └ <b>1111</b>\n\n"
+        f"   └ <code>+998 (71) 203-55-11</code>\n\n"
         f"🛡️ <b>SIZNING SHAXSINGIZ 100% SIR SAQLANADI!</b>\n"
         f"Pastdagi <b>«✍️ Anonim Murojaat Qoldirish»</b> tugmasini bosing va muammoingizni yozing. "
         f"Sizning Telegram profilingiz, ismingiz yoki raqamingiz tizim tomonidan to‘liq yashirilgan holda xavfsiz qabul qilinadi."
     )
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("✍️ Anonim Murojaat Qoldirish", callback_data="start_anon_sos", icon_custom_emoji_id=E["CHAT"])],
-        [InlineKeyboardButton("🌐 Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])],
-        [InlineKeyboardButton("🌐 Bolalar huquqlari portali", url="https://bolahuquqlari.uz", icon_custom_emoji_id=E["SCHOOL"])]
+        [InlineKeyboardButton("🌐 Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])]
     ])
     await update.message.reply_text(sos_text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -664,10 +661,9 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
             f"🛡️ <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
             f"Muammoingiz 4-maktab profilaktika inspektori va psixologiga ko‘rib chiqish uchun uzatildi.\n\n"
-            f"{p('CALL', '📞')} <b>Rasmiy aloqa va ishonch raqamlari:</b>\n"
-            f"• 🛡️ Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
-            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>\n"
-            f"• 👶 Bolalar ishonch telefoni: <b>1111</b>"
+            f"{p('CALL', '📞')} <b>Rasmiy aloqa raqamlari:</b>\n"
+            f"• 🛡️ Kiberxavfsizlik hodisalari bo‘yicha: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
         )
         await query.message.reply_text(success_msg, parse_mode="HTML")
 
@@ -1340,10 +1336,9 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
             f"🛡️ <b>Maxfiylik maqomi:</b> <i>Sizning shaxsingiz (ism, raqam, profil) to‘liq yashirildi va sir saqlanadi.</i>\n\n"
             f"Yuborilgan skrinshot va ma’lumotlar maktab profilaktika inspektori hamda psixologiga ko‘rib chiqish uchun taqdim etildi.\n\n"
-            f"{p('CALL', '📞')} <b>Rasmiy aloqa va ishonch raqamlari:</b>\n"
-            f"• 🛡️ Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
-            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>\n"
-            f"• 👶 Bolalar ishonch telefoni: <b>1111</b>"
+            f"{p('CALL', '📞')} <b>Rasmiy aloqa raqamlari:</b>\n"
+            f"• 🛡️ Kiberxavfsizlik hodisalari bo‘yicha: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
         )
         await msg.reply_text(success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
         return
@@ -1718,10 +1713,9 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
             f"🛡️ <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
             f"Muammoingiz 4-maktab profilaktika inspektori va psixologiga ko‘rib chiqish uchun uzatildi.\n\n"
-            f"{p('CALL', '📞')} <b>Rasmiy aloqa va ishonch raqamlari:</b>\n"
-            f"• 🛡️ Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
-            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>\n"
-            f"• 👶 Bolalar ishonch telefoni: <b>1111</b>"
+            f"{p('CALL', '📞')} <b>Rasmiy aloqa raqamlari:</b>\n"
+            f"• 🛡️ Kiberxavfsizlik hodisalari bo‘yicha: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
         )
         await update.message.reply_text(success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
         return
