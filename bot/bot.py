@@ -4,6 +4,9 @@ import html
 import logging
 import zipfile
 import threading
+import subprocess
+import json
+import tempfile
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from PIL import Image, ExifTags
 import pillow_heif
@@ -471,6 +474,89 @@ def parse_single_image_exif(file_bytes, filename="surat"):
     coords = (lat_val, lon_val) if (lat_val is not None and lon_val is not None) else None
     return details, coords, None
 
+def parse_video_metadata(file_bytes: bytes, file_name: str):
+    """Extracts metadata, GPS, duration, resolution, codecs from video files using exiftool."""
+    ext = os.path.splitext(file_name)[1].lower() or ".mp4"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+        tf.write(file_bytes)
+        tf_path = tf.name
+        
+    try:
+        cmd = ["exiftool", "-json", "-c", "%.6f", tf_path]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=20)
+        if res.returncode != 0 or not res.stdout.strip():
+            return [], None, "Video parametrlarini tahlil qilib bo‘lmadi"
+        
+        data = json.loads(res.stdout)[0]
+        details = []
+        
+        # 1. Device Make & Model
+        make = str(data.get("Make", "")).strip()
+        model = str(data.get("Model", "")).strip()
+        device = f"{make} {model}".strip()
+        if device:
+            details.append(f"{p('PHONE', '📱')} <b>Qurilma modeli:</b> {html.escape(device)}")
+            
+        # 2. Date / Time
+        create_date = data.get("CreateDate") or data.get("TrackCreateDate") or data.get("MediaCreateDate")
+        if create_date and create_date != "0000:00:00 00:00:00":
+            details.append(f"{p('TIMER', '⏰')} <b>Olingan vaqti:</b> {html.escape(str(create_date))}")
+            
+        # 3. GPS Coordinates
+        lat_val = None
+        lon_val = None
+        lat_str = str(data.get("GPSLatitude", "")).strip()
+        lon_str = str(data.get("GPSLongitude", "")).strip()
+        if not lat_str or not lon_str:
+            pos = str(data.get("GPSPosition", "")).strip()
+            if pos and "," in pos:
+                parts = pos.split(",")
+                lat_str, lon_str = parts[0].strip(), parts[1].strip()
+                
+        if lat_str and lon_str:
+            try:
+                lat = float(lat_str.replace("N", "").replace("S", "").strip())
+                if "S" in lat_str: lat = -lat
+                lon = float(lon_str.replace("E", "").replace("W", "").strip())
+                if "W" in lon_str: lon = -lon
+                lat_val = round(lat, 6)
+                lon_val = round(lon, 6)
+                maps_link = f"https://www.google.com/maps?q={lat_val},{lon_val}"
+                details.append(
+                    f"{p('SEARCH', '📍')} <b>GPS Lokatsiya:</b> <code>{lat_val}° N, {lon_val}° E</code>\n"
+                    f"   └ 🗺️ <a href=\"{maps_link}\">Google Xaritada ochish (Jonli nuqta)</a>"
+                )
+            except Exception:
+                pass
+                
+        # 4. Video Specs
+        duration = data.get("Duration")
+        if duration:
+            details.append(f"{p('TIMER', '⏱️')} <b>Davomiyligi:</b> {html.escape(str(duration))}")
+            
+        img_size = data.get("ImageSize")
+        if img_size:
+            details.append(f"{p('CHECK', '📐')} <b>Ruxsat (O‘lchami):</b> {html.escape(str(img_size))}")
+            
+        fps = data.get("VideoFrameRate")
+        if fps:
+            details.append(f"{p('RADAR', '🎞️')} <b>Kadrlar chastotasi:</b> {html.escape(str(fps))} FPS")
+            
+        codec = data.get("CompressorName") or data.get("VideoCodec")
+        if codec:
+            details.append(f"{p('SHIELD', '⚙️')} <b>Video kodek:</b> {html.escape(str(codec))}")
+            
+        coords = (lat_val, lon_val) if (lat_val is not None and lon_val is not None) else None
+        return details, coords, None
+    except Exception as e:
+        return [], None, str(e)
+    finally:
+        if os.path.exists(tf_path):
+            try:
+                os.remove(tf_path)
+            except Exception:
+                pass
+
 async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg:
@@ -479,26 +565,39 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     await msg.reply_chat_action("typing")
     
     is_doc = bool(msg.document)
+    is_video = bool(msg.video)
     file_bytes = None
-    file_name = "surat.jpg"
+    file_name = "fayl"
+    
+    video_exts = (".mp4", ".mov", ".avi", ".mkv", ".3gp", ".webm", ".m4v")
+    img_exts = (".jpg", ".jpeg", ".png", ".tiff", ".heic", ".heif", ".webp")
     
     if is_doc:
         doc = msg.document
-        file_name = doc.file_name or "fayl"
+        file_name = doc.file_name or "hujjat"
         mime = (doc.mime_type or "").lower()
-        valid_exts = (".jpg", ".jpeg", ".png", ".tiff", ".heic", ".heif", ".webp", ".zip")
-        if not (mime.startswith("image/") or "zip" in mime or any(file_name.lower().endswith(ext) for ext in valid_exts)):
+        valid_exts = img_exts + video_exts + (".zip",)
+        if not (mime.startswith("image/") or mime.startswith("video/") or "zip" in mime or any(file_name.lower().endswith(ext) for ext in valid_exts)):
             await msg.reply_text(
-                f"{p('WARNING', '⚠️')} Iltimos, tahlil qilish uchun <b>fotosurat</b> (JPG, PNG, HEIC) yoki <b>ZIP arxiv</b> yuboring.",
+                f"{p('WARNING', '⚠️')} Iltimos, tahlil qilish uchun <b>fotosurat</b> (JPG, PNG, HEIC), <b>video</b> (MP4, MOV) yoki <b>ZIP arxiv</b> yuboring.",
                 parse_mode="HTML"
             )
             return
             
         tg_file = await doc.get_file()
         file_bytes = await tg_file.download_as_bytearray()
+        if any(file_name.lower().endswith(ext) for ext in video_exts) or mime.startswith("video/"):
+            is_video = True
     elif msg.photo:
         tg_file = await msg.photo[-1].get_file()
         file_bytes = await tg_file.download_as_bytearray()
+        file_name = "surat.jpg"
+    elif msg.video:
+        video = msg.video
+        file_name = video.file_name or f"video_{video.file_id[:8]}.mp4"
+        tg_file = await video.get_file()
+        file_bytes = await tg_file.download_as_bytearray()
+        is_video = True
         
     if not file_bytes:
         return
@@ -506,6 +605,55 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     # Check if ZIP archive
     if is_doc and (file_name.lower().endswith(".zip") or "zip" in (msg.document.mime_type or "").lower()):
         await handle_zip_archive(msg, file_bytes, file_name)
+        return
+
+    # ==========================
+    # VIDEO ANALYSIS
+    # ==========================
+    if is_video:
+        details, coords, err = parse_video_metadata(file_bytes, file_name)
+        if err:
+            await msg.reply_text(
+                f"{p('WARNING', '⚠️')} Videoni ochishda xatolik yuz berdi ({html.escape(err)}). Iltimos, boshqa video yuboring.",
+                parse_mode="HTML"
+            )
+            return
+            
+        analysis_msg = f"{p('RADAR', '🎬')} <b>VIDEO OSINT TAHLIL NATIJASI ({html.escape(file_name)}):</b>\n\n"
+        
+        if coords:
+            analysis_msg += f"{p('SOS', '🚨')} <b>JIDDIY XAVF: VIDEODA YASHIRIN GEOLOKATSIYA TOPILDI!</b>\n"
+        elif details:
+            analysis_msg += f"{p('WARNING', '⚠️')} <b>VIDEODA TEXNIK VA QURILMA METAMA’LUMOTLARI TOPILDI:</b>\n"
+            
+        if details:
+            for d in details:
+                analysis_msg += f"• {d}\n"
+            analysis_msg += "\n"
+        else:
+            if not is_doc:
+                analysis_msg += (
+                    f"{p('INFO', 'ℹ️')} <i>Telegram orqali oddiy video tarzida yuborilgani uchun Telegram uni siqib, "
+                    f"barcha EXIF va GPS parametrlarini avtomatik tozalab tashlagan.\n"
+                    f"Original video metama’lumotlarini tekshirish uchun uni botga <b>'Hujjat' (Document / File)</b> qilib yuboring!</i>\n\n"
+                )
+            else:
+                analysis_msg += (
+                    f"{p('CHECK', '✅')} <i>Ushbu video faylida GPS yoki kamera parametrlari topilmadi (tozalangan yoki kamera geolokatsiyasi o‘chiq bo‘lgan).</i>\n\n"
+                )
+                
+        analysis_msg += (
+            f"{p('HACKER', '🕵️‍♂️')} <b>VIDEODAGI MAXSUS OSINT VA FON XAVFLARI:</b>\n"
+            f"1. {p('CALL', '🔊')} <b>Ovoz tahlili (Audio OSINT):</b> Orqa fondagi suhbatlar, maktab qo‘ng‘irog‘i, metro bekati e’loni yoki ko‘cha shovqini orqali joylashuvingiz bilib olinadi.\n"
+            f"2. {p('SCHOOL', '🏫')} <b>Harakatdagi kadrlar:</b> Kamera burilganda ko‘rinib qolgan xona raqami, o‘qituvchi, deraza orqasidagi do‘kon nomi yoki avtomobil davlat raqami.\n"
+            f"3. {p('TIMER', '☀️')} <b>Soya va yorug‘lik (Chronolocation):</b> Quyosh tushish burchagi orqali video olingan aniq soat va dunyo tomoni (Shimol/Janub) hisoblanadi.\n\n"
+            f"{p('SHIELD', '🛡️')} <b>Maslahat:</b> Ijtimoiy tarmoqqa video yuklashdan avval orqa fondagi shaxsiy obyektlarni tekshiring va audio yo‘lakdagi begona gaplarni o‘chiring!"
+        )
+        
+        await msg.reply_text(analysis_msg, parse_mode="HTML", disable_web_page_preview=True)
+        if coords:
+            lat_val, lon_val = coords
+            await msg.reply_location(latitude=lat_val, longitude=lon_val)
         return
 
     # Process Single Image (JPG, PNG, HEIC, WEBP, TIFF)
@@ -654,7 +802,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 def main():
     start_health_check_if_needed()
-    print("Starting KiberIz-4 Telegram Bot with Real OSINT, HEIC & ZIP Support...")
+    print("Starting KiberIz-4 Telegram Bot with Real OSINT, Video, HEIC & ZIP Support...")
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     
     app.add_handler(CommandHandler("start", start_command))
@@ -664,7 +812,7 @@ def main():
     app.add_handler(CommandHandler("sos", sos_command))
     
     app.add_handler(CallbackQueryHandler(quiz_callback))
-    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.ALL, photo_or_doc_handler))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.Document.ALL, photo_or_doc_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     
     print("Bot is successfully polling!")
