@@ -10,15 +10,30 @@ import json
 import tempfile
 import urllib.request
 import urllib.parse
-import cv2
-import numpy as np
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from PIL import Image, ExifTags, ImageStat
-import pytesseract
-import pillow_heif
 
-# Register HEIF/HEIC support for Apple iPhone photos
-pillow_heif.register_heif_opener()
+# Safe optional imports for mobile / Termux environments
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
+try:
+    import numpy as np
+except ImportError:
+    np = None
+
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pillow_heif = None
 
 from telegram import (
     Update,
@@ -480,6 +495,8 @@ def get_human_address(lat: float, lon: float) -> str:
 
 def scan_qr_code(file_bytes: bytes) -> str:
     """Detects and decodes QR codes inside an image using OpenCV."""
+    if cv2 is None or np is None:
+        return None
     try:
         nparr = np.frombuffer(file_bytes, np.uint8)
         cv_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -771,15 +788,16 @@ def analyze_visual_osint(image_bytes: bytes):
         # 2. OCR Text Analysis
         ocr_found = []
         detected_text = ""
-        try:
-            if max(w, h) > 1500:
-                scale = 1500 / max(w, h)
-                small_img = img.resize((int(w * scale), int(h * scale)))
-            else:
-                small_img = img
-            detected_text = pytesseract.image_to_string(small_img, lang="eng+uzb", timeout=5).strip()
-        except Exception as ocr_err:
-            logging.warning(f"OCR warning: {ocr_err}")
+        if pytesseract is not None:
+            try:
+                if max(w, h) > 1500:
+                    scale = 1500 / max(w, h)
+                    small_img = img.resize((int(w * scale), int(h * scale)))
+                else:
+                    small_img = img
+                detected_text = pytesseract.image_to_string(small_img, lang="eng+uzb", timeout=5).strip()
+            except Exception as ocr_err:
+                logging.warning(f"OCR warning: {ocr_err}")
             
         text_risk = 0
         if detected_text:
