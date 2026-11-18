@@ -416,9 +416,13 @@ async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• {p('WARNING', '⚠️')} Kiberbulling, haqorat yoki guruhlarda kamsitilishga;\n"
         f"• {p('WARNING', '⚠️')} Shaxsiy rasmlaringiz yoki videolaringiz bilan shantajga;\n"
         f"• {p('WARNING', '⚠️')} Soxta akkaunt ochish, pul talab qilish yoki firibgarlikka duch kelgan bo‘lsangiz — <b>HECH QACHON QO‘RQMANG VA YASHIRMANG!</b>\n\n"
-        f"{p('CALL', '📞')} <b>Davlat ishonch raqamlari (bepul):</b>\n"
-        f"• O‘zbekiston Kiberxavfsizlik markazi: <b>1133</b>\n"
-        f"• Bolalar ishonch telefoni: <b>1111</b>\n\n"
+        f"{p('CALL', '📞')} <b>RASMIY ALOQA VA ISHONCH RAQAMLARI:</b>\n"
+        f"• 🛡️ <b>Kiberxavfsizlik hodisalari bo‘yicha:</b>\n"
+        f"   └ <code>+998 (55) 502-10-10</code> (yoki qisqa <b>1133</b>)\n"
+        f"• ⚖️ <b>Korrupsiyani oldini olish va komplaens nazorat bo‘limi:</b>\n"
+        f"   └ <code>+998 (71) 203-55-11</code>\n"
+        f"• 👶 <b>Bolalar ishonch telefoni:</b>\n"
+        f"   └ <b>1111</b>\n\n"
         f"🛡️ <b>SIZNING SHAXSINGIZ 100% SIR SAQLANADI!</b>\n"
         f"Pastdagi <b>«✍️ Anonim Murojaat Qoldirish»</b> tugmasini bosing va muammoingizni yozing. "
         f"Sizning Telegram profilingiz, ismingiz yoki raqamingiz tizim tomonidan to‘liq yashirilgan holda xavfsiz qabul qilinadi."
@@ -660,9 +664,10 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
             f"🛡️ <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
             f"Muammoingiz 4-maktab profilaktika inspektori va psixologiga ko‘rib chiqish uchun uzatildi.\n\n"
-            f"{p('CALL', '📞')} <b>Zudlik bilan yordam kerak bo‘lsa:</b>\n"
-            f"• <b>1133</b> — Kiberxavfsizlik markazi\n"
-            f"• <b>1111</b> — Bolalar ishonch telefoni"
+            f"{p('CALL', '📞')} <b>Rasmiy aloqa va ishonch raqamlari:</b>\n"
+            f"• 🛡️ Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>\n"
+            f"• 👶 Bolalar ishonch telefoni: <b>1111</b>"
         )
         await query.message.reply_text(success_msg, parse_mode="HTML")
 
@@ -1335,9 +1340,10 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
             f"🛡️ <b>Maxfiylik maqomi:</b> <i>Sizning shaxsingiz (ism, raqam, profil) to‘liq yashirildi va sir saqlanadi.</i>\n\n"
             f"Yuborilgan skrinshot va ma’lumotlar maktab profilaktika inspektori hamda psixologiga ko‘rib chiqish uchun taqdim etildi.\n\n"
-            f"{p('CALL', '📞')} <b>Shoshilinch hollarda bepul ishonch telefonlari:</b>\n"
-            f"• <b>1133</b> — Kiberxavfsizlik markazi\n"
-            f"• <b>1111</b> — Bolalar ishonch telefoni"
+            f"{p('CALL', '📞')} <b>Rasmiy aloqa va ishonch raqamlari:</b>\n"
+            f"• 🛡️ Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>\n"
+            f"• 👶 Bolalar ishonch telefoni: <b>1111</b>"
         )
         await msg.reply_text(success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
         return
@@ -1712,9 +1718,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
             f"🛡️ <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
             f"Muammoingiz 4-maktab profilaktika inspektori va psixologiga ko‘rib chiqish uchun uzatildi.\n\n"
-            f"{p('CALL', '📞')} <b>Zudlik bilan yordam kerak bo‘lsa:</b>\n"
-            f"• <b>1133</b> — Kiberxavfsizlik markazi\n"
-            f"• <b>1111</b> — Bolalar ishonch telefoni"
+            f"{p('CALL', '📞')} <b>Rasmiy aloqa va ishonch raqamlari:</b>\n"
+            f"• 🛡️ Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>\n"
+            f"• 👶 Bolalar ishonch telefoni: <b>1111</b>"
         )
         await update.message.reply_text(success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
         return
@@ -1981,7 +1988,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Siz yozgan xabarda yordam yoki xavfsizlik murojaati belgilari aniqlandi:\n"
                 f"<i>«{html.escape(text[:120])}{'...' if len(text)>120 else ''}»</i>\n\n"
                 f"Agar siz kiberbulling, shantaj yoki firibgarlikka duch kelgan bo‘lsangiz, shaxsingizni to‘liq yashirgan holda "
-                f"ushbu xabarni <b>Anonim SOS Murojaat</b> sifatida maktab mutaxassislariga yuborishingiz mumkin:"
+                f"ushbu xabarni <b>Anonim SOS Murojaat</b> sifatida maktab mutaxassislariga yuborishingiz mumkin.\n\n"
+                f"{p('CALL', '📞')} <b>Rasmiy aloqa raqamlari:</b>\n"
+                f"• 🛡️ Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+                f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
             )
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("✍️ Ushbu xabarni Anonim SOS sifatida yuborish", callback_data="confirm_quick_sos", icon_custom_emoji_id=E["CHAT"])],
