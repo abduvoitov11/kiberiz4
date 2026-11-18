@@ -2,6 +2,7 @@ import os
 import io
 import re
 import html
+import asyncio
 import logging
 import zipfile
 import threading
@@ -127,6 +128,7 @@ E = {
     "SHIELD": "5825943289563456446",       # 🛡 Animated Shield
     "SEARCH": "5188217332748527444",       # 🔍 OSINT Magnifier
     "EXIF_PHOTO": "5375074927252621134",   # 🖼 Photo / Picture
+    "CAMERA": "5375074927252621134",       # 📸 Camera / Screenshot
     "WARNING": "5825944844341618261",      # ⚠️ Cyber Warning
     "SOS": "5767387736969323365",          # 🚨 Siren Emergency
     "LOCK": "5769487503530664462",         # 🔒 Cyber Lock
@@ -928,16 +930,23 @@ def audit_link(url_text: str):
 def get_website_screenshot(url: str):
     """Captures a safe, isolated cloud sandbox screenshot of a website without placeholder errors."""
     full_url = url.strip().rstrip('.,;!?')
+    if '.onion' in full_url.lower():
+        return None
+        
     if not full_url.startswith(('http://', 'https://')):
         full_url = 'https://' + full_url
         
+    # Telegram web channel preview (/s/)
+    if 't.me/' in full_url and '/s/' not in full_url:
+        full_url = full_url.replace('t.me/', 't.me/s/')
+        
     # Provider 1: Thum.io (Real-time live browser rendering, no 'Generating Preview' placeholder)
     try:
-        thum_url = f"https://image.thum.io/get/width/1280/crop/800/{full_url}"
+        thum_url = f"https://image.thum.io/get/width/1200/crop/750/{full_url}"
         req = urllib.request.Request(thum_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
         with urllib.request.urlopen(req, timeout=12) as resp:
             data = resp.read()
-            if len(data) > 10000:
+            if len(data) > 8000:
                 return data
     except Exception as e:
         logging.warning(f"Thum.io screenshot error: {e}")
@@ -949,7 +958,7 @@ def get_website_screenshot(url: str):
         req = urllib.request.Request(micro_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = resp.read()
-            if len(data) > 10000:
+            if len(data) > 8000:
                 return data
     except Exception as e:
         logging.warning(f"Microlink screenshot error: {e}")
@@ -1554,6 +1563,24 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"3. Ushbu xabarni darhol o‘chirib tashlash tavsiya etiladi."
             )
             await update.message.reply_text(resp, parse_mode="HTML")
+
+            # Xavfsiz bulutli sendboks ekrani (Screenshot)
+            try:
+                loop = asyncio.get_running_loop()
+                ss_bytes = await loop.run_in_executor(None, get_website_screenshot, matched_url)
+                if ss_bytes:
+                    caption = (
+                        f"{p('CAMERA', '📸')} <b>«{html.escape(domain)}» saytining jonli ekrani (Sandbox):</b>\n\n"
+                        f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n"
+                        f"🛡️ <i>Xavfsiz bulutli sendboks (Chromium) orqali olindi. O‘zingiz shaxsiy brauzeringizda ochmasdan bexavotir ko‘rishingiz mumkin.</i>"
+                    )
+                    await update.message.reply_photo(
+                        photo=io.BytesIO(ss_bytes),
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+            except Exception as ss_e:
+                logging.warning(f"Screenshot error for forbidden url: {ss_e}")
             return
 
         # 2. Boshqa barcha havolalar tahlili (Xavfsiz yoki Shubhali)
@@ -1597,6 +1624,24 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"mazmunidagi havolalarga HECH QACHON telefon raqam yoki SMS kod kiritmang!"
         )
         await update.message.reply_text(resp, parse_mode="HTML")
+
+        # Xavfsiz bulutli sendboks ekrani (Screenshot)
+        try:
+            loop = asyncio.get_running_loop()
+            ss_bytes = await loop.run_in_executor(None, get_website_screenshot, matched_url)
+            if ss_bytes:
+                caption = (
+                    f"{p('CAMERA', '📸')} <b>«{html.escape(domain)}» saytining jonli ekrani (Sandbox):</b>\n\n"
+                    f"📊 <b>Kiber-Tahlil:</b> {verdict}\n"
+                    f"🛡️ <i>Xavfsiz bulutli sendboks (Chromium) orqali rasmga olindi.</i>"
+                )
+                await update.message.reply_photo(
+                    photo=io.BytesIO(ss_bytes),
+                    caption=caption,
+                    parse_mode="HTML"
+                )
+        except Exception as ss_e:
+            logging.warning(f"Screenshot error for url: {ss_e}")
         return
     elif text.startswith("@") or (len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)):
         # Username OSINT Audit
@@ -1618,6 +1663,24 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"3. Ushbu yozishmani darhol o‘chirib tashlash tavsiya etiladi."
             )
             await update.message.reply_text(resp, parse_mode="HTML")
+
+            # Xavfsiz kanal/profil sendboks ekrani (Screenshot)
+            try:
+                loop = asyncio.get_running_loop()
+                ss_bytes = await loop.run_in_executor(None, get_website_screenshot, f"https://t.me/s/{raw}")
+                if ss_bytes:
+                    caption = (
+                        f"{p('CAMERA', '📸')} <b>@{html.escape(raw)} kanalining jonli ko‘rinishi (Sandbox):</b>\n\n"
+                        f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n"
+                        f"🛡️ <i>Xavfsiz bulutli sendboks orqali olindi. Kanalga a’zo bo‘lmasdan ko‘rishingiz mumkin.</i>"
+                    )
+                    await update.message.reply_photo(
+                        photo=io.BytesIO(ss_bytes),
+                        caption=caption,
+                        parse_mode="HTML"
+                    )
+            except Exception as ss_e:
+                logging.warning(f"Screenshot error for forbidden username: {ss_e}")
             return
 
         filled = int(score / 10)
