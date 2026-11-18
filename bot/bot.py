@@ -659,14 +659,15 @@ FORBIDDEN_RULES = [
         ]
     },
     {
-        "category": "☠️ Narkotik, Psixotrop Moddalar va Qora Bozor",
-        "badge": "🚨 QAT’IYAN TAQIQLANGAN (NARKOTIK / QORA BOZOR)",
-        "law": "O‘zbekiston Respublikasi JK 273-moddasi (Giyohvandlik vositalari yoki psixotrop moddalarni qonunga xilof ravishda o‘tkazish) bo‘yicha eng og‘ir jinoiy jazoga sabab bo‘ladi!",
+        "category": "☠️ Narkotik, Darknet (.onion) va Noqonuniy Qora Bozor",
+        "badge": "🚨 QAT’IYAN TAQIQLANGAN (DARKNET / .ONION / NARKOTIK)",
+        "law": "O‘zbekiston Respublikasi JK 273-moddasi va kiberxavfsizlik talablariga ko‘ra, Darknet (.onion) tarmog‘i hamda uning qidiruv tizimlari (Ahmia) orqali noqonuniy vositalar, taqiqlangan moddalar va kiberjinoyatlar tarqatilishi qat’iyan man etiladi!",
         "patterns": [
+            r"ahmia(\.fi)?", r"\.onion($|[./:])", r"tor2web", r"darksearch",
             r"kraken", r"hydra", r"blacksprut", r"solaris", r"mega-?dark",
             r"omg-?omg", r"narkotik", r"psixotrop", r"zakladka", r"mefedron",
             r"alfa-?pvp", r"spice", r"spays", r"apteka-?online", r"narko-?shop",
-            r"(^|[\.\-_/])darknet([\.\-_/]|$)", r"\.onion($|/)"
+            r"(^|[\.\-_/])darknet([\.\-_/]|$)"
         ]
     },
     {
@@ -709,6 +710,13 @@ def audit_link(url_text: str):
     features = []
     risk = 10
     
+    # 0. Darknet (.onion) va Ahmia qidiruv tizimlari
+    if domain.endswith('.onion') or '.onion.' in domain or '.onion/' in full_lower or full_lower.endswith('.onion') or 'ahmia' in domain or 'ahmia.fi' in full_lower:
+        cat = FORBIDDEN_RULES[2]
+        warnings.append("🛑 <b>Darknet / Yashirin tarmoq (.onion):</b> Ushbu havola Tor / Darknet tarmog‘iga yoki uning qidiruv tizimiga (Ahmia) tegishli!")
+        warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {cat['law']}")
+        return True, cat, 100, warnings, features, domain, ""
+
     # Check against Forbidden / Illegal Patterns
     for cat in FORBIDDEN_RULES:
         for p in cat["patterns"]:
