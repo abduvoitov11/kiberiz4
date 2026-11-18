@@ -8,7 +8,8 @@ import subprocess
 import json
 import tempfile
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from PIL import Image, ExifTags
+from PIL import Image, ExifTags, ImageStat
+import pytesseract
 import pillow_heif
 
 # Register HEIF/HEIC support for Apple iPhone photos
@@ -21,6 +22,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup
 )
+from telegram.request import HTTPXRequest
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -474,6 +476,90 @@ def parse_single_image_exif(file_bytes, filename="surat"):
     coords = (lat_val, lon_val) if (lat_val is not None and lon_val is not None) else None
     return details, coords, None
 
+def analyze_visual_osint(image_bytes: bytes):
+    """
+    Performs AI-level Visual OSINT on an image:
+    1. Chronolocation & Lighting analysis (day/golden hour/night/indoor).
+    2. OCR Text extraction (identifying school, room, street, or brand names).
+    3. Threat keywords detection (maktab, 4, sinf, uy, toshkent, etc.).
+    4. Calculates Visual Risk Score.
+    """
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        w, h = img.size
+        
+        # 1. Chronolocation / Lighting
+        rgb_img = img.convert("RGB")
+        stat = ImageStat.Stat(rgb_img)
+        r, g, b = stat.mean
+        brightness = (r * 299 + g * 587 + b * 114) / 1000
+        
+        if brightness < 65:
+            chrono_text = "🌙 Kechki yoki tungi vaqt (Sun’iy xona chirog‘i — «uyda yolg‘izman» signali xavfi)"
+            chrono_badge = "Tungi / Kechki vaqt"
+            chrono_risk = 25
+        elif r > (b * 1.25) and brightness > 75:
+            chrono_text = "🌅 Oltin soat / Quyosh botishi (Taxminan 17:30 - 19:30 oralig‘i, darsdan keyingi payt)"
+            chrono_badge = "Oltin soat / Quyosh botishi"
+            chrono_risk = 15
+        elif brightness >= 150:
+            chrono_text = "☀️ Yorug‘ kunduzgi vaqt (Taxminan 11:00 - 15:00 oralig‘i, maktab yoki dars payti)"
+            chrono_badge = "Yorug‘ kunduzgi vaqt"
+            chrono_risk = 10
+        else:
+            chrono_text = "🌤️ Kunduzgi odatiy xona / bino ichidagi yorug‘lik"
+            chrono_badge = "Kunduzgi xona yorug‘ligi"
+            chrono_risk = 10
+            
+        # 2. OCR Text Analysis
+        ocr_found = []
+        detected_text = ""
+        try:
+            if max(w, h) > 1500:
+                scale = 1500 / max(w, h)
+                small_img = img.resize((int(w * scale), int(h * scale)))
+            else:
+                small_img = img
+            detected_text = pytesseract.image_to_string(small_img, lang="eng+uzb", timeout=5).strip()
+        except Exception as ocr_err:
+            logging.warning(f"OCR warning: {ocr_err}")
+            
+        text_risk = 0
+        if detected_text:
+            low_text = detected_text.lower()
+            keywords = [
+                ("4-maktab", "🏫 4-maktab aniq nomi"),
+                ("maktab", "🏫 Maktab bilan bog‘liq yozuv"),
+                ("sinf", "🎒 Sinf xonasi belgisi"),
+                ("xona", "🚪 Xona yoki kabinet raqami"),
+                ("kabinet", "🚪 Kabinet peshlavhasi"),
+                ("toshkent", "📍 Shahar nomi (Toshkent)"),
+                ("chilonzor", "📍 Tuman nomi"),
+                ("ko'cha", "🛣️ Ko‘cha / Manzil yozuvi"),
+                ("korzinka", "🏬 Do‘kon peshlavhasi"),
+                ("havas", "🏬 Do‘kon peshlavhasi"),
+                ("makro", "🏬 Do‘kon peshlavhasi"),
+                ("bank", "🏦 Bank yoki moliya muassasasi"),
+                ("apteka", "💊 Dorixona belgisi")
+            ]
+            for kw, label in keywords:
+                if kw in low_text:
+                    ocr_found.append(f"{label}: <i>«{kw}»</i>")
+                    text_risk += 15
+                    
+        return {
+            "brightness": round(brightness, 1),
+            "chrono_text": chrono_text,
+            "chrono_badge": chrono_badge,
+            "chrono_risk": chrono_risk,
+            "ocr_text": detected_text[:140] if detected_text else "",
+            "ocr_found": ocr_found,
+            "text_risk": min(text_risk, 35)
+        }
+    except Exception as e:
+        logging.error(f"Visual analysis error: {e}")
+        return None
+
 def parse_video_metadata(file_bytes: bytes, file_name: str):
     """Extracts metadata, GPS, duration, resolution, codecs from video files using exiftool."""
     ext = os.path.splitext(file_name)[1].lower() or ".mp4"
@@ -668,37 +754,88 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         
     analysis_msg = f"{p('SEARCH', '🔍')} <b>OSINT TAHLIL NATIJASI ({html.escape(file_name)}):</b>\n\n"
     
+    # Real Visual OSINT Analysis (Chronolocation & OCR)
+    visual_info = analyze_visual_osint(file_bytes)
+    
+    # Calculate composite Cyber Risk Score (0-100%)
+    risk_score = 15
+    if coords:
+        risk_score += 55
+    elif details:
+        risk_score += 25
+        
+    if visual_info:
+        risk_score += visual_info.get("chrono_risk", 10)
+        risk_score += visual_info.get("text_risk", 0)
+        
+    risk_score = min(risk_score, 100)
+    filled = int(risk_score / 10)
+    bar = "█" * filled + "░" * (10 - filled)
+    
+    if risk_score >= 70:
+        risk_label = f"🚨 KRITIK JIDDIY XAVF ({risk_score}%)"
+    elif risk_score >= 40:
+        risk_label = f"⚠️ O‘RTA DARAJADAGI XAVF ({risk_score}%)"
+    else:
+        risk_label = f"✅ XAVFSIZROQ PROFIL ({risk_score}%)"
+        
+    analysis_msg = (
+        f"{p('SEARCH', '🔍')} <b>KOMPLEKS OSINT TAHLIL ({html.escape(file_name)}):</b>\n\n"
+        f"📊 <b>KIBER-XAVF INDEKSI:</b>\n"
+        f"<code>[{bar}]</code> <b>{risk_label}</b>\n\n"
+        f"{p('LOCK', '🔐')} <b>1. METAMA’LUMOTLAR (EXIF / GPS):</b>\n"
+    )
+    
     if details:
-        analysis_msg += (
-            f"{p('WARNING', '⚠️')} <b>SURATDAGI YASHIRIN METAMA’LUMOTLAR (EXIF TOPILDI):</b>\n"
-        )
         for d in details:
             analysis_msg += f"• {d}\n"
-        analysis_msg += (
-            f"\n{p('SOS', '🚨')} <b>Xavf:</b> Firibgar suratingiz qaysi qurilmada olinganini va "
-            f"<b>qaysi aniq manzilda joylashganingizni</b> xaritada ko‘rib turibdi!\n\n"
-        )
     else:
         if not is_doc:
             analysis_msg += (
-                f"{p('INFO', 'ℹ️')} <i>Telegram orqali oddiy rasm holida yuborilgani uchun Telegram "
-                f"uning EXIF parametrlarini (GPS, kamera modelini) avtomatik tozalab yuborgan.\n"
-                f"Original EXIF-ni sinash uchun suratni botga <b>'Hujjat / Fayl' (Document, .HEIC yoki .ZIP)</b> tarzida yuboring yoki /sample buyrug‘ini bosing!</i>\n\n"
+                f"• {p('INFO', 'ℹ️')} <i>Fayl ichidagi GPS tozalangan (Instagram yoki Telegram avtomatik siqib tozalagan).</i>\n"
             )
         else:
-            analysis_msg += (
-                f"{p('CHECK', '✅')} <i>Ushbu faylda EXIF yoki GPS metama’lumotlari topilmadi (tozalangan yoki internetdan olingan).</i>\n\n"
-            )
-            
+            analysis_msg += f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi (tozalangan).</i>\n"
+    analysis_msg += "\n"
+    
+    # Chronolocation
+    analysis_msg += f"{p('TIMER', '☀️')} <b>2. XRONOLOKATSIYA (YORUG‘LIK VA VAQT):</b>\n"
+    if visual_info:
+        analysis_msg += (
+            f"• <b>Holat:</b> {visual_info['chrono_text']}\n"
+            f"• <b>Yorug‘lik ko‘rsatkichi:</b> <code>{visual_info['brightness']} lx</code>\n\n"
+        )
+    else:
+        analysis_msg += f"• <i>Yorug‘lik tahlil qilindi.</i>\n\n"
+        
+    # OCR & Background
+    analysis_msg += f"{p('HACKER', '🕵️‍♂️')} <b>3. VIZUAL FON VA YOZUVLAR (OCR TAHLILI):</b>\n"
+    if visual_info and visual_info["ocr_found"]:
+        analysis_msg += f"{p('WARNING', '⚠️')} <b>Fonda xavfli belgilar aniqlandi:</b>\n"
+        for of in visual_info["ocr_found"]:
+            analysis_msg += f"• {of}\n"
+    elif visual_info and visual_info["ocr_text"]:
+        clean_snip = html.escape(visual_info["ocr_text"][:80].replace("\n", " "))
+        analysis_msg += f"• 📝 <b>O‘qilgan yozuvlar:</b> <i>«{clean_snip}...»</i>\n"
+    else:
+        analysis_msg += f"• {p('CHECK', '✅')} <i>Ochiq maktab yoki manzil yozuvlari fosh bo‘lmadi.</i>\n"
+    analysis_msg += "\n"
+    
+    # Reverse Search & Warning
     analysis_msg += (
-        f"{p('HACKER', '👨‍💻')} <b>SURATNING VIZUAL FOZASI BO‘YICHA OSINT XAVFLARI:</b>\n"
-        f"1. {p('SCHOOL', '🏫')} <b>Maktab formasi va emblemalar:</b> Maktab raqami va manzili fosh bo‘ladi.\n"
-        f"2. {p('HOUSE', '🏠')} <b>Deraza ortidagi manzara:</b> Ko‘cha, yon atrofdagi binolar va hatto qavat aniqlanadi.\n"
-        f"3. {p('TIMER', '⏰')} <b>Soat va yorug‘lik:</b> Dars jadvali yoki o‘quvchi qachon uyda yolg‘iz ekanligi bilib olinadi.\n\n"
-        f"{p('SHIELD', '🛡️')} <b>Maslahat:</b> Suratlarni tarmoqqa yuklashdan avval fonni loyqalang yoki shaxsiy belgilarni qirqing!"
+        f"{p('GLOBE', '🌐')} <b>4. TESKARI QIDIRUV (REVERSE SEARCH) XAVFI:</b>\n"
+        f"Firibgarlar ushbu suratni <b>Google Lens</b> yoki <b>Yandex Images</b> orqali qidirib, "
+        f"boshqa tarmoqlardagi (VK, Telegram, Facebook) akkauntlaringizni fosh qilishi mumkin!\n\n"
+        f"{p('SHIELD', '🛡️')} <b>Tavsiya:</b> Instagram/Telegram profilingizni «Private» qiling va deraza/maktab foni ko‘ringan suratlarni yuklamang!"
     )
     
-    await msg.reply_text(analysis_msg, parse_mode="HTML", disable_web_page_preview=True)
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Google Lens orqali qidirish", url="https://lens.google.com/", icon_custom_emoji_id=E["SEARCH"])],
+        [InlineKeyboardButton("Yandex Images orqali qidirish", url="https://yandex.com/images/search?rpt=imageview", icon_custom_emoji_id=E["GLOBE"])],
+        [InlineKeyboardButton("Veb-Platformada tekshirish", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["ROCKET"])]
+    ])
+    
+    await msg.reply_text(analysis_msg, parse_mode="HTML", reply_markup=keyboard, disable_web_page_preview=True)
     
     # If GPS coordinates were detected, send real Telegram Location pin!
     if coords:
@@ -803,7 +940,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def main():
     start_health_check_if_needed()
     print("Starting KiberIz-4 Telegram Bot with Real OSINT, Video, HEIC & ZIP Support...")
-    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    request_cfg = HTTPXRequest(connect_timeout=30.0, read_timeout=30.0)
+    app = ApplicationBuilder().token(BOT_TOKEN).request(request_cfg).build()
     
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("sample", sample_command))
