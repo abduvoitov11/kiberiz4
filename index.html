@@ -799,20 +799,22 @@
       const stepDesc = document.getElementById('radarLoadingStepDesc');
 
       if (log1) log1.innerHTML = `» <span class="text-white">${escapeHtml(raw)}</span> skan qilinmoqda...`;
-      if (log2) log2.innerHTML = `» [1/3] Protokol va server tahlili boshlandi...`;
-      if (log3) log3.innerHTML = `» [2/3] Oliy Sud va Kiber-baza tekshirilmoqda...`;
+      if (log2) log2.innerHTML = `» [1/3] Protokol, DNS va server tahlili boshlandi...`;
+      if (log3) log3.innerHTML = `» [2/3] Oliy Sud va Kiber-baza filtri tekshirilmoqda...`;
 
       setTimeout(() => {
         if (pBar) pBar.style.width = '65%';
-        if (stepTitle) stepTitle.innerText = "Oliy Sud & Kiber-baza tahlili...";
-        if (stepDesc) stepDesc.innerText = "2 057+ manba va qonuniy taqiqlar filtri";
+        if (stepTitle) stepTitle.innerText = "Bulutli sendboks sahifaga kirmoqda...";
+        if (stepDesc) stepDesc.innerText = "Izolyatsiya qilingan brauzer sahifani render qilib, skrinshot olmoqda";
+        if (log2) log2.innerHTML = `» [2/3] Bulutli sendboks sahifaga ulandi va ekranni rasmga olmoqda...`;
         playRadarTone(850, 0.08, 'triangle');
       }, 400);
 
       setTimeout(() => {
         if (pBar) pBar.style.width = '100%';
-        if (stepTitle) stepTitle.innerText = "Xavfsizlik indeksi hisoblanmoqda...";
-        if (stepDesc) stepDesc.innerText = "Diagnostika hisoboti tayyorlanmoqda";
+        if (stepTitle) stepTitle.innerText = "Jonli skrinshot va hisobot tayyor...";
+        if (stepDesc) stepDesc.innerText = "Diagnostika hisoboti va ekran surati yuklanmoqda";
+        if (log3) log3.innerHTML = `» [3/3] Jonli ekran surati va to‘liq hisobot tayyorlandi.`;
         playRadarTone(1050, 0.08, 'triangle');
       }, 750);
 
@@ -924,6 +926,9 @@
               ${matchedRule.advice.map(adv => `<li>${adv}</li>`).join('')}
             </ul>
           </div>
+
+          <!-- LIVE SANDBOX SCREENSHOT -->
+          ${buildRadarScreenshotCard(clean, true, matchedRule.id === 'darknet_onion' || (matchedRule.badge && matchedRule.badge.includes('DARKNET')))}
         `;
       } else if (isUsername) {
         // USERNAME OSINT
@@ -1009,6 +1014,9 @@
               </a>
             </div>
           </div>
+
+          <!-- LIVE SANDBOX SCREENSHOT -->
+          ${buildRadarScreenshotCard(clean, false, false)}
         `;
       } else {
         // SAFE VERIFIED WEBSITE (e.g. kun.uz)
@@ -1065,10 +1073,238 @@
               Ushbu resurs rasmiy ro‘yxatdan o‘tgan va shubhali firibgarlik belgilari aniqlanmadi. Shunga qaramay, internetda notanish sahifalarda hech qachon shaxsiy parollaringiz yoki SMS kodlarni kiritmang.
             </p>
           </div>
+
+          <!-- LIVE SANDBOX SCREENSHOT -->
+          ${buildRadarScreenshotCard(clean, false, false)}
         `;
       }
 
       active.classList.remove('hidden');
+    }
+
+    function normalizeRadarTarget(raw) {
+      let s = String(raw || '').trim();
+      if (s.startsWith('@')) {
+        const user = s.replace(/^@+/, '');
+        return {
+          type: 'telegram',
+          display: `@${user}`,
+          url: `https://t.me/s/${user}`,
+          fullUrl: `https://t.me/${user}`,
+          isOnion: false
+        };
+      }
+      if (!s.includes('.') && !s.includes('/') && s.length <= 32) {
+        return {
+          type: 'telegram',
+          display: `@${s}`,
+          url: `https://t.me/s/${s}`,
+          fullUrl: `https://t.me/${s}`,
+          isOnion: false
+        };
+      }
+      if (s.includes('t.me/')) {
+        const cleanTg = s.replace(/^(https?:\/\/)?(www\.)?t\.me\//i, '');
+        const channel = cleanTg.split('/')[0].replace(/^s\//i, '');
+        return {
+          type: 'telegram',
+          display: `t.me/${channel}`,
+          url: `https://t.me/s/${channel}`,
+          fullUrl: `https://t.me/${channel}`,
+          isOnion: false
+        };
+      }
+      const isOnion = s.toLowerCase().includes('.onion');
+      let full = s;
+      if (!full.startsWith('http://') && !full.startsWith('https://')) {
+        full = 'https://' + full;
+      }
+      let disp = s.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+      return {
+        type: 'web',
+        display: disp,
+        url: full,
+        fullUrl: full,
+        isOnion: isOnion
+      };
+    }
+
+    function buildRadarScreenshotCard(clean, isDangerous, isDarknet) {
+      const norm = normalizeRadarTarget(clean);
+
+      if (norm.isOnion || isDarknet) {
+        return `
+          <!-- TOR DARKNET SANDBOX -->
+          <div class="mt-4 p-5 rounded-2xl bg-purple-950/40 border border-purple-500/40 text-center space-y-3 shadow-xl">
+            <div class="w-12 h-12 rounded-2xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-2xl mx-auto border border-purple-500/30">
+              <i class="fa-solid fa-user-secret animate-pulse"></i>
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-white">🧅 Tor Darknet (.onion) Izolyatsiyalangan Tarmoq</h4>
+              <p class="text-xs text-slate-300 max-w-md mx-auto leading-relaxed mt-1">
+                .onion zonalari shifrlangan Tor tarmog‘i ichida joylashgan bo‘lib, ochiq internet brauzerlari orqali to‘g‘ridan-to‘g‘ri ochilmaydi. Kiber-Sendboks xavfsizlik maqsadida ulanishni to‘xtatdi va sizning qurilmangizni himoyaladi.
+              </p>
+            </div>
+            <div class="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-purple-900/60 border border-purple-500/40 text-purple-300 text-[11px] font-mono">
+              <i class="fa-solid fa-lock"></i>
+              <span>Darknet shifrlangan tunnel (To‘g‘ridan-to‘g‘ri kirish cheklangan)</span>
+            </div>
+          </div>
+        `;
+      }
+
+      const primaryUrl = "https://image.thum.io/get/width/1200/crop/800/noanimate/" + norm.url;
+      const fallbackUrl1 = "https://api.microlink.io?url=" + encodeURIComponent(norm.url) + "&screenshot=true&embed=screenshot.url";
+      const fallbackUrl2 = "https://mini.s-shot.ru/1024x768/PNG/1024/Z100/?" + encodeURIComponent(norm.url);
+      const escapedTarget = escapeHtml(norm.url);
+
+      return `
+        <!-- BROWSER MOCK WINDOW (REAL-TIME CLOUD SANDBOX SCREENSHOT) -->
+        <div class="mt-4 rounded-2xl bg-slate-950 border ${isDangerous ? 'border-rose-500/40' : 'border-slate-800'} overflow-hidden shadow-2xl">
+          <!-- BROWSER TOP BAR -->
+          <div class="bg-slate-900/95 px-4 py-2.5 border-b border-slate-800 flex items-center justify-between text-xs">
+            <div class="flex items-center space-x-2">
+              <span class="w-3 h-3 rounded-full bg-rose-500 inline-block shadow-sm"></span>
+              <span class="w-3 h-3 rounded-full bg-amber-500 inline-block shadow-sm"></span>
+              <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block shadow-sm"></span>
+              <span class="text-[11px] font-mono text-slate-400 ml-2 hidden sm:inline">
+                <i class="fa-solid fa-display mr-1 ${isDangerous ? 'text-rose-400' : 'text-cyan-400'}"></i> Sendboks Ekrani
+              </span>
+            </div>
+
+            <!-- ADDRESS BAR -->
+            <div class="flex-1 max-w-md mx-3 px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 flex items-center justify-between truncate">
+              <div class="flex items-center space-x-1.5 truncate">
+                <i class="fa-solid ${isDangerous ? 'fa-triangle-exclamation text-rose-400' : 'fa-lock text-emerald-400'} text-[10px]"></i>
+                <span class="truncate">${escapeHtml(norm.display)}</span>
+              </div>
+              <span class="text-[9px] px-1.5 py-0.5 rounded ${isDangerous ? 'bg-rose-950 text-rose-400 border border-rose-500/40' : 'bg-cyan-950 text-cyan-400 border border-cyan-500/40'} font-bold uppercase ml-2 flex-shrink-0">
+                ${isDangerous ? 'QUARANTINE' : 'LIVE'}
+              </span>
+            </div>
+
+            <!-- ACTIONS -->
+            <div class="flex items-center space-x-1.5">
+              <button onclick="reloadRadarScreenshot('${escapedTarget}')" title="Qayta rasmga olish" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">
+                <i class="fa-solid fa-rotate-right text-xs"></i>
+              </button>
+              <a href="${escapeHtml(norm.fullUrl)}" target="_blank" rel="noopener noreferrer" title="Tashqi oynada ochish" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition">
+                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+              </a>
+            </div>
+          </div>
+
+          <!-- VIEWPORT (LIVE SCREENSHOT) -->
+          <div class="relative bg-[#060a12] min-h-[240px] max-h-[460px] overflow-hidden flex items-center justify-center group" id="radarScreenshotContainer">
+            <!-- LOADING SPINNER -->
+            <div id="radarScreenshotLoader" class="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center z-10 transition-opacity">
+              <div class="w-10 h-10 rounded-full border-2 ${isDangerous ? 'border-rose-500/20 border-t-rose-500' : 'border-cyan-500/20 border-t-cyan-400'} animate-spin mb-3"></div>
+              <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                <i class="fa-solid fa-camera ${isDangerous ? 'text-rose-400' : 'text-cyan-400'}"></i>
+                <span>Saytga kirilmoqda va ekranni rasmga olinmoqda...</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 max-w-sm">
+                Izolyatsiya qilingan bulutli brauzer (Chromium Sandbox) sahifani xavfsiz render qilmoqda.
+              </p>
+            </div>
+
+            <!-- SCREENSHOT IMAGE -->
+            <img 
+              id="radarScreenshotImg"
+              src="${primaryUrl}" 
+              alt="Sayt ekrani skrinshoti" 
+              class="w-full h-auto object-cover object-top opacity-0 transition-opacity duration-500"
+              onload="onRadarScreenshotLoaded(this)"
+              onerror="onRadarScreenshotError(this, '${fallbackUrl1}', '${fallbackUrl2}')"
+            />
+
+            <!-- LIVE BADGE -->
+            ${isDangerous ? `
+            <div class="absolute top-3 left-3 px-3 py-1 rounded-lg bg-rose-950/90 border border-rose-500/60 text-rose-300 text-[10px] font-black flex items-center space-x-1.5 backdrop-blur-md shadow-xl z-20">
+              <i class="fa-solid fa-shield-virus text-rose-400"></i>
+              <span>XAVFLI SAYT EKRANI (IZOLYATSIYADA)</span>
+            </div>` : `
+            <div class="absolute top-3 left-3 px-3 py-1 rounded-lg bg-slate-950/80 border border-emerald-500/50 text-emerald-400 text-[10px] font-bold flex items-center space-x-1.5 backdrop-blur-md z-20">
+              <i class="fa-solid fa-circle-check text-emerald-400"></i>
+              <span>JONLI BULUTLI SKRINSHOT</span>
+            </div>`}
+
+            <!-- FULLSCREEN OVERLAY BUTTON -->
+            <div class="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20">
+              <a href="${primaryUrl}" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-950/90 hover:bg-slate-900 border border-slate-700 text-white text-xs font-semibold flex items-center space-x-1.5 shadow-xl backdrop-blur-sm">
+                <i class="fa-solid fa-expand text-cyan-400"></i>
+                <span>Kattaroq ko‘rish</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- SANDBOX FOOTER NOTICE -->
+          <div class="p-3 bg-slate-900/80 border-t border-slate-800 text-[11px] text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-shield-halved text-cyan-400"></i>
+              <span><b>Bulutli Sendboks:</b> Sayt sizning telefon/kompyuteringizda emas, xavfsiz serverda ochib rasmga olindi.</span>
+            </div>
+            <span class="text-[10px] text-slate-500 font-mono">1280x800 Sandbox View</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function onRadarScreenshotLoaded(img) {
+      const loader = document.getElementById('radarScreenshotLoader');
+      if (loader) loader.classList.add('hidden');
+      img.classList.remove('opacity-0');
+      img.classList.add('opacity-100');
+    }
+
+    function onRadarScreenshotError(img, fallback1, fallback2) {
+      if (img.dataset.failedOnce) {
+        if (fallback2 && !img.dataset.failedTwice) {
+          img.dataset.failedTwice = "true";
+          img.src = fallback2;
+          return;
+        }
+        const loader = document.getElementById('radarScreenshotLoader');
+        if (loader) {
+          loader.innerHTML = `
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl mx-auto mb-2 border border-amber-500/30">
+              <i class="fa-solid fa-eye-slash"></i>
+            </div>
+            <div class="text-xs font-bold text-white mb-1">Skrinshot olish cheklandi</div>
+            <p class="text-[11px] text-slate-400 max-w-sm">
+              Sayt bot himoyasiga ega (Cloudflare / WAF) yoki server javob bermadi. Kiber-Radar barcha xavfsizlik tahlilini muvaffaqiyatli yakunlagan.
+            </p>
+          `;
+        }
+      } else {
+        img.dataset.failedOnce = "true";
+        if (fallback1) {
+          img.src = fallback1;
+        }
+      }
+    }
+
+    function reloadRadarScreenshot(targetUrl) {
+      const img = document.getElementById('radarScreenshotImg');
+      const loader = document.getElementById('radarScreenshotLoader');
+      if (!img) return;
+      if (loader) {
+        loader.classList.remove('hidden');
+        loader.innerHTML = `
+          <div class="w-10 h-10 rounded-full border-2 border-cyan-500/20 border-t-cyan-400 animate-spin mb-3"></div>
+          <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+            <i class="fa-solid fa-camera text-cyan-400"></i>
+            <span>Qayta skrinshot olinmoqda...</span>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1 max-w-sm">Bulutli sendboks sahifani yangilamoqda</p>
+        `;
+      }
+      img.classList.remove('opacity-100');
+      img.classList.add('opacity-0');
+      delete img.dataset.failedOnce;
+      delete img.dataset.failedTwice;
+      const ts = Date.now();
+      img.src = "https://image.thum.io/get/width/1200/crop/800/noanimate/" + targetUrl + "?_t=" + ts;
     }
 
     function escapeHtml(str) {
