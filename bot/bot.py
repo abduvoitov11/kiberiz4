@@ -689,21 +689,34 @@ def audit_link(url_text: str):
     return risk, warnings, features, domain, site_title
 
 def get_website_screenshot(url: str):
-    """Captures a safe, isolated cloud sandbox screenshot of a website."""
+    """Captures a safe, isolated cloud sandbox screenshot of a website without placeholder errors."""
     full_url = url.strip().rstrip('.,;!?')
     if not full_url.startswith(('http://', 'https://')):
         full_url = 'https://' + full_url
+        
+    # Provider 1: Thum.io (Real-time live browser rendering, no 'Generating Preview' placeholder)
     try:
-        encoded = urllib.parse.quote_plus(full_url)
-        # WordPress mshots provides fast, isolated cloud sandbox screenshots
-        mshots = f"https://s0.wp.com/mshots/v1/{encoded}?w=1280&h=800"
-        req = urllib.request.Request(mshots, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        thum_url = f"https://image.thum.io/get/width/1280/crop/800/{full_url}"
+        req = urllib.request.Request(thum_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=12) as resp:
             data = resp.read()
-            if len(data) > 5000:
+            if len(data) > 10000:
                 return data
     except Exception as e:
-        logging.warning(f"Screenshot fetch error: {e}")
+        logging.warning(f"Thum.io screenshot error: {e}")
+
+    # Provider 2: Microlink Cloud Sandbox fallback
+    try:
+        encoded = urllib.parse.quote_plus(full_url)
+        micro_url = f"https://api.microlink.io?url={encoded}&screenshot=true&embed=screenshot.url"
+        req = urllib.request.Request(micro_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = resp.read()
+            if len(data) > 10000:
+                return data
+    except Exception as e:
+        logging.warning(f"Microlink screenshot error: {e}")
+
     return None
 
 # ==========================================
