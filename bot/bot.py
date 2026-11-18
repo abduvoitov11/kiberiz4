@@ -629,21 +629,94 @@ URL_REGEX = re.compile(
     re.IGNORECASE
 )
 
+# Taqiqlangan va qonunga zid saytlar bazasi (Qimor, 18+, Narkotik, Fishing, Soxta investitsiya)
+FORBIDDEN_RULES = [
+    {
+        "category": "🎰 Qimor, Bukmekerlik va Tavakkalchilik o‘yinlari",
+        "badge": "🚨 QAT’IYAN TAQIQLANGAN (QIMOR / BUKMEKER)",
+        "law": "O‘zbekiston Respublikasi JK 278-moddasi (Qimor va tavakkalchilikka asoslangan o‘yinlarni tashkil etish hamda o‘tkazish) bo‘yicha qat’iyan jinoiy javobgarlikka sabab bo‘ladi!",
+        "patterns": [
+            r"1-?x-?bet", r"most-?bet", r"mel-?bet", r"line-?bet", r"1-?win", r"pin-?up",
+            r"pari-?match", r"vavada", r"leon-?bet", r"fon-?bet", r"bet-?and-?you",
+            r"bet365", r"joy-?casino", r"(^|[\.\-_/])casino([\.\-_/]|$)", r"bukmeker",
+            r"poker-?dom", r"(^|[\.\-_/])stavk[ai]", r"qimor", r"(^|[\.\-_/])slot[s]?([\.\-_/]|$)",
+            r"aviator-?(game|play)?", r"lucky-?jet", r"olimp-?bet", r"betwinner",
+            r"gg-?bet", r"marathonbet", r"winline", r"baltbet", r"liga-?stavok",
+            r"zenit-?bet", r"spin-?win", r"roulette", r"ruletka"
+        ]
+    },
+    {
+        "category": "🔞 18+ Axloqsiz va Pornografik Kontent",
+        "badge": "🚨 QAT’IYAN TAQIQLANGAN (18+ PORNOGRAFIK MAZMUN)",
+        "law": "O‘zbekiston Respublikasi JK 130-moddasi (Pornografik mahsulotlarni tarqatish, reklama qilish, namoyish etish) bo‘yicha qonun bilan qat’iyan taqiqlangan!",
+        "patterns": [
+            r"pornhub", r"xvideos", r"xnxx", r"redtube", r"xhamster", r"onlyfans",
+            r"chaturbate", r"brazzers", r"stripchat", r"erome", r"rule34",
+            r"(^|[\.\-_/])porn[o]?([\.\-_/]|$)", r"(^|[\.\-_/])sex([\.\-_/]|$)",
+            r"hentai", r"bongacams", r"livejasmin", r"fapello", r"fap-?house",
+            r"youporn", r"tube8", r"spankbang", r"eporner", r"beeg", r"camsoda",
+            r"cam4", r"hqporner", r"(^|[\.\-_/])xxx([\.\-_/]|$)", r"nsfw"
+        ]
+    },
+    {
+        "category": "☠️ Narkotik, Psixotrop Moddalar va Qora Bozor",
+        "badge": "🚨 QAT’IYAN TAQIQLANGAN (NARKOTIK / QORA BOZOR)",
+        "law": "O‘zbekiston Respublikasi JK 273-moddasi (Giyohvandlik vositalari yoki psixotrop moddalarni qonunga xilof ravishda o‘tkazish) bo‘yicha eng og‘ir jinoiy jazoga sabab bo‘ladi!",
+        "patterns": [
+            r"kraken", r"hydra", r"blacksprut", r"solaris", r"mega-?dark",
+            r"omg-?omg", r"narkotik", r"psixotrop", r"zakladka", r"mefedron",
+            r"alfa-?pvp", r"spice", r"spays", r"apteka-?online", r"narko-?shop",
+            r"(^|[\.\-_/])darknet([\.\-_/]|$)", r"\.onion($|/)"
+        ]
+    },
+    {
+        "category": "🎣 Fishing, Bank Tuzog‘i va Akkaunt O‘g‘riligi",
+        "badge": "🚨 O‘TA XAVFLI FIRIBGARLIK (FISHING / TUZOQ)",
+        "law": "O‘zbekiston Respublikasi JK 168-moddasi (Axborot texnologiyalaridan foydalangan holda sodir etilgan firibgarlik) bo‘yicha jinoiy javobgarlikka sabab bo‘ladi!",
+        "patterns": [
+            r"click-?sovrin", r"payme-?bonus", r"humo-?bonus", r"ovoz-?ber",
+            r"bepul-?ovoz", r"pul-?yutu[gq]", r"telegram-?free", r"bepul-?premium",
+            r"tg-?premium", r"tg-?bonus", r"soxta-?ovoz", r"openbudget-?(ovoz|bonus)",
+            r"click-?bonus", r"payme-?login", r"uzcard-?bonus", r"uzcard-?verify",
+            r"telegram-?gift", r"free-?nitro"
+        ]
+    },
+    {
+        "category": "💸 Soxta Investitsiya va Moliyaviy Piramida",
+        "badge": "🚨 FIRIBGARLIK TUZOG‘I (MOLIYAVIY PIRAMIDA)",
+        "law": "O‘zbekiston Respublikasi JK 188-1-moddasi (Noqonuniy moliyaviy piramida faoliyati) bo‘yicha qat’iyan taqiqlangan!",
+        "patterns": [
+            r"uzcard-?invest", r"humo-?invest", r"gazprom-?invest", r"daromad-?invest",
+            r"robot-?daromad", r"pul-?ishlash", r"bepul-?daromad", r"olymp-?trade",
+            r"binomo", r"iq-?option", r"finiko", r"express-?doxod", r"smart-?invest"
+        ]
+    }
+]
+
 def audit_link(url_text: str):
-    """Audits a URL for phishing, malicious TLDs, and scam keywords."""
+    """Audits a URL for forbidden illegal content, phishing, malicious TLDs, and scam keywords."""
     full_url = url_text.strip().rstrip('.,;!?')
     is_http_only = full_url.startswith('http://')
     if not full_url.startswith(('http://', 'https://')):
         full_url = 'https://' + full_url
         
     parsed = urllib.parse.urlparse(full_url)
-    domain = parsed.netloc.lower()
+    domain = (parsed.netloc or parsed.path).lower().split(':')[0]
     path = parsed.path.lower()
+    full_lower = full_url.lower()
     
     warnings = []
     features = []
     risk = 10
     
+    # Check against Forbidden / Illegal Patterns
+    for cat in FORBIDDEN_RULES:
+        for p in cat["patterns"]:
+            if re.search(p, domain) or re.search(p, path) or re.search(p, full_lower):
+                warnings.append(f"🛑 <b>Taqiqlangan manba:</b> {cat['category']} doirasidagi noqonuniy sayt!")
+                warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {cat['law']}")
+                return True, cat, 100, warnings, features, domain, ""
+
     # 1. Suspicious TLD
     suspicious_tlds = ('.xyz', '.top', '.buzz', '.tk', '.ml', '.ga', '.cf', '.gq', '.club', '.online', '.site', '.click', '.monster', '.icu', '.vip', '.rest')
     if any(domain.endswith(tld) for tld in suspicious_tlds):
@@ -686,7 +759,7 @@ def audit_link(url_text: str):
         pass
         
     risk = min(risk, 98)
-    return risk, warnings, features, domain, site_title
+    return False, None, risk, warnings, features, domain, site_title
 
 def get_website_screenshot(url: str):
     """Captures a safe, isolated cloud sandbox screenshot of a website without placeholder errors."""
@@ -1298,8 +1371,28 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # URL / Link Audit
         m_url = URL_REGEX.search(text.strip())
         matched_url = m_url.group(1).rstrip('.,;!?')
-        risk, warnings, features, domain, site_title = audit_link(matched_url)
+        is_forbidden, forbidden_info, risk, warnings, features, domain, site_title = audit_link(matched_url)
         
+        # 1. Taqiqlangan va qonunga zid manbalar (Qimor, 18+, Narkotik, Fishing)
+        if is_forbidden and forbidden_info:
+            resp = (
+                f"{p('BOMB', '🚨')} <b>QAT’IYAN TAQIQLANGAN VA NOQONUNIY MANBA!</b>\n\n"
+                f"🔗 <b>Kiritilgan havola:</b> <code>{html.escape(matched_url)}</code>\n"
+                f"🌐 <b>Asosiy Domen:</b> <code>{html.escape(domain)}</code>\n\n"
+                f"📊 <b>Kiber-Xavf Indeksi:</b> <code>[██████████]</code> <b>100% (KRITIK XAVF)</b>\n"
+                f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n\n"
+                f"⚠️ <b>ANIQLANGAN TAQIQLANGAN KATEGORIYA:</b>\n"
+                f"• <b>Turi:</b> {forbidden_info['category']}\n"
+                f"• ⚖️ <b>Qonuniy asos:</b> <i>{forbidden_info['law']}</i>\n\n"
+                f"🚫 <b>XAVFSIZLIK CHORALARI:</b>\n"
+                f"1. Ushbu havolaga <b>HECH QACHON kirmang</b> va uni boshqalarga ulashmang!\n"
+                f"2. Bunday saytlar fuqarolarning pullarini, shaxsiy hisoblarini o‘g‘irlash yoki axloqiy/ruhiy zarar yetkazish uchun mo‘ljallangan.\n"
+                f"3. Ushbu xabarni darhol o‘chirib tashlash tavsiya etiladi."
+            )
+            await update.message.reply_text(resp, parse_mode="HTML")
+            return
+
+        # 2. Boshqa barcha havolalar tahlili (Xavfsiz yoki Shubhali)
         filled = int(risk / 10)
         bar = "█" * filled + "░" * (10 - filled)
         if risk >= 60:
@@ -1327,7 +1420,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 resp += f"• {w}\n"
             resp += "\n"
         else:
-            resp += f"{p('CHECK', '✅')} <i>Ochiq fishing belgilari topilmadi.</i>\n\n"
+            resp += f"{p('CHECK', '✅')} <i>Ochiq fishing yoki taqiqlangan manba belgilari topilmadi.</i>\n\n"
             
         if features:
             resp += f"{p('SHIELD', '🛡️')} <b>Xavfsizlik parametrlari:</b>\n"
@@ -1340,23 +1433,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"mazmunidagi havolalarga HECH QACHON telefon raqam yoki SMS kod kiritmang!"
         )
         await update.message.reply_text(resp, parse_mode="HTML")
-        
-        # Capture safe isolated cloud screenshot
-        screenshot_bytes = get_website_screenshot(matched_url)
-        if screenshot_bytes:
-            caption = (
-                f"📸 <b>SAYTNING XAVFSIZ SKRINSHOTI (SANDBOX):</b>\n\n"
-                f"🛡️ <i>Begona va shubhali havola ichiga o‘zingiz kirmasdan, "
-                f"uning ko‘rinishini shu yerda bexavotir ko‘rishingiz mumkin!</i>"
-            )
-            try:
-                await update.message.reply_photo(
-                    photo=io.BytesIO(screenshot_bytes),
-                    caption=caption,
-                    parse_mode="HTML"
-                )
-            except Exception as e:
-                logging.warning(f"Error replying screenshot photo: {e}")
         return
     elif text.startswith("@") or (len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)):
         # Username OSINT Audit
