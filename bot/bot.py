@@ -1,5 +1,6 @@
 import os
 import io
+import re
 import html
 import logging
 import zipfile
@@ -7,6 +8,10 @@ import threading
 import subprocess
 import json
 import tempfile
+import urllib.request
+import urllib.parse
+import cv2
+import numpy as np
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from PIL import Image, ExifTags, ImageStat
 import pytesseract
@@ -155,12 +160,15 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
             KeyboardButton("5 daqiqalik Chek-list", icon_custom_emoji_id=E["SHIELD"])
         ],
         [
-            KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"]),
+            KeyboardButton("Nikneym & Havola auditi", icon_custom_emoji_id=E["HACKER"]),
             KeyboardButton("Real keyslar: 3 ta xavf", icon_custom_emoji_id=E["WARNING"])
         ],
         [
-            KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"]),
+            KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"]),
             KeyboardButton("Veb-Platforma havolasi", icon_custom_emoji_id=E["GLOBE"])
+        ],
+        [
+            KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"])
         ]
     ],
     resize_keyboard=True
@@ -413,6 +421,178 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{p('CHECK', '✅')} <i>Endi yangi qurilmadan kirilganda SMS koddan tashqari shu maxfiy parol ham so‘raladi!</i>"
         )
         await query.message.reply_text(guide_text, parse_mode="HTML")
+    elif data == "sanitize":
+        last_photo = context.user_data.get("last_photo")
+        if not last_photo:
+            await query.message.reply_text(
+                f"{p('WARNING', '⚠️')} Tozalash uchun yangi surat topilmadi. Iltimos, avval rasm yuboring.",
+                parse_mode="HTML"
+            )
+            return
+        try:
+            im = Image.open(io.BytesIO(last_photo)).convert("RGB")
+            out = io.BytesIO()
+            im.save(out, format="JPEG", quality=95)
+            out.seek(0)
+            await query.message.reply_document(
+                document=out,
+                filename="tozalangan_xavfsiz_surat.jpg",
+                caption=(
+                    f"{p('CHECK', '✅')} <b>SURAT TO‘LIQ TOZALANDI!</b>\n\n"
+                    f"• {p('SHIELD', '🛡️')} Barcha yashirin GPS koordinatalari olib tashlandi;\n"
+                    f"• {p('PHONE', '📱')} Kamera va telefon modeli o‘chirildi;\n"
+                    f"• {p('TIMER', '⏰')} Olingan sana/vaqt teglari tozalab yuborildi.\n\n"
+                    f"<i>Endi ushbu toza suratni ijtimoiy tarmoqlarga xavfsiz joylashingiz mumkin!</i>"
+                ),
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            await query.message.reply_text(f"Tozalashda xatolik: {e}")
+
+# ==========================================
+# ADVANCED OSINT UTILITIES (REVERSE GEO, QR, DOCS, USERNAME, LINKS)
+# ==========================================
+def get_human_address(lat: float, lon: float) -> str:
+    """Queries OpenStreetMap Nominatim for human-readable street/district in Uzbekistan."""
+    try:
+        url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&zoom=18&addressdetails=1"
+        req = urllib.request.Request(url, headers={"User-Agent": "KiberIz4-SchoolOSINT-Bot/1.0"})
+        with urllib.request.urlopen(req, timeout=4) as resp:
+            data = json.loads(resp.read().decode())
+            addr = data.get("address", {})
+            road = addr.get("road")
+            suburb = addr.get("suburb") or addr.get("district") or addr.get("city_district")
+            city = addr.get("city") or addr.get("county") or addr.get("state")
+            parts = []
+            if road: parts.append(road)
+            if suburb: parts.append(suburb)
+            if city: parts.append(city)
+            if parts:
+                return ", ".join(parts)
+            return data.get("display_name", "")[:80]
+    except Exception as e:
+        logging.warning(f"Reverse geocode error: {e}")
+        return None
+
+def scan_qr_code(file_bytes: bytes) -> str:
+    """Detects and decodes QR codes inside an image using OpenCV."""
+    try:
+        nparr = np.frombuffer(file_bytes, np.uint8)
+        cv_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if cv_img is None:
+            return None
+        detector = cv2.QRCodeDetector()
+        val, _, _ = detector.detectAndDecode(cv_img)
+        return val.strip() if val else None
+    except Exception as e:
+        logging.warning(f"QR scan error: {e}")
+        return None
+
+def parse_document_metadata(file_bytes: bytes, file_name: str):
+    """Extracts Author, Creator, Software, Dates from documents (PDF, DOCX) via exiftool."""
+    ext = os.path.splitext(file_name)[1].lower() or ".pdf"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+        tf.write(file_bytes)
+        tf_path = tf.name
+    try:
+        cmd = ["exiftool", "-json", tf_path]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+        if res.returncode != 0 or not res.stdout.strip():
+            return []
+        data = json.loads(res.stdout)[0]
+        details = []
+        author = data.get("Author") or data.get("Creator")
+        if author:
+            details.append(f"👤 <b>Hujjat muallifi:</b> {html.escape(str(author))}")
+        company = data.get("Company")
+        if company:
+            details.append(f"🏢 <b>Tashkilot / Muassasa:</b> {html.escape(str(company))}")
+        software = data.get("Software") or data.get("Producer") or data.get("CreatorTool")
+        if software:
+            details.append(f"💻 <b>Yaratilgan dastur:</b> {html.escape(str(software))}")
+        create_date = data.get("CreateDate")
+        if create_date:
+            details.append(f"⏰ <b>Yaratilgan vaqt:</b> {html.escape(str(create_date))}")
+        mod_date = data.get("ModifyDate")
+        if mod_date:
+            details.append(f"✏️ <b>Oxirgi tahrir vaqti:</b> {html.escape(str(mod_date))}")
+        pages = data.get("PageCount")
+        if pages:
+            details.append(f"📄 <b>Sahifalar soni:</b> {html.escape(str(pages))}")
+        return details
+    except Exception as e:
+        logging.warning(f"Doc metadata error: {e}")
+        return []
+    finally:
+        if os.path.exists(tf_path):
+            try:
+                os.remove(tf_path)
+            except Exception:
+                pass
+
+def audit_username(u: str):
+    """Audits a social media username for exposed age, school, and OSINT footprint."""
+    raw = u.lstrip('@').strip()
+    warnings = []
+    score = 100
+    
+    # 1. Year of birth detection
+    year_match = re.search(r'(19\d\d|20\d\d)$', raw)
+    if year_match:
+        y = int(year_match.group(1))
+        if 1990 <= y <= 2020:
+            age = 2026 - y
+            warnings.append(f"📅 <b>Tug‘ilgan yil fosh bo‘lgan:</b> <code>{y}</code>-yil (Taxminan <b>{age} yoshdasiz</b>).")
+            score -= 35
+    else:
+        short_year = re.search(r'[\._\-](\d{2})$', raw)
+        if short_year:
+            sy = int(short_year.group(1))
+            if 4 <= sy <= 18:
+                warnings.append(f"📅 <b>Yoshingiz fosh bo‘lgan bo‘lishi mumkin:</b> <code>{sy}</code>-yil (o‘quvchi yoshi).")
+                score -= 25
+
+    # 2. School or location pattern
+    if re.search(r'(maktab|m4|school|4maktab|toshkent|chilonzor)', raw, re.I):
+        warnings.append("🏫 <b>Maktab yoki joylashuv kodi:</b> Nikneymda maktab yoki shahar nomi mavjud.")
+        score -= 30
+        
+    score = max(score, 15)
+    return score, warnings, raw
+
+def audit_link(url_text: str):
+    """Audits a URL for phishing, malicious TLDs, and scam keywords."""
+    full_url = url_text.strip()
+    if not full_url.startswith(('http://', 'https://')):
+        full_url = 'https://' + full_url
+        
+    parsed = urllib.parse.urlparse(full_url)
+    domain = parsed.netloc.lower()
+    path = parsed.path.lower()
+    
+    warnings = []
+    risk = 10
+    
+    # 1. Suspicious TLD
+    suspicious_tlds = ('.xyz', '.top', '.buzz', '.tk', '.ml', '.ga', '.cf', '.gq', '.club', '.online', '.site', '.click', '.monster')
+    if any(domain.endswith(tld) for tld in suspicious_tlds):
+        warnings.append("🚨 <b>Xavfli domen zonasi:</b> Firibgarlar ko‘p foydalanadigan bepul yoki xavfli domen kengaytmasi.")
+        risk += 35
+
+    # 2. Phishing keywords
+    phish_words = ['bonus', 'sovrin', 'yutuq', 'click', 'payme', 'humo', 'uzcard', 'login', 'parol', 'verify', 'telegram-free', 'ovoz']
+    matched_words = [w for w in phish_words if w in domain or w in path]
+    if matched_words:
+        warnings.append(f"⚠️ <b>Shubhali kalit so‘zlar:</b> <i>«{', '.join(matched_words)}»</i> (Ovoz berish, pul yoki soxta bonus tuzog‘i).")
+        risk += 40
+
+    # 3. IP address host
+    if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', domain):
+        warnings.append("🚨 <b>To‘g‘ridan-to‘g‘ri IP manzil:</b> Domen nomi o‘rniga shubhali server IP manzili ko‘rsatilgan.")
+        risk += 45
+        
+    risk = min(risk, 98)
+    return risk, warnings, domain
 
 # ==========================================
 # REAL OSINT HELPER (JPG, PNG, HEIC, ZIP)
@@ -657,15 +837,16 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     
     video_exts = (".mp4", ".mov", ".avi", ".mkv", ".3gp", ".webm", ".m4v")
     img_exts = (".jpg", ".jpeg", ".png", ".tiff", ".heic", ".heif", ".webp")
+    doc_exts = (".pdf", ".docx", ".doc", ".pptx", ".xlsx")
     
     if is_doc:
         doc = msg.document
         file_name = doc.file_name or "hujjat"
         mime = (doc.mime_type or "").lower()
-        valid_exts = img_exts + video_exts + (".zip",)
+        valid_exts = img_exts + video_exts + doc_exts + (".zip",)
         if not (mime.startswith("image/") or mime.startswith("video/") or "zip" in mime or any(file_name.lower().endswith(ext) for ext in valid_exts)):
             await msg.reply_text(
-                f"{p('WARNING', '⚠️')} Iltimos, tahlil qilish uchun <b>fotosurat</b> (JPG, PNG, HEIC), <b>video</b> (MP4, MOV) yoki <b>ZIP arxiv</b> yuboring.",
+                f"{p('WARNING', '⚠️')} Iltimos, tahlil qilish uchun <b>fotosurat</b> (JPG, PNG, HEIC), <b>video</b> (MP4, MOV), <b>hujjat</b> (PDF, DOCX) yoki <b>ZIP arxiv</b> yuboring.",
                 parse_mode="HTML"
             )
             return
@@ -691,6 +872,26 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     # Check if ZIP archive
     if is_doc and (file_name.lower().endswith(".zip") or "zip" in (msg.document.mime_type or "").lower()):
         await handle_zip_archive(msg, file_bytes, file_name)
+        return
+
+    # Check if Document (PDF, DOCX)
+    if is_doc and any(file_name.lower().endswith(ext) for ext in doc_exts):
+        doc_details = parse_document_metadata(file_bytes, file_name)
+        doc_msg = (
+            f"{p('SEARCH', '📄')} <b>HUJJAT OSINT TAHLILI ({html.escape(file_name)}):</b>\n\n"
+            f"ℹ️ <i>Hujjatlar (PDF, Word) ichida muallif shaxsi, kompyuter nomi va tahrir sanalari saqlanadi:</i>\n\n"
+        )
+        if doc_details:
+            doc_msg += f"{p('WARNING', '⚠️')} <b>ANIQLANGAN YASHIRIN METAMA’LUMOTLAR:</b>\n"
+            for dd in doc_details:
+                doc_msg += f"• {dd}\n"
+            doc_msg += (
+                f"\n{p('SHIELD', '🛡️')} <b>Xavfsizlik eslatmasi:</b> Darslik, taqdimot yoki hujjatlarni tarmoqqa yuklashdan avval "
+                f"«Inspect Document» orqali shaxsiy ism va kompyuter nomini tozalab qo‘ying!"
+            )
+        else:
+            doc_msg += f"{p('CHECK', '✅')} <i>Ushbu hujjatda shaxsiy mualliflik metama’lumotlari topilmadi (tozalangan).</i>"
+        await msg.reply_text(doc_msg, parse_mode="HTML")
         return
 
     # ==========================
@@ -743,6 +944,7 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     # Process Single Image (JPG, PNG, HEIC, WEBP, TIFF)
+    context.user_data["last_photo"] = file_bytes
     details, coords, err = parse_single_image_exif(file_bytes, file_name)
     
     if err:
@@ -751,17 +953,36 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             parse_mode="HTML"
         )
         return
-        
-    analysis_msg = f"{p('SEARCH', '🔍')} <b>OSINT TAHLIL NATIJASI ({html.escape(file_name)}):</b>\n\n"
-    
+
+    # Reverse Geocoding to Human Address
+    if coords:
+        lat_val, lon_val = coords
+        human_addr = get_human_address(lat_val, lon_val)
+        if human_addr:
+            details.append(
+                f"{p('HOUSE', '🏢')} <b>Haqiqiy tuman / manzil:</b> <code>{html.escape(human_addr)}</code>\n"
+                f"   └ 🚨 <i>Diqqat: Ushbu joy 5 metr aniqlikda oshkor bo‘ldi!</i>"
+            )
+
+    # QR Code & Barcode Detection
+    qr_data = scan_qr_code(file_bytes)
+
     # Real Visual OSINT Analysis (Chronolocation & OCR)
     visual_info = analyze_visual_osint(file_bytes)
     
     # Calculate composite Cyber Risk Score (0-100%)
     risk_score = 15
     if coords:
-        risk_score += 55
+        risk_score += 50
     elif details:
+        risk_score += 25
+        
+    if visual_info:
+        risk_score += visual_info.get("chrono_risk", 10)
+        risk_score += visual_info.get("text_risk", 0)
+        
+    if qr_data:
+        risk_score += 25
         risk_score += 25
         
     if visual_info:
@@ -821,6 +1042,14 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         analysis_msg += f"• {p('CHECK', '✅')} <i>Ochiq maktab yoki manzil yozuvlari fosh bo‘lmadi.</i>\n"
     analysis_msg += "\n"
     
+    # QR Code & Barcode Section
+    if qr_data:
+        analysis_msg += (
+            f"🚨 <b>SURAT ICHIDA YASHIRIN QR-KOD TOPILDI:</b>\n"
+            f"• <b>QR Tarkibi:</b> <code>{html.escape(qr_data)}</code>\n"
+            f"• ⚠️ <i>Kiber-Xavf: Chipta, sertifikat yoki chekdagi QR-kodlar orqali shaxsiy hisoblar yoki ma’lumotlar o‘g‘irlanadi!</i>\n\n"
+        )
+
     # Reverse Search & Warning
     analysis_msg += (
         f"{p('GLOBE', '🌐')} <b>4. TESKARI QIDIRUV (REVERSE SEARCH) XAVFI:</b>\n"
@@ -830,8 +1059,11 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Google Lens orqali qidirish", url="https://lens.google.com/", icon_custom_emoji_id=E["SEARCH"])],
-        [InlineKeyboardButton("Yandex Images orqali qidirish", url="https://yandex.com/images/search?rpt=imageview", icon_custom_emoji_id=E["GLOBE"])],
+        [InlineKeyboardButton("🛡️ Suratni tozalash (EXIF-siz yuklab olish)", callback_data="sanitize", icon_custom_emoji_id=E["SHIELD"])],
+        [
+            InlineKeyboardButton("Google Lens qidiruv", url="https://lens.google.com/", icon_custom_emoji_id=E["SEARCH"]),
+            InlineKeyboardButton("Yandex Images", url="https://yandex.com/images/search?rpt=imageview", icon_custom_emoji_id=E["GLOBE"])
+        ],
         [InlineKeyboardButton("Veb-Platformada tekshirish", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["ROCKET"])]
     ])
     
@@ -928,8 +1160,105 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cases_command(update, context)
     elif "SOS" in text:
         await sos_command(update, context)
+    elif "Nikneym" in text or "Havola" in text:
+        await update.message.reply_text(
+            f"{p('HACKER', '🕵️‍♂️')} <b>NIKNEYM VA HAVOLA OSINT AUDITI:</b>\n\n"
+            f"1. <b>Nikneym (Username) tekshirish:</b>\n"
+            f"   Botga o‘zingizning yoki biror do‘stingizning nikneymini yuboring (masalan: <code>@sarvar_2008</code> yoki <code>malika_07</code>).\n"
+            f"   └ <i>Bot nikneym orqali yosh, maktab va boshqa tarmoqlardagi izlarni tahlil qilib beradi!</i>\n\n"
+            f"2. <b>Shubhali havola (Sayt) tekshirish:</b>\n"
+            f"   Sizga yuborilgan har qanday shubhali sayt havolasini yuboring (masalan: <code>http://click-sovrin.xyz</code> yoki <code>t.me/...</code>).\n"
+            f"   └ <i>Bot uning firibgarlik (fishing) ekanligini bir zumda fosh qiladi!</i>",
+            parse_mode="HTML"
+        )
     elif "Veb-Platforma" in text:
         await web_command(update, context)
+    elif text.startswith(("http://", "https://")) or ("." in text.split()[0] and not text.startswith("/") and len(text.split()) == 1):
+        # URL / Link Audit
+        first_token = text.strip().split()[0]
+        if any(ext in first_token.lower() for ext in (".uz", ".com", ".ru", ".net", ".org", ".xyz", ".top", ".me", ".io", ".site", ".click", "t.me/")):
+            risk, warnings, domain = audit_link(first_token)
+            
+            filled = int(risk / 10)
+            bar = "█" * filled + "░" * (10 - filled)
+            if risk >= 60:
+                verdict = f"🚨 JIDDIY FISHING VA FIRIBGARLIK TUZOG‘I ({risk}%)"
+            elif risk >= 35:
+                verdict = f"⚠️ SHUBHALI / EHTIYOT BO‘LING ({risk}%)"
+            else:
+                verdict = f"✅ NISBATAN XAVFSIZ SAYT ({risk}%)"
+                
+            resp = (
+                f"{p('GLOBE', '🌐')} <b>HAVOLA (URL) OSINT VA FISHING TEKSHIRUVI:</b>\n\n"
+                f"🔗 <b>Domen:</b> <code>{html.escape(domain)}</code>\n"
+                f"📊 <b>Xavf Ko‘rsatkichi:</b> <code>[{bar}]</code>\n"
+                f"<b>Xulosa:</b> {verdict}\n\n"
+            )
+            if warnings:
+                resp += f"{p('WARNING', '⚠️')} <b>Aniqlangan xavfli belgilar:</b>\n"
+                for w in warnings:
+                    resp += f"• {w}\n"
+                resp += "\n"
+            else:
+                resp += f"{p('CHECK', '✅')} <i>Ochiq fishing belgilari topilmadi.</i>\n\n"
+                
+            resp += (
+                f"{p('SHIELD', '🛡️')} <b>Kiber-Qoida:</b> «Ovoz bering», «Telegram Premium bepul», «Sovg‘a yutib oldingiz» "
+                f"mazmunidagi havolalarga HECH QACHON telefon raqam yoki SMS kod kiritmang!"
+            )
+            await update.message.reply_text(resp, parse_mode="HTML")
+            return
+        else:
+            await update.message.reply_text(
+                f"{p('INFO', 'ℹ️')} Iltimos, to‘liq domen manzilini kiriting (masalan: <code>sayt.uz</code> yoki <code>https://...</code>).",
+                parse_mode="HTML"
+            )
+    elif text.startswith("@") or (len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)):
+        # Username OSINT Audit
+        score, warnings, raw = audit_username(text)
+        filled = int(score / 10)
+        bar = "█" * filled + "░" * (10 - filled)
+        
+        if score <= 50:
+            anon_label = f"🚨 JUDA PAST ANONIMLIK ({score}%) — Shaxsingiz osongina fosh bo‘ladi!"
+        elif score <= 75:
+            anon_label = f"⚠️ O‘RTA DARAJA ({score}%) — Ayrim shaxsiy belgilar mavjud"
+        else:
+            anon_label = f"✅ YUQORI ANONIMLIK ({score}%) — Xavfsiz nikneym"
+            
+        resp = (
+            f"{p('HACKER', '🕵️‍♂️')} <b>NIKNEYM RAQAMLI IZ AUDITI: @{html.escape(raw)}</b>\n\n"
+            f"📊 <b>Anonimlik darajasi:</b>\n"
+            f"<code>[{bar}]</code> <b>{anon_label}</b>\n\n"
+        )
+        if warnings:
+            resp += f"{p('WARNING', '⚠️')} <b>Oshkor bo‘lgan ma’lumotlar:</b>\n"
+            for w in warnings:
+                resp += f"• {w}\n"
+            resp += "\n"
+        else:
+            resp += f"{p('CHECK', '✅')} <i>Nikneymda yosh, maktab yoki tug‘ilgan yil belgilari topilmadi (toza).</i>\n\n"
+            
+        resp += (
+            f"{p('SEARCH', '🔎')} <b>Boshqa tarmoqlardagi raqamli izlarni tekshirish:</b>\n"
+            f"Ushbu nikneym orqali boshqa platformalardagi profillarni bir bosishda qidirishingiz mumkin:"
+        )
+        
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("Telegram", url=f"https://t.me/{raw}"),
+                InlineKeyboardButton("Instagram", url=f"https://instagram.com/{raw}")
+            ],
+            [
+                InlineKeyboardButton("TikTok", url=f"https://tiktok.com/@{raw}"),
+                InlineKeyboardButton("GitHub", url=f"https://github.com/{raw}")
+            ],
+            [
+                InlineKeyboardButton("WhatsMyName (Global Qidiruv)", url="https://whatsmyname.app/")
+            ]
+        ])
+        await update.message.reply_text(resp, parse_mode="HTML", reply_markup=keyboard)
+        return
     else:
         await update.message.reply_text(
             f"{p('INFO', 'ℹ️')} Iltimos, pastdagi menyu tugmalaridan birini tanlang yoki tahlil uchun fotosurat yuboring.",
