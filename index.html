@@ -728,6 +728,9 @@
               <span class="text-slate-400">📍 GPS Koordinata:</span>
               <span class="font-mono font-bold text-rose-400">${lat}° N, ${lon}° E</span>
             </div>
+            <div id="geoAddress" class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
+              <i class="fa-solid fa-spinner fa-spin mr-1.5 text-cyan-400"></i> Manzil aniqlanmoqda...
+            </div>
             ${device ? `
             <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
               <span class="text-slate-400">📱 Haqiqiy qurilma:</span>
@@ -757,6 +760,22 @@
             💡 <b>Qanday himoyalanish kerak:</b> Telefoningiz kamera sozlamalariga kiring va <i>«Joylashuv teglari (Location tags)»</i> funksiyasini zudlik bilan o‘chirib qo‘ying!
           </div>
         `;
+
+        // Asynchronous Reverse Geocoding (OpenStreetMap Nominatim)
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`)
+          .then(res => res.json())
+          .then(data => {
+            const el = document.getElementById('geoAddress');
+            if (el && data && data.display_name) {
+              el.innerHTML = `<span class="text-slate-400">🏢 Aniq Manzil:</span> <span class="font-semibold text-cyan-300 ml-1">${data.display_name}</span>`;
+            }
+          })
+          .catch(() => {
+            const el = document.getElementById('geoAddress');
+            if (el) {
+              el.innerHTML = `<span class="text-slate-400">🏢 Manzil:</span> <span class="text-slate-300 ml-1">OpenStreetMap xaritasida tekshirish mumkin</span>`;
+            }
+          });
       } else if (device || dateTime) {
         // Device or Time found
         scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
