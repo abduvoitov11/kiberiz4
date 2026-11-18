@@ -190,8 +190,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• {p('SCHOOL', '🏫')} <i>Qaysi maktab va sinfda o‘qishingizni;</i>\n"
         f"• {p('HOUSE', '🏠')} <i>Qaysi ko‘chada yashashingizni;</i>\n"
         f"• {p('BOMB', '💣')} <i>Qachon uyda yolg‘iz ekanligingizni!</i>\n\n"
-        f"{p('INFO', 'ℹ️')} Botga istalgan formatdagi fotosuratni yuboring:\n"
-        f"• <b>Oddiy rasm yoki Hujjat (JPG, PNG, WEBP)</b>;\n"
+        f"{p('INFO', 'ℹ️')} Botga tahlil uchun fotosurat yuboring:\n"
         f"• <b>Apple iPhone formatidagi (.HEIC) fotosuratlar</b>;\n"
         f"• <b>.ZIP arxivdagi fotosuratlar to‘plami</b>!\n\n"
         f"🧪 <i>Sinov uchun GPS-li tayyor rasm olish: /sample buyrug‘ini bosing.</i>"
@@ -536,10 +535,12 @@ def parse_document_metadata(file_bytes: bytes, file_name: str):
                 pass
 
 def audit_username(u: str):
-    """Audits a social media username for exposed age, school, and OSINT footprint."""
+    """Audits a social media username for exposed age, school, interest profiling, and live platform presence."""
     raw = u.lstrip('@').strip()
     warnings = []
-    score = 100
+    insights = []
+    platforms_found = []
+    score = 95
     
     # 1. Year of birth detection
     year_match = re.search(r'(19\d\d|20\d\d)$', raw)
@@ -553,17 +554,58 @@ def audit_username(u: str):
         short_year = re.search(r'[\._\-](\d{2})$', raw)
         if short_year:
             sy = int(short_year.group(1))
-            if 4 <= sy <= 18:
-                warnings.append(f"📅 <b>Yoshingiz fosh bo‘lgan bo‘lishi mumkin:</b> <code>{sy}</code>-yil (o‘quvchi yoshi).")
+            if 4 <= sy <= 20:
+                warnings.append(f"📅 <b>Yoshingiz fosh bo‘lgan bo‘lishi mumkin:</b> <code>20{sy:02d}</code>-yil (o‘quvchi yoshi).")
                 score -= 25
 
     # 2. School or location pattern
-    if re.search(r'(maktab|m4|school|4maktab|toshkent|chilonzor)', raw, re.I):
-        warnings.append("🏫 <b>Maktab yoki joylashuv kodi:</b> Nikneymda maktab yoki shahar nomi mavjud.")
+    loc_match = re.search(r'(maktab|m4|school|4maktab|toshkent|chilonzor|samarqand|namangan|andijon|buxoro)', raw, re.I)
+    if loc_match:
+        warnings.append(f"🏫 <b>Maktab yoki joylashuv kodi:</b> Nikneymda joylashuv belgisi mavjud (<i>«{loc_match.group(0)}»</i>).")
         score -= 30
         
-    score = max(score, 15)
-    return score, warnings, raw
+    # 3. Interests & Semantics profiling
+    interests = []
+    low = raw.lower()
+    if 'sport' in low: interests.append("⚽ Sport / Jismoniy faollik")
+    if 'lider' in low or 'leader' in low: interests.append("🏆 Yetakchilik / Faollik")
+    if 'game' in low or 'gamer' in low or 'pubg' in low: interests.append("🎮 Video o‘yinlar (Gaming)")
+    if 'coder' in low or 'dev' in low or 'hack' in low: interests.append("💻 Dasturlash / IT")
+    if 'music' in low or 'sound' in low: interests.append("🎵 Musiqa")
+    if 'auto' in low or 'car' in low: interests.append("🚗 Avto / Texnika")
+    if 'shop' in low or 'store' in low or 'savdo' in low: interests.append("🛒 Savdo / Biznes")
+    
+    if interests:
+        insights.append(f"🎯 <b>Qiziqish sohasi (Profiling):</b> " + ", ".join(interests))
+        
+    # 4. Real-time platform presence check
+    # Telegram check
+    try:
+        tg_url = f"https://t.me/{raw}"
+        req = urllib.request.Request(tg_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=4) as res:
+            page = res.read().decode("utf-8")
+            if "tgme_page_title" in page or "tgme_action_button_new" in page:
+                title = ""
+                if '<meta property="og:title" content="' in page:
+                    title = page.split('<meta property="og:title" content="')[1].split('"')[0]
+                platforms_found.append(f"✈️ <b>Telegram:</b> Faol profil / kanal mavjud" + (f" (<i>«{html.escape(title)}»</i>)" if title and title != "Telegram" else ""))
+    except Exception:
+        pass
+        
+    # GitHub check
+    try:
+        gh_url = f"https://api.github.com/users/{raw}"
+        req = urllib.request.Request(gh_url, headers={"User-Agent": "KiberIz4-Agent"})
+        with urllib.request.urlopen(req, timeout=4) as res:
+            if res.status == 200:
+                data = json.loads(res.read().decode())
+                platforms_found.append(f"🐙 <b>GitHub:</b> Dasturchi profili topildi (Repolar: {data.get('public_repos', 0)} ta)")
+    except Exception:
+        pass
+        
+    score = max(min(score, 100), 15)
+    return score, warnings, insights, platforms_found, raw
 
 def audit_link(url_text: str):
     """Audits a URL for phishing, malicious TLDs, and scam keywords."""
@@ -1146,8 +1188,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
     if "Suratni tekshirish" in text or "OSINT" in text:
         await update.message.reply_text(
-            f"{p('EXIF_PHOTO', '🖼️')} Iltimos, tahlil qilish uchun botga <b>istalgan fotosuratni</b> yuboring:\n"
-            f"• <b>JPG, PNG, WEBP</b> (fayl yoki rasm holida);\n"
+            f"{p('EXIF_PHOTO', '🖼️')} Iltimos, tahlil qilish uchun botga <b>fotosurat</b> yuboring:\n"
             f"• <b>Apple iPhone (.HEIC)</b> fotosuratlari;\n"
             f"• <b>.ZIP arxivdagi fotosuratlar</b>!\n\n"
             f"💡 <i>Sinov uchun GPS-li tayyor namuna surat olish: /sample buyrug‘ini bosing!</i>",
@@ -1216,7 +1257,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
     elif text.startswith("@") or (len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)):
         # Username OSINT Audit
-        score, warnings, raw = audit_username(text)
+        score, warnings, insights, platforms_found, raw = audit_username(text)
         filled = int(score / 10)
         bar = "█" * filled + "░" * (10 - filled)
         
@@ -1239,6 +1280,17 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             resp += "\n"
         else:
             resp += f"{p('CHECK', '✅')} <i>Nikneymda yosh, maktab yoki tug‘ilgan yil belgilari topilmadi (toza).</i>\n\n"
+            
+        if insights:
+            for ins in insights:
+                resp += f"{ins}\n"
+            resp += "\n"
+            
+        if platforms_found:
+            resp += f"{p('SEARCH', '🌐')} <b>Jonli topilgan akkauntlar:</b>\n"
+            for pf in platforms_found:
+                resp += f"• {pf}\n"
+            resp += "\n"
             
         resp += (
             f"{p('SEARCH', '🔎')} <b>Boshqa tarmoqlardagi raqamli izlarni tekshirish:</b>\n"
