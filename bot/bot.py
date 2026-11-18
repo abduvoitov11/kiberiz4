@@ -2,6 +2,8 @@ import os
 import io
 import re
 import html
+import time
+import hashlib
 import asyncio
 import logging
 import zipfile
@@ -59,19 +61,23 @@ from telegram.ext import (
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Load BOT_TOKEN and ADMIN_ID from environment variable or local gitignored .env file
+# Load BOT_TOKEN, ADMIN_ID, and GEMINI_API_KEY from environment variable or local gitignored .env file
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_ID = os.environ.get("ADMIN_ID", "")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 env_file = os.path.join(BASE_DIR, ".env")
 if not os.path.exists(env_file):
     env_file = os.path.join(BASE_DIR, "../.env")
 if os.path.exists(env_file):
     with open(env_file, "r") as f:
         for line in f:
-            if line.strip().startswith("BOT_TOKEN=") and not BOT_TOKEN:
-                BOT_TOKEN = line.strip().split("=", 1)[1].strip("\"' ")
-            elif line.strip().startswith("ADMIN_ID=") and not ADMIN_ID:
-                ADMIN_ID = line.strip().split("=", 1)[1].strip("\"' ")
+            line_str = line.strip()
+            if line_str.startswith("BOT_TOKEN=") and not BOT_TOKEN:
+                BOT_TOKEN = line_str.split("=", 1)[1].strip("\"' ")
+            elif line_str.startswith("ADMIN_ID=") and not ADMIN_ID:
+                ADMIN_ID = line_str.split("=", 1)[1].strip("\"' ")
+            elif line_str.startswith("GEMINI_API_KEY=") and not GEMINI_API_KEY:
+                GEMINI_API_KEY = line_str.split("=", 1)[1].strip("\"' ")
 
 def resolve_path(candidates):
     for c in candidates:
@@ -218,6 +224,7 @@ EMOJI_MAP = {
     '🏆': E['TROPHY'],
     '🔄': E['REFRESH'],
     '💯': E['HUNDRED'],
+    '🤖': E['LIGHT'],
     '🟢': E['GREEN'],
     '🟡': E['YELLOW'],
     '🔴': E['RED'],
@@ -301,6 +308,152 @@ async def _custom_send_message(self, chat_id, text, *args, **kwargs):
     return await _orig_send_message(self, chat_id, text, *args, **kwargs)
 Bot.send_message = _custom_send_message
 
+# ==========================================
+# GEMINI AI CYBER-MENTOR ENGINE (Method 1)
+# ==========================================
+GEMINI_MODELS = [
+    "gemini-3.5-flash-lite",
+    "gemini-3.1-flash-lite",
+    "gemini-3.8-flash",
+    "gemini-flash-latest"
+]
+
+AI_SYSTEM_INSTRUCTION = """Siz «KiberIz-4» — 4-sonli umumiy o'rta ta'lim maktabining Raqamli Xavfsizlik va Kiber-Gigiyena bo'yicha sun'iy intellektga asoslangan virtual murabbiyisiz (Cyber-Mentor).
+Vazifangiz: Maktab o'quvchilari (5-11 sinflar), ularning ota-onalari va o'qituvchilariga ijtimoiy tarmoqlar (Telegram, Instagram, TikTok), akkauntlarni himoyalash, 2FA, murakkab parollar, fishing havolalar, kiberbulling, shantaj va shaxsiy ma'lumotlar xavfsizligi bo'yicha aniq, do'stona, tushunarli va amaliy yordam berish.
+
+Asosiy qoidalar:
+1. Ravon, do'stona va sodda o'zbek tilida (lotin yozuvida) javob bering.
+2. Javobingizni punktlar (•) va qisqa qadam-baqadam tavsiyalar bilan tuzing. Uzun, zerikarli va murakkab ilmiy atamalardan qoching.
+3. QAT'IYAN TAQIQLANADI: Xakkerlik, birovning akkauntini buzish (vzlom), zararli dastur (virus, troyan) yaratish yoki noqonuniy harakatlarni o'rgatish. Bunday so'rovlarga qat'iy va odob bilan rad javobini bering hamda qonuniy xavfsizlik choralarini tushuntiring.
+4. Agar foydalanuvchi jiddiy xavf (kiberbulling, shaxsiy rasmlar bilan shantaj, tovlamachilik) haqida yozsa, ularni tinchlantiring, "Anonim SOS" tugmasidan foydalanishni yoki 1133 (+998 55 502-10-10) ishonch telefoniga qo'ng'iroq qilishni tavsiya eting.
+5. Agar savol kiberxavfsizlikka aloqador bo'lmagan mavzuda bo'lsa, unga 1 ta qisqa jumla bilan javob berib, kiberxavfsizlik va internetda xavfsiz qolish bo'yicha savol berishga undab qo'ying.
+"""
+
+AI_RESPONSE_CACHE = {}  # {hash: (timestamp, formatted_text)}
+AI_USER_COOLDOWN = {}   # {user_id: timestamp}
+
+def format_ai_to_tg_html(raw_text: str) -> str:
+    """Escapes HTML and translates Gemini markdown into Telegram HTML."""
+    if not raw_text:
+        return ""
+    t = html.escape(raw_text, quote=False)
+    t = re.sub(r'```(?:[a-zA-Z0-9_\-]+)?\n?(.*?)```', r'<pre>\1</pre>', t, flags=re.DOTALL)
+    t = re.sub(r'`([^`\n]+)`', r'<code>\1</code>', t)
+    t = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', t)
+    t = re.sub(r'(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])', r'<i>\1</i>', t)
+    t = re.sub(r'(?<![a-zA-Z0-9\*])\*([^*\n]+)\*(?![a-zA-Z0-9\*])', r'<i>\1</i>', t)
+    return t
+
+def _query_gemini_api_sync(prompt: str) -> str:
+    """Synchronous worker calling Google Gemini API with fallback models."""
+    if not GEMINI_API_KEY:
+        return (
+            "⚠️ <b>Gemini API kaliti topilmadi.</b>\n"
+            "Iltimos, bot ma'muri <code>.env</code> fayliga <code>GEMINI_API_KEY</code> ni kiritganligini tekshiring."
+        )
+
+    payload = {
+        "contents": [
+            {"role": "user", "parts": [{"text": prompt}]}
+        ],
+        "systemInstruction": {
+            "parts": [{"text": AI_SYSTEM_INSTRUCTION}]
+        },
+        "generationConfig": {
+            "temperature": 0.4,
+            "maxOutputTokens": 850
+        }
+    }
+    body = json.dumps(payload).encode("utf-8")
+
+    last_err = None
+    for model in GEMINI_MODELS:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
+        req = urllib.request.Request(
+            url,
+            data=body,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                candidates = data.get("candidates", [])
+                if candidates:
+                    parts = candidates[0].get("content", {}).get("parts", [])
+                    if parts and parts[0].get("text"):
+                        return parts[0].get("text").strip()
+        except Exception as e:
+            last_err = e
+            logging.warning(f"Gemini model {model} failed: {e}")
+            continue
+
+    logging.error(f"All Gemini models exhausted. Last error: {last_err}")
+    return (
+        "Uzr, hozirda sun'iy intellekt serverida yuklama yuqori bo'lganligi sababli javob bera olmadim. "
+        "Iltimos, birozdan so'ng savolingizni qayta yuboring yoki quyidagi tayyor bo'limlardan foydalaning."
+    )
+
+async def ask_gemini_cyber_mentor(prompt: str, user_id: int = 0) -> str:
+    """Async wrapper with per-user cooldown and FAQ caching."""
+    clean_prompt = prompt.strip()
+    if not clean_prompt:
+        return "Iltimos, savolingizni yozib yuboring."
+
+    now = time.time()
+    # 1. User cooldown (3.5 seconds)
+    if user_id:
+        last_time = AI_USER_COOLDOWN.get(user_id, 0)
+        if now - last_time < 3.5:
+            remaining = int(4 - (now - last_time)) + 1
+            return (
+                f"⏳ <b>Biroz sabr qiling:</b> Sun’iy intellekt yuklamasini tejash maqsadida "
+                f"yangi savolni <b>{remaining} soniya</b>dan so‘ng bera olasiz."
+            )
+        AI_USER_COOLDOWN[user_id] = now
+
+    # 2. Check FAQ cache
+    import hashlib
+    query_key = hashlib.md5(clean_prompt.lower().encode("utf-8")).hexdigest()
+    if query_key in AI_RESPONSE_CACHE:
+        cache_time, cached_answer = AI_RESPONSE_CACHE[query_key]
+        if now - cache_time < 7200:  # 2 hours cache
+            return cached_answer
+
+    # 3. Call API in thread executor
+    raw_answer = await asyncio.to_thread(_query_gemini_api_sync, clean_prompt)
+    formatted = format_ai_to_tg_html(raw_answer)
+
+    # Save to cache if successful
+    if "Uzr, hozirda" not in raw_answer and "API kaliti topilmadi" not in raw_answer:
+        AI_RESPONSE_CACHE[query_key] = (now, formatted)
+
+    return formatted
+
+async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Triggers the AI Cyber-Mentor interface."""
+    context.user_data["waiting_for_ai"] = True
+    ai_intro_text = (
+        f"{p('LIGHT', '💡')} <b>AQLLI AI KIBER-MASLAHATCHI (4-MAKTAB)</b>\n\n"
+        f"Assalomu alaykum! Men maktabimizning kiberxavfsizlik va axborot madaniyati bo‘yicha "
+        f"<b>sun’iy intellektga asoslangan virtual maslahatchisiman</b>.\n\n"
+        f"Menga internetda duch kelgan har qanday muammo, shubhali holat yoki akkaunt xavfsizligi bo‘yicha "
+        f"o‘z so‘zlaringiz bilan erkin savol berishingiz mumkin.\n\n"
+        f"<b>Eng ko‘p so‘raladigan savollar:</b>\n"
+        f"• <i>«Telegramda begona guruhlarga qo‘shilishni qanday taqiqlayman?»</i>\n"
+        f"• <i>«2-bosqichli tasdiqlash (2FA) parolini qanday yoqsam bo‘ladi?»</i>\n"
+        f"• <i>«Fishing va soxta havolalarni qanday aniqlash mumkin?»</i>\n"
+        f"• <i>«Kuchli va esda qolarli parolni qanday tuzaman?»</i>\n\n"
+        f"✍️ <i>Savolingizni pastga yozing yoki quyidagi tayyor tugmalardan birini bosing:</i>"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("👥 Begona guruhlardan himoya", callback_data="ai_q_groups", icon_custom_emoji_id=E["LOCK"])],
+        [InlineKeyboardButton("🔐 2FA (Ikki bosqichli) yoqish", callback_data="ai_q_2fa", icon_custom_emoji_id=E["KEY_LOCK"])],
+        [InlineKeyboardButton("🎣 Fishing havolani aniqlash", callback_data="ai_q_phishing", icon_custom_emoji_id=E["WARNING"])],
+        [InlineKeyboardButton("🔑 Kuchli parol yaratish qoidasi", callback_data="ai_q_password", icon_custom_emoji_id=E["KEY"])]
+    ])
+    await update.message.reply_text(ai_intro_text, parse_mode="HTML", reply_markup=keyboard)
+
 # Main persistent reply keyboard with Telegram Premium icon custom emojis
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
@@ -317,6 +470,7 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
             KeyboardButton("🌐 Kiber-Portal (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["GLOBE"])
         ],
         [
+            KeyboardButton("🤖 AI Kiber-Maslahatchi", icon_custom_emoji_id=E["LIGHT"]),
             KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"])
         ]
     ],
@@ -666,6 +820,35 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
         )
         await query.message.reply_text(success_msg, parse_mode="HTML")
+    elif data.startswith("ai_q_"):
+        query_map = {
+            "ai_q_groups": "Telegramda meni begona va shubhali guruhlarga qo‘shib qo‘yishmasligi uchun qanday sozlamalarni yoqishim kerak?",
+            "ai_q_2fa": "Telegram va boshqa ijtimoiy tarmoqlarda Ikki bosqichli tasdiqlashni (2FA) qanday yoqish kerak va u nima uchun shart?",
+            "ai_q_phishing": "Internetda va Telegramda fishing hamda soxta havolalarni (soxta sovg'a, ovoz berish) qanday qilib darhol aniqlash mumkin?",
+            "ai_q_password": "Buzilmaydigan, kuchli va o'quvchi uchun eslab qolish oson bo'lgan parolni qanday yaratish kerak?"
+        }
+        prompt = query_map.get(data, "Kiberxavfsizlik bo'yicha asosiy tavsiyalar.")
+        try:
+            await query.message.chat.send_action("typing")
+        except Exception:
+            pass
+        answer = await ask_gemini_cyber_mentor(prompt, user_id=query.from_user.id)
+        reply_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✍️ O‘z savolimni berish", callback_data="ask_custom_ai", icon_custom_emoji_id=E["CHAT"])],
+            [InlineKeyboardButton("🚨 Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])]
+        ])
+        await query.message.reply_text(
+            f"{p('LIGHT', '💡')} <b>AI KIBER-MASLAHATCHI JAVOBI:</b>\n\n{answer}",
+            parse_mode="HTML",
+            reply_markup=reply_markup
+        )
+    elif data == "ask_custom_ai":
+        context.user_data["waiting_for_ai"] = True
+        await query.message.reply_text(
+            f"{p('CHAT', '✍️')} <b>Marhamat, o‘zingizni qiziqtirgan savolni yozib yuboring:</b>\n\n"
+            f"<i>Masalan: «Do‘stimning akkaunti buzilibdi, qanday yordam bersam bo‘ladi?»</i>",
+            parse_mode="HTML"
+        )
 
 # ==========================================
 # ADVANCED OSINT UTILITIES (REVERSE GEO, QR, DOCS, USERNAME, LINKS)
@@ -1661,6 +1844,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text.lower() in ["/cancel", "bekor qilish", "bekor"]:
         context.user_data["waiting_for_sos"] = False
         context.user_data["waiting_for_audit"] = False
+        context.user_data["waiting_for_ai"] = False
         await update.message.reply_text(
             f"{p('CHECK', '✅')} Barcha amallar bekor qilindi.",
             parse_mode="HTML",
@@ -1737,6 +1921,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cases_command(update, context)
     elif "SOS" in text:
         await sos_command(update, context)
+    elif "AI Kiber-Maslahatchi" in text or "AI Maslahatchi" in text:
+        await ai_command(update, context)
     elif "Nikneym" in text or "Havola" in text:
         context.user_data["waiting_for_audit"] = True
         await update.message.reply_text(
@@ -1969,17 +2155,16 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # General text / Question / Problem statement
         context.user_data["waiting_for_audit"] = False
-        sos_keywords = [
-            "yordam", "bulling", "shantaj", "tahdid", "buzildi", "og'irlan", "o‘g‘irlan",
-            "pul", "firibgar", "kamsit", "haqorat", "qutqar", "help", "sos", "murojaat",
-            "kiberxavf", "qo'rq", "qo‘rq", "rasmim", "suratim"
+        sos_critical_keywords = [
+            "shantaj", "tahdid", "kiberbulling", "rasmimni tarqat", "suratimni tarqat",
+            "pul talab", "tovlamachi", "qutqaring", "shaxsiy rasmim"
         ]
-        is_sos_related = any(kw in text.lower() for kw in sos_keywords)
+        is_sos_related = any(kw in text.lower() for kw in sos_critical_keywords)
         
         if is_sos_related:
             help_text = (
                 f"{p('SOS', '🚨')} <b>DIQQAT: SIZGA YORDAM KERAKMI?</b>\n\n"
-                f"Siz yozgan xabarda yordam yoki xavfsizlik murojaati belgilari aniqlandi:\n"
+                f"Siz yozgan xabarda shoshilinch yordam yoki xavfsizlik murojaati belgilari aniqlandi:\n"
                 f"<i>«{html.escape(text[:120])}{'...' if len(text)>120 else ''}»</i>\n\n"
                 f"Agar siz kiberbulling, shantaj yoki firibgarlikka duch kelgan bo‘lsangiz, shaxsingizni to‘liq yashirgan holda "
                 f"ushbu xabarni <b>Anonim SOS Murojaat</b> sifatida maktab mutaxassislariga yuborishingiz mumkin.\n\n"
@@ -1994,18 +2179,26 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["pending_sos_text"] = text
             await update.message.reply_text(help_text, parse_mode="HTML", reply_markup=keyboard)
             return
-        else:
-            await update.message.reply_text(
-                f"{p('INFO', 'ℹ️')} <b>«KiberIz-4» Bot yordamchisi:</b>\n\n"
-                f"Men quyidagi amallarni bajara olaman:\n"
-                f"• 🖼️ <b>Surat yuborsangiz:</b> Undagi yashirin GPS koordinatalarni va kamerani fosh qilaman;\n"
-                f"• 🌐 <b>Sayt havolasini yuborsangiz:</b> Xavfsizlikka tekshirib, jonli Chromium skrinshotini ko‘rsataman;\n"
-                f"• 👤 <b>@nikneym yuborsangiz:</b> Ijtimoiy tarmoqlardagi raqamli izlarini tahlil qilaman;\n"
-                f"• 🚨 <b>Anonim SOS:</b> Muammoingiz haqida shaxsingizni yashirgan holda xabar yuborishingiz mumkin.\n\n"
-                f"<i>Pastdagi menyu tugmalaridan birini tanlang yoki savolingizni bering:</i>",
-                parse_mode="HTML",
-                reply_markup=MAIN_KEYBOARD
-            )
+
+        # AI Cyber-Mentor Answer for all questions and consultations
+        context.user_data["waiting_for_ai"] = False
+        try:
+            await update.message.chat.send_action("typing")
+        except Exception:
+            pass
+
+        ai_resp = await ask_gemini_cyber_mentor(text, user_id=update.effective_user.id)
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✍️ Boshqa savol berish", callback_data="ask_custom_ai", icon_custom_emoji_id=E["CHAT"])],
+            [InlineKeyboardButton("🚨 Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])],
+            [InlineKeyboardButton("🌐 Kiber-Portal (Web App)", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["GLOBE"])]
+        ])
+        await update.message.reply_text(
+            f"{p('LIGHT', '💡')} <b>AI KIBER-MASLAHATCHI JAVOBI:</b>\n\n{ai_resp}",
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+        return
 
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error gracefully without crashing."""
@@ -2022,6 +2215,8 @@ def main():
     app.add_handler(CommandHandler("checklist", checklist_command))
     app.add_handler(CommandHandler("test", start_quiz))
     app.add_handler(CommandHandler("sos", sos_command))
+    app.add_handler(CommandHandler("ai", ai_command))
+    app.add_handler(CommandHandler("ask", ai_command))
     
     app.add_handler(CallbackQueryHandler(quiz_callback))
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.Document.ALL, photo_or_doc_handler))
