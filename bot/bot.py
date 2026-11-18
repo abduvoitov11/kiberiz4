@@ -928,7 +928,8 @@ def audit_link(url_text: str):
     return False, None, risk, warnings, features, domain, site_title
 
 def get_website_screenshot(url: str):
-    """Captures a safe, isolated cloud sandbox screenshot of a website without placeholder errors."""
+    """Captures a safe, isolated cloud sandbox screenshot of a website without placeholder/spinner errors."""
+    import time
     full_url = url.strip().rstrip('.,;!?')
     if '.onion' in full_url.lower():
         return None
@@ -940,28 +941,46 @@ def get_website_screenshot(url: str):
     if 't.me/' in full_url and '/s/' not in full_url:
         full_url = full_url.replace('t.me/', 't.me/s/')
         
-    # Provider 1: Thum.io (Real-time live browser rendering, no 'Generating Preview' placeholder)
-    try:
-        thum_url = f"https://image.thum.io/get/width/1200/crop/750/{full_url}"
-        req = urllib.request.Request(thum_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            data = resp.read()
-            if len(data) > 8000:
-                return data
-    except Exception as e:
-        logging.warning(f"Thum.io screenshot error: {e}")
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+    
+    # Provider 1: Thum.io with noanimate (Prevents animated spinner GIFs)
+    thum_url = f"https://image.thum.io/get/width/1200/crop/750/noanimate/{full_url}"
+    for attempt in range(2):
+        try:
+            req = urllib.request.Request(thum_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                status_code = resp.headers.get("thum_status_code")
+                content_type = resp.headers.get("Content-Type", "").lower()
+                data = resp.read()
+                
+                # Reject animated loading GIFs or tiny placeholder frames
+                if "gif" not in content_type and len(data) > 25000:
+                    if status_code == "200" or status_code is None:
+                        return data
+                
+                # Cold cache: Thum.io has just dispatched background Chromium render
+                if attempt == 0:
+                    time.sleep(3.0)
+        except Exception as e:
+            logging.warning(f"Thum.io screenshot attempt {attempt+1} error: {e}")
+            if attempt == 0:
+                time.sleep(2.5)
 
     # Provider 2: Microlink Cloud Sandbox fallback
     try:
         encoded = urllib.parse.quote_plus(full_url)
-        micro_url = f"https://api.microlink.io?url={encoded}&screenshot=true&embed=screenshot.url"
-        req = urllib.request.Request(micro_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        micro_api = f"https://api.microlink.io?url={encoded}&screenshot=true"
+        req = urllib.request.Request(micro_api, headers=headers)
         with urllib.request.urlopen(req, timeout=10) as resp:
-            data = resp.read()
-            if len(data) > 8000:
-                return data
+            res_data = json.loads(resp.read().decode('utf-8'))
+            img_url = res_data.get('data', {}).get('screenshot', {}).get('url')
+            if img_url:
+                with urllib.request.urlopen(urllib.request.Request(img_url, headers=headers), timeout=10) as img_resp:
+                    img_data = img_resp.read()
+                    if len(img_data) > 20000:
+                        return img_data
     except Exception as e:
-        logging.warning(f"Microlink screenshot error: {e}")
+        logging.warning(f"Microlink screenshot fallback error: {e}")
 
     return None
 
