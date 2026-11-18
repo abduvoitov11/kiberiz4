@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KiberIz-4 | Raqamli Iz va Profil Auditi</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <script src="exif.min.js"></script>
+  <script src="jszip.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #070b14;
+      color: #f1f5f9;
+    }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .neon-border {
+      box-shadow: 0 0 25px rgba(0, 242, 254, 0.25);
+    }
+    .neon-glow {
+      text-shadow: 0 0 15px rgba(0, 242, 254, 0.6);
+    }
+    .glass-card {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-[#070b14] overflow-x-hidden selection:bg-cyan-500 selection:text-black">
+
+  <!-- NAVIGATION -->
+  <nav class="sticky top-0 z-50 glass-card border-b border-slate-800/80 px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-xl shadow-lg shadow-cyan-500/20">
+        <i class="fa-solid fa-fingerprint"></i>
+      </div>
+      <div>
+        <span class="text-xl font-extrabold tracking-wider text-white">KIBER<span class="text-cyan-400">IZ-4</span></span>
+        <span class="block text-[11px] font-semibold text-emerald-400 tracking-widest uppercase">4-maktab raqamli qalqoni</span>
+      </div>
+    </div>
+    <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
+      <a href="#osint" class="hover:text-cyan-400 transition">OSINT Laboratoriyasi</a>
+      <a href="#checklist" class="hover:text-cyan-400 transition">5 daqiqalik Chek-list</a>
+      <a href="#cases" class="hover:text-cyan-400 transition">3 ta Xavf</a>
+      <a href="#calculator" class="hover:text-cyan-400 transition">Xavf Kalkulyatori</a>
+    </div>
+    <a href="https://t.me/kiberiz_bot" target="_blank" class="px-5 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs uppercase tracking-wider flex items-center space-x-2 shadow-lg shadow-cyan-500/25 transition transform hover:scale-105">
+      <i class="fa-brands fa-telegram text-base"></i>
+      <span>Telegram Bot (@kiberiz_bot)</span>
+    </a>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <header class="relative px-6 pt-16 pb-20 max-w-6xl mx-auto text-center">
+    <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-xs font-semibold uppercase tracking-widest mb-6">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+      <span>Ochiq manbalar tahlili (OSINT) & Profil xavfsizligi</span>
+    </div>
+    <h1 class="text-4xl md:text-6xl font-black tracking-tight text-white mb-6 leading-tight">
+      Internet hech narsani unutmaydi: <br>
+      <span class="bg-gradient-to-r from-cyan-400 via-sky-300 to-emerald-400 bg-clip-text text-transparent neon-glow">
+        O‘z raqamli izingni boshqar!
+      </span>
+    </h1>
+    <p class="max-w-3xl mx-auto text-slate-400 text-base md:text-lg mb-10 leading-relaxed">
+      Siz ijtimoiy tarmoqqa joylagan bitta oddiy fotosurat orqali firibgarlar qaysi maktabda o‘qishingiz, qaysi ko‘chada yashashingiz va qachon uyda yolg‘iz ekanligingizni qanday topadi? 
+      <b>«KiberIz-4»</b> — bu xavflarni ko‘z oldingizda fosh qiluvchi va profilingizni 5 daqiqada himoyalovchi raqamli laboratoriya.
+    </p>
+
+    <!-- METRICS CARDS -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mb-12">
+      <div class="glass-card p-5 rounded-2xl border-cyan-500/20">
+        <div class="text-3xl font-black text-cyan-400 mb-1">100%</div>
+        <div class="text-xs text-slate-400 uppercase font-semibold">Tahlil aniqligi</div>
+      </div>
+      <div class="glass-card p-5 rounded-2xl border-emerald-500/20">
+        <div class="text-3xl font-black text-emerald-400 mb-1">5 daqiqa</div>
+        <div class="text-xs text-slate-400 uppercase font-semibold">Profil himoyasi</div>
+      </div>
+      <div class="glass-card p-5 rounded-2xl border-blue-500/20">
+        <div class="text-3xl font-black text-blue-400 mb-1">1 200+</div>
+        <div class="text-xs text-slate-400 uppercase font-semibold">4-maktab o‘quvchilari</div>
+      </div>
+      <div class="glass-card p-5 rounded-2xl border-amber-500/20">
+        <div class="text-3xl font-black text-amber-400 mb-1">0 so‘m</div>
+        <div class="text-xs text-slate-400 uppercase font-semibold">Maktab byudjeti</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- SECTION 1: OSINT SURAT TAHLIL LABARATORIYASI -->
+  <section id="osint" class="py-16 px-6 max-w-6xl mx-auto">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl md:text-4xl font-extrabold text-white mb-3">
+        🔬 OSINT Surat Tahlilatori
+      </h2>
+      <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base">
+        Suratingizni quyidagi maydonga tashlang — tizim undagi yashirin EXIF metama’lumotlari (GPS, sana, kamera) va vizual fon xavflarini tahlil qilib beradi.
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-8 items-start">
+      <!-- UPLOAD DROPZONE -->
+      <div class="glass-card p-8 rounded-3xl border-2 border-dashed border-cyan-500/30 hover:border-cyan-400 transition text-center cursor-pointer flex flex-col items-center justify-center min-h-[340px]" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept="image/*,.heic,.zip" class="hidden" onchange="handleFile(this.files[0])">
+        <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">Fotosurat yoki ZIP arxivni tanlang</h3>
+        <p class="text-xs text-slate-400 max-w-xs mb-4">JPG, PNG, HEIC yoki ZIP formatidagi suratlarni tashlang</p>
+        <span class="px-4 py-2 rounded-xl bg-slate-800 text-xs font-semibold text-cyan-400 border border-slate-700">Faylni tanlash</span>
+        <div class="mt-5 pt-4 border-t border-slate-800/80 w-full">
+          <div class="text-[11px] text-slate-400 mb-2 font-medium">Yoki sinov uchun tayyor namunani bosing:</div>
+          <div class="flex flex-wrap gap-2 justify-center">
+            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_gps_school4.jpg', 'sample_gps_school4.jpg')" class="px-3 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
+              <i class="fa-solid fa-location-dot"></i>
+              <span>1-namuna: GPS-li surat</span>
+            </button>
+            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_clean_telegram.jpg', 'sample_clean_telegram.jpg')" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
+              <i class="fa-solid fa-shield-halved"></i>
+              <span>2-namuna: Tozalangan surat</span>
+            </button>
+            <button type="button" onclick="event.stopPropagation(); loadSample('samples/sample_photos.zip', 'sample_photos.zip')" class="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-xs font-semibold flex items-center justify-center space-x-1.5 transition">
+              <i class="fa-solid fa-file-zipper"></i>
+              <span>3-namuna: ZIP arxiv</span>
+            </button>
+          </div>
+        </div>
+        <div id="imagePreviewContainer" class="hidden mt-4 w-full">
+          <img id="imagePreview" class="max-h-48 mx-auto rounded-xl border border-slate-700 object-cover shadow-lg">
+        </div>
+      </div>
+
+      <!-- SCAN RESULTS PANEL -->
+      <div class="glass-card p-8 rounded-3xl border-slate-800 relative">
+        <h3 class="text-lg font-bold text-white mb-4 flex items-center justify-between">
+          <span><i class="fa-solid fa-radar text-cyan-400 mr-2"></i> Tahlil Natijalari</span>
+          <span id="scanBadge" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400">Kutilmoqda...</span>
+        </h3>
+        
+        <div id="scanContent" class="space-y-4 text-sm text-slate-300">
+          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center space-x-3">
+            <i class="fa-solid fa-circle-info text-cyan-400 text-lg"></i>
+            <div>
+              <div class="font-semibold text-white">Surat hali yuklanmadi</div>
+              <div class="text-xs text-slate-400">Chap tarafdagi oynaga o‘zingizning biron suratingizni tashlab ko‘ring.</div>
+            </div>
+          </div>
+          
+          <div class="border-t border-slate-800 pt-4">
+            <h4 class="text-xs uppercase font-bold text-slate-400 mb-2 tracking-wider">Namuna tahlil (Standart selfi surati):</h4>
+            <ul class="space-y-2 text-xs">
+              <li class="flex items-start space-x-2 text-red-400">
+                <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
+                <span><b>GPS Lokatsiya:</b> 41.311081° N, 69.240562° E (Uy manzili 5 metr aniqlikda oshkor bo‘lgan)</span>
+              </li>
+              <li class="flex items-start space-x-2 text-amber-400">
+                <i class="fa-solid fa-clock mt-0.5"></i>
+                <span><b>Olingan vaqti:</b> Dushanba, 14:35 (O‘quvchining darsdan qaytgan payti)</span>
+              </li>
+              <li class="flex items-start space-x-2 text-sky-400">
+                <i class="fa-solid fa-mobile-screen mt-0.5"></i>
+                <span><b>Qurilma modeli:</b> iPhone 13 Pro (Kamera parametrlari)</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 2: 3 TA ASOSIY XAVF KEYS-LAR -->
+  <section id="cases" class="py-16 px-6 max-w-6xl mx-auto bg-slate-950/40 rounded-3xl my-12 border border-slate-800/50">
+    <div class="text-center mb-12">
+      <span class="text-xs font-bold text-rose-400 uppercase tracking-widest">Real Keyslar</span>
+      <h2 class="text-2xl md:text-4xl font-extrabold text-white mt-1">
+        Suratdagi 3 ta Katta Kiber-Xavf
+      </h2>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <!-- CASE 1 -->
+      <div class="glass-card p-6 rounded-2xl border-rose-500/20 hover:border-rose-500/50 transition">
+        <div class="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-2xl mb-4">
+          <i class="fa-solid fa-school"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">1. Maktabingiz fosh bo‘lishi</h3>
+        <p class="text-slate-400 text-xs leading-relaxed mb-4">
+          O‘quvchi yo‘lakda selfi oladi. Ko‘krakdagi nishon, xona raqami yoki devordagi plakat orqali begona odam qaysi maktab va qaysi sinfda o‘qishingizni, darsingiz qachon tugashini aniqlaydi.
+        </p>
+        <span class="text-[11px] font-semibold text-rose-400 bg-rose-950/50 px-2.5 py-1 rounded-md border border-rose-800/40">Kiberbulling va kuzatuv xavfi</span>
+      </div>
+
+      <!-- CASE 2 -->
+      <div class="glass-card p-6 rounded-2xl border-amber-500/20 hover:border-amber-500/50 transition">
+        <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-2xl mb-4">
+          <i class="fa-solid fa-map-location-dot"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">2. Uy manzilingiz aniqlanishi</h3>
+        <p class="text-slate-400 text-xs leading-relaxed mb-4">
+          Derazadan olingan quyosh botishi surati. Firibgarlar ko‘rinib turgan do‘kon lavhasi, bino fasadi yoki ko‘cha chirog‘i burchagi orqali uyingiz qaysi ko‘chada, hatto nechanchi qavatdaligini topadi.
+        </p>
+        <span class="text-[11px] font-semibold text-amber-400 bg-amber-950/50 px-2.5 py-1 rounded-md border border-amber-800/40">Shaxsiy daxlsizlikning buzilishi</span>
+      </div>
+
+      <!-- CASE 3 -->
+      <div class="glass-card p-6 rounded-2xl border-purple-500/20 hover:border-purple-500/50 transition">
+        <div class="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center text-2xl mb-4">
+          <i class="fa-solid fa-house-user"></i>
+        </div>
+        <h3 class="text-lg font-bold text-white mb-2">3. «Uyda yolg‘izman» signali</h3>
+        <p class="text-slate-400 text-xs leading-relaxed mb-4">
+          «Ota-onam to‘yga ketishdi, men esa yolg‘izman» mazmunidagi storislar va postlar. Bu nafaqat kiber-firibgarlar, balki uy o‘g‘rilari uchun ochiqdan-ochiq taklifnoma vazifasini o‘taydi.
+        </p>
+        <span class="text-[11px] font-semibold text-purple-400 bg-purple-950/50 px-2.5 py-1 rounded-md border border-purple-800/40">Jismoniy xavfsizlik tahdidi</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 3: 5 DAQIQALIK CHEK-LIST -->
+  <section id="checklist" class="py-16 px-6 max-w-4xl mx-auto">
+    <div class="text-center mb-10">
+      <span class="text-xs font-bold text-cyan-400 uppercase tracking-widest">Amaliy Himoya</span>
+      <h2 class="text-2xl md:text-4xl font-extrabold text-white mt-1">
+        🛡️ 5 Daqiqalik «Xavfsiz Profil» Chek-listi
+      </h2>
+      <p class="text-slate-400 text-sm mt-2">Har bir qadamni bajarganingiz sari xavfsizlik balingiz oshib boradi:</p>
+    </div>
+
+    <!-- PROGRESS BAR -->
+    <div class="glass-card p-6 rounded-2xl mb-8">
+      <div class="flex justify-between items-center mb-2">
+        <span class="text-xs font-bold text-slate-300 uppercase tracking-wider">Profil Himoyalanganlik Darajasi:</span>
+        <span id="scoreText" class="text-sm font-black text-cyan-400 mono">0% (0/5)</span>
+      </div>
+      <div class="w-full h-3 rounded-full bg-slate-800 overflow-hidden">
+        <div id="progressBar" class="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 w-0 transition-all duration-500"></div>
+      </div>
+    </div>
+
+    <!-- CHECKLIST ITEMS -->
+    <div class="space-y-4">
+      <!-- ITEM 1 -->
+      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+        <div>
+          <div class="font-bold text-white text-sm md:text-base">1-qadam: Telefon raqamni yashirish (Telegram)</div>
+          <p class="text-slate-400 text-xs mt-1">
+            <b>Sozlamalar ➔ Maxfiylik ➔ Telefon raqam</b> bo‘limiga kiring va uni <b>«Hech kimga»</b> qilib belgilang.
+          </p>
+        </div>
+      </label>
+
+      <!-- ITEM 2 -->
+      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+        <div>
+          <div class="font-bold text-white text-sm md:text-base">2-qadam: Ikki bosqichli tekshiruv (2FA) yoqish</div>
+          <p class="text-slate-400 text-xs mt-1">
+            <b>Maxfiylik ➔ Ikki bosqichli tekshiruv</b> ga kirib, maxfiy harfli-raqamli parol qo‘ying. Bu sim-karta klonlansa ham akkauntni saqlaydi.
+          </p>
+        </div>
+      </label>
+
+      <!-- ITEM 3 -->
+      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+        <div>
+          <div class="font-bold text-white text-sm md:text-base">3-qadam: Suratga olayotganda GPS teglarni o‘chirish</div>
+          <p class="text-slate-400 text-xs mt-1">
+            Telefoningiz <b>Kamera sozlamalari ➔ «Joylashuv belgisi (Location/GPS tag)»</b> ni butunlay o‘chirib qo‘ying.
+          </p>
+        </div>
+      </label>
+
+      <!-- ITEM 4 -->
+      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+        <div>
+          <div class="font-bold text-white text-sm md:text-base">4-qadam: Faol seanslarni tekshirish</div>
+          <p class="text-slate-400 text-xs mt-1">
+            <b>Sozlamalar ➔ Qurilmalar</b> bo‘limiga kiring. O‘zingiz tanimagan barcha kompyuter va telefon sessiyalarini yakunlang.
+          </p>
+        </div>
+      </label>
+
+      <!-- ITEM 5 -->
+      <label class="glass-card p-5 rounded-2xl flex items-start space-x-4 cursor-pointer hover:border-cyan-500/40 transition">
+        <input type="checkbox" class="task-checkbox mt-1 w-5 h-5 rounded border-slate-700 text-cyan-500 focus:ring-0" onchange="updateProgress()">
+        <div>
+          <div class="font-bold text-white text-sm md:text-base">5-qadam: Guruhlarga qo‘shishni cheklash</div>
+          <p class="text-slate-400 text-xs mt-1">
+            <b>Maxfiylik ➔ Guruhlar va kanallar</b> bo‘limida faqat <b>«Kontaktlarim»</b> sizni guruhlarga qo‘shishiga ruxsat bering (spamlardan xalos bo‘lasiz).
+          </p>
+        </div>
+      </label>
+    </div>
+  </section>
+
+  <!-- SECTION 4: TELEGRAM BOT CALL TO ACTION -->
+  <section class="py-16 px-6 max-w-4xl mx-auto text-center">
+    <div class="glass-card p-10 rounded-3xl border border-cyan-500/30 neon-border relative overflow-hidden">
+      <div class="w-16 h-16 rounded-2xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-3xl mx-auto mb-4">
+        <i class="fa-brands fa-telegram"></i>
+      </div>
+      <h2 class="text-2xl md:text-4xl font-extrabold text-white mb-3">
+        Hoziroq Telegram Botimizni sinab ko‘ring!
+      </h2>
+      <p class="text-slate-400 text-sm md:text-base max-w-xl mx-auto mb-8">
+        Suratingizni botga yuboring, kiber-viktorinada qatnashing va profilingizni real vaqt rejimida tekshiring.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="https://t.me/kiberiz_bot" target="_blank" class="w-full sm:w-auto px-8 py-3.5 rounded-full bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-sm tracking-wider uppercase flex items-center justify-center space-x-2 shadow-xl shadow-cyan-500/20 transition transform hover:scale-105">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span>Botni ishga tushirish (@kiberiz_bot)</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-800/80 py-8 text-center text-xs text-slate-500">
+    <p>4-sonli umumta’lim maktabi maxsus loyihasi: <b>«KiberIz-4: Raqamli Iz va Profil Auditi»</b></p>
+    <p class="mt-1">Xavfsiz internet — mas’uliyatli avlod!</p>
+  </footer>
+
+  <!-- SCRIPT FOR PROGRESS AND REAL EXIF OSINT -->
+  <script>
+    function updateProgress() {
+      const checkboxes = document.querySelectorAll('.task-checkbox');
+      let checked = 0;
+      checkboxes.forEach(cb => { if(cb.checked) checked++; });
+      const percent = Math.round((checked / checkboxes.length) * 100);
+      document.getElementById('progressBar').style.width = percent + '%';
+      document.getElementById('scoreText').innerText = percent + '% (' + checked + '/5)';
+    }
+
+    function convertDMSToDD(dms, ref) {
+      if (!dms || dms.length < 3) return null;
+      let deg = Number(dms[0]);
+      let min = Number(dms[1]);
+      let sec = Number(dms[2]);
+      let dd = deg + (min / 60) + (sec / 3600);
+      if (ref === "S" || ref === "W") dd = dd * -1;
+      return Number(dd.toFixed(6));
+    }
+
+    async function loadSample(url, name) {
+      try {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        const file = new File([blob], name, { type: blob.type });
+        handleFile(file);
+      } catch (err) {
+        console.error("Sample load error:", err);
+      }
+    }
+
+    // Drag and drop listeners
+    const dropZone = document.getElementById('dropZone');
+    if (dropZone) {
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add('border-cyan-400', 'bg-cyan-950/20');
+        }, false);
+      });
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('border-cyan-400', 'bg-cyan-950/20');
+        }, false);
+      });
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        if (files && files.length > 0) {
+          handleFile(files[0]);
+        }
+      });
+    }
+
+    function handleFile(file) {
+      if(!file) return;
+      const preview = document.getElementById('imagePreview');
+      const container = document.getElementById('imagePreviewContainer');
+      const scanBadge = document.getElementById('scanBadge');
+      const scanContent = document.getElementById('scanContent');
+      
+      // Check if ZIP archive
+      if (file.name.toLowerCase().endsWith('.zip')) {
+        container.classList.add('hidden');
+        scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        scanBadge.innerText = "📦 ZIP ochilmoqda...";
+        
+        if (window.JSZip) {
+          JSZip.loadAsync(file).then(async (zip) => {
+            const validExts = ['.jpg', '.jpeg', '.png', '.webp'];
+            const entries = [];
+            zip.forEach((relPath, entry) => {
+              if (!entry.dir && validExts.some(ext => relPath.toLowerCase().endsWith(ext))) {
+                entries.push(entry);
+              }
+            });
+            
+            if (entries.length === 0) {
+              scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
+              scanBadge.innerText = "Suratlar topilmadi";
+              scanContent.innerHTML = `<div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-amber-300">ZIP arxiv ichida fotosuratlar (JPG, PNG) topilmadi.</div>`;
+              return;
+            }
+            
+            let listHtml = `<div class="p-3 rounded-xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-300 mb-3 flex items-center justify-between">
+              <span><i class="fa-solid fa-file-zipper mr-1.5"></i> <b>ZIP ochildi:</b> ${entries.length} ta surat tahlil qilindi</span>
+            </div><div class="space-y-2.5 max-h-72 overflow-y-auto pr-1 text-xs">`;
+            
+            let hasAnyGps = false;
+            for (let i = 0; i < Math.min(entries.length, 5); i++) {
+              const entry = entries[i];
+              const buf = await entry.async("arraybuffer");
+              let exifData = {};
+              try {
+                if (window.EXIF) exifData = EXIF.readFromBinaryFile(buf) || {};
+              } catch(e){}
+              
+              const dev = ((exifData.Make || "") + " " + (exifData.Model || "")).trim();
+              let lat = null, lon = null;
+              if (exifData.GPSLatitude && exifData.GPSLongitude) {
+                lat = convertDMSToDD(exifData.GPSLatitude, exifData.GPSLatitudeRef || "N");
+                lon = convertDMSToDD(exifData.GPSLongitude, exifData.GPSLongitudeRef || "E");
+                hasAnyGps = true;
+              }
+              
+              listHtml += `<div class="p-3 rounded-xl bg-slate-900 border ${lat ? 'border-rose-500/40 bg-rose-950/20' : 'border-slate-800'}">
+                <div class="font-bold text-white flex justify-between items-center mb-1">
+                  <span>${i+1}. ${entry.name}</span>
+                  ${lat ? '<span class="text-[10px] text-rose-400 font-semibold px-2 py-0.5 rounded bg-rose-950 border border-rose-800">GPS BOR</span>' : '<span class="text-[10px] text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-800">TOZA</span>'}
+                </div>
+                ${dev ? `<div class="text-slate-300 text-[11px]">📱 ${dev}</div>` : ''}
+                ${lat ? `
+                <div class="mt-1 text-rose-300 font-mono text-[11px]">📍 ${lat}° N, ${lon}° E</div>
+                <a href="https://www.google.com/maps?q=${lat},${lon}" target="_blank" class="inline-flex items-center text-[11px] text-cyan-400 hover:underline mt-1">
+                  <i class="fa-solid fa-map-location-dot mr-1"></i> Google Xaritada ochish
+                </a>` : ''}
+              </div>`;
+            }
+            listHtml += `</div>`;
+            
+            scanBadge.className = hasAnyGps ? "text-xs px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30" : "text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+            scanBadge.innerText = hasAnyGps ? "🚨 ZIP: GPS TOPILDI!" : "✅ ZIP TEKSHIRILDI";
+            scanContent.innerHTML = listHtml;
+          });
+        }
+        return;
+      }
+      
+      // Show image preview for single images
+      const previewReader = new FileReader();
+      previewReader.onload = function(e) {
+        preview.src = e.target.result;
+        container.classList.remove('hidden');
+      };
+      previewReader.readAsDataURL(file);
+
+      scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
+      scanBadge.innerText = "⏳ Tahlil qilinmoqda...";
+
+      // Read binary for real EXIF
+      const binaryReader = new FileReader();
+      binaryReader.onload = function(e) {
+        const buffer = e.target.result;
+        let exifData = {};
+        try {
+          if (window.EXIF && EXIF.readFromBinaryFile) {
+            exifData = EXIF.readFromBinaryFile(buffer) || {};
+          }
+        } catch(err) {
+          console.error("EXIF error:", err);
+        }
+
+        setTimeout(() => {
+          renderAnalysis(file, exifData);
+        }, 400);
+      };
+      binaryReader.readAsArrayBuffer(file);
+    }
+
+    function renderAnalysis(file, exif) {
+      const scanBadge = document.getElementById('scanBadge');
+      const scanContent = document.getElementById('scanContent');
+
+      const make = exif.Make || "";
+      const model = exif.Model || "";
+      const device = (make + " " + model).trim();
+      const dateTime = exif.DateTimeOriginal || exif.DateTime || "";
+      const software = exif.Software || "";
+
+      let lat = null, lon = null;
+      if (exif.GPSLatitude && exif.GPSLongitude) {
+        lat = convertDMSToDD(exif.GPSLatitude, exif.GPSLatitudeRef || "N");
+        lon = convertDMSToDD(exif.GPSLongitude, exif.GPSLongitudeRef || "E");
+      }
+
+      if (lat && lon) {
+        // GPS DETECTED!
+        scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30";
+        scanBadge.innerText = "🚨 JIDDIY XAVF: GPS TOPILDI!";
+
+        const mapsUrl = `https://www.google.com/maps?q=${lat},${lon}`;
+        scanContent.innerHTML = `
+          <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 space-y-2">
+            <div class="font-bold text-rose-400 flex items-center text-sm">
+              <i class="fa-solid fa-triangle-exclamation mr-2 text-rose-400"></i>
+              <span>OSINT XAVFI: Aniq geolokatsiya oshkor bo‘ldi!</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Surat ichida yashirin <b>GPS koordinatalari</b> mavjud. Firibgar yoki begona shaxs ushbu surat orqali sizning uyingiz yoki maktabingiz qayerda ekanligini 5 metr aniqlikda ko‘ra oladi!
+            </p>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">📍 GPS Koordinata:</span>
+              <span class="font-mono font-bold text-rose-400">${lat}° N, ${lon}° E</span>
+            </div>
+            ${device ? `
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">📱 Qurilma modeli:</span>
+              <span class="font-semibold text-white">${device}</span>
+            </div>` : ''}
+            ${dateTime ? `
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">⏰ Olingan vaqt:</span>
+              <span class="font-semibold text-white">${dateTime}</span>
+            </div>` : ''}
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">📁 Fayl:</span>
+              <span class="font-semibold text-slate-300">${file.name} (${(file.size/1024).toFixed(1)} KB)</span>
+            </div>
+          </div>
+
+          <div class="pt-2">
+            <a href="${mapsUrl}" target="_blank" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-slate-950 font-bold text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg shadow-rose-500/20 transition">
+              <i class="fa-solid fa-map-location-dot"></i>
+              <span>Xaritada ochish (Google Maps)</span>
+            </a>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-amber-300">
+            💡 <b>Qanday himoyalanish kerak:</b> Telefon kamerasi sozlamalariga kiring va <i>«Joylashuv belgisi (Location tags)»</i> funksiyasini zudlik bilan o‘chirib qo‘ying!
+          </div>
+        `;
+      } else if (device || dateTime) {
+        // Device or Time found
+        scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
+        scanBadge.innerText = "⚠️ OGOHLIK: METAMA’LUMOT BOR";
+
+        scanContent.innerHTML = `
+          <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-500/40 space-y-2">
+            <div class="font-bold text-amber-400 flex items-center text-sm">
+              <i class="fa-solid fa-circle-exclamation mr-2"></i>
+              <span>Qurilma va vaqt ma’lumotlari fosh bo‘ldi</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              GPS koordinatalari topilmadi, lekin surat qaysi telefonda va qachon olinganligi saqlanib qolgan.
+            </p>
+          </div>
+
+          <div class="space-y-2 text-xs">
+            ${device ? `
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">📱 Qurilma:</span>
+              <span class="font-semibold text-white">${device}</span>
+            </div>` : ''}
+            ${dateTime ? `
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">⏰ Olingan sana/vaqt:</span>
+              <span class="font-semibold text-white">${dateTime}</span>
+            </div>` : ''}
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">📁 Fayl nomi:</span>
+              <span class="font-semibold text-slate-300">${file.name}</span>
+            </div>
+          </div>
+        `;
+      } else {
+        // Clean EXIF
+        scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+        scanBadge.innerText = "✅ EXIF TOZALANGAN";
+
+        scanContent.innerHTML = `
+          <div class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 space-y-2">
+            <div class="font-bold text-emerald-400 flex items-center text-sm">
+              <i class="fa-solid fa-shield-check mr-2"></i>
+              <span>EXIF metama’lumotlari tozalandi</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Ushbu faylda GPS lokatsiyasi yoki kamera parametrlari aniqlanmadi (Telegram orqali siqilgan yoki skrinshot olingan).
+            </p>
+          </div>
+
+          <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2 text-xs">
+            <h4 class="font-bold text-cyan-400 uppercase tracking-wider text-[11px]">Vizual OSINT tekshiruvi:</h4>
+            <p class="text-slate-400">Metama’lumot bo‘lmasa ham, quyidagi belgilarni tekshiring:</p>
+            <ul class="space-y-1.5 text-slate-300">
+              <li>• 🏫 <b>Maktab formasi:</b> 4-maktab nishoni yoki galstugi ko‘rinmayaptimi?</li>
+              <li>• 🪟 <b>Deraza orqasidagi manzara:</b> Do‘kon yoki ko‘cha binosi ko‘rinmayaptimi?</li>
+              <li>• 🕒 <b>Soat va xona:</b> Dars jadvali yoki uyda yolg‘izlik belgisi yo‘qmi?</li>
+            </ul>
+          </div>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

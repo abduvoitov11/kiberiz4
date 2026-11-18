@@ -1,0 +1,674 @@
+import os
+import io
+import html
+import logging
+import zipfile
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from PIL import Image, ExifTags
+import pillow_heif
+
+# Register HEIF/HEIC support for Apple iPhone photos
+pillow_heif.register_heif_opener()
+
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup
+)
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    filters
+)
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Load BOT_TOKEN from environment variable or local gitignored .env file
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+if not BOT_TOKEN:
+    env_file = os.path.join(BASE_DIR, ".env")
+    if not os.path.exists(env_file):
+        env_file = os.path.join(BASE_DIR, "../.env")
+    if os.path.exists(env_file):
+        with open(env_file, "r") as f:
+            for line in f:
+                if line.strip().startswith("BOT_TOKEN="):
+                    BOT_TOKEN = line.strip().split("=", 1)[1].strip("\"' ")
+
+def resolve_path(candidates):
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return candidates[0]
+
+LOGO_PATH = resolve_path([
+    os.path.join(BASE_DIR, "kiberiz_logo.png"),
+    os.path.join(BASE_DIR, "../assets/kiberiz_logo.png"),
+    "/home/torabek/KiberIz4/assets/kiberiz_logo.png"
+])
+
+SAMPLE_PATH = resolve_path([
+    os.path.join(BASE_DIR, "sample_gps_school4.jpg"),
+    os.path.join(BASE_DIR, "../web/samples/sample_gps_school4.jpg"),
+    "/home/torabek/KiberIz4/web/samples/sample_gps_school4.jpg"
+])
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"KiberIz-4 Bot is running 24/7!")
+    def log_message(self, format, *args):
+        pass
+
+def start_health_check_if_needed():
+    port_str = os.environ.get("PORT")
+    if port_str:
+        try:
+            port = int(port_str)
+            server = HTTPServer(("0.0.0.0", port), HealthHandler)
+            t = threading.Thread(target=server.serve_forever, daemon=True)
+            t.start()
+            logging.info(f"Health check HTTP server started on port {port}")
+        except Exception as e:
+            logging.error(f"Failed to start health server: {e}")
+
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+
+# ==========================================
+# TELEGRAM PREMIUM CUSTOM EMOJIS (Official Sets)
+# ==========================================
+E = {
+    # Brand / Cyber Security
+    "SHIELD": "5825943289563456446",       # 🛡 Animated Shield
+    "SEARCH": "5188217332748527444",       # 🔍 OSINT Magnifier
+    "EXIF_PHOTO": "5375074927252621134",   # 🖼 Photo / Picture
+    "WARNING": "5825944844341618261",      # ⚠️ Cyber Warning
+    "SOS": "5767387736969323365",          # 🚨 Siren Emergency
+    "LOCK": "5769487503530664462",         # 🔒 Cyber Lock
+    "KEY_LOCK": "5472308992514464048",     # 🔐 2FA Key Lock
+    "KEY": "5330115548900501467",          # 🔑 Key
+    "CHECK": "5427009714745517609",        # ✅ Checkmark Badge
+    "CROSS": "5465665476971471368",        # ❌ Cross Mark
+    
+    # OSINT & Education
+    "SCHOOL": "5265002646397285605",       # 🏫 4-Maktab
+    "TEACHER": "5373039692574893940",      # 👨‍🏫 Teacher
+    "HACKER": "5190498849440931467",       # 👨‍💻 Cyber Analyst
+    "HOUSE": "5465226866321268133",        # 🏠 Home
+    "BUILDING": "5264733042710181045",     # 🏢 Street Building
+    "LAPTOP": "5431376038628171216",       # 💻 Laptop
+    "PHONE": "5407025283456835913",        # 📱 Phone
+    "CALL": "5467539229468793355",         # 📞 Hotline
+    "TIMER": "5413704112220949842",        # ⏰ 5-minute Timer
+    "GLOBE": "6048518064029307235",        # 🌐 Web Platform
+    "ROCKET": "5445284980978621387",       # 🚀 Launch
+    "TEST": "5411512278740640309",         # 🧪 Digital Footprint Quiz
+    "LIGHT": "5472146462362048818",        # 💡 Pro Tip
+    "WAVE": "5472055112702629499",         # 👋 Hello Greeting
+    "STAR": "5435957248314579621",         # ⭐ Star
+    "STATS": "5431577498364158238",        # 📊 Stats / Results
+    "INFO": "5825427631494930742",         # ℹ️ Information
+    "EYES": "5424885441100782420",         # 👀 Surveillance / Attention
+    "CHAT": "5465300082628763143",         # 💬 Anonymous Chat
+    "BOMB": "5469654973308476699",         # 💣 Cyber Danger
+    "FIRE": "5420315771991497307",         # 🔥 Popular
+    "DIAMOND": "5471952986970267163",      # 💎 Premium Shield
+    "TROPHY": "5409008750893734809",       # 🏆 Winner
+    "REFRESH": "5264727218734524899",      # 🔄 Retry
+    "HUNDRED": "5188208446461188962",      # 💯 100% Score
+    "FLAG_UZ": "5449829434334912605",      # 🇺🇿 Uzbekistan Flag
+    
+    # Levels (Colored Circles)
+    "GREEN": "5287429930529859276",        # 🟢 Green Safe Circle
+    "YELLOW": "5287355137969367127",       # 🟡 Yellow Warning Circle
+    "RED": "5287702059657734416",          # 🔴 Red Danger Circle
+    "GEAR": "5769531264952442902",         # ⚙️ Settings
+}
+
+def p(name: str, fallback: str = "•") -> str:
+    """Renders a Telegram Premium custom emoji tag."""
+    emoji_id = E.get(name)
+    if emoji_id:
+        return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
+    return fallback
+
+# Main persistent reply keyboard with Telegram Premium icon custom emojis
+MAIN_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        [
+            KeyboardButton("Suratni tekshirish (OSINT)", icon_custom_emoji_id=E["SEARCH"]),
+            KeyboardButton("5 daqiqalik Chek-list", icon_custom_emoji_id=E["SHIELD"])
+        ],
+        [
+            KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"]),
+            KeyboardButton("Real keyslar: 3 ta xavf", icon_custom_emoji_id=E["WARNING"])
+        ],
+        [
+            KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"]),
+            KeyboardButton("Veb-Platforma havolasi", icon_custom_emoji_id=E["GLOBE"])
+        ]
+    ],
+    resize_keyboard=True
+)
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_name = update.effective_user.first_name or "O‘quvchi"
+    
+    welcome_text = (
+        f"Assalomu alaykum, <b>{html.escape(user_name)}</b>! {p('WAVE', '👋')}\n\n"
+        f"{p('SHIELD', '🛡️')} <b>«KiberIz-4» — 4-sonli maktabning Raqamli Iz va Profil Xavfsizligi tizimiga xush kelibsiz!</b> {p('FLAG_UZ', '🇺🇿')}\n\n"
+        f"{p('EYES', '👀')} Siz ijtimoiy tarmoqqa yuklagan bitta oddiy fotosurat orqali firibgarlar nimalarni bilib olishi mumkinligini bilasizmi?\n"
+        f"• {p('SCHOOL', '🏫')} <i>Qaysi maktab va sinfda o‘qishingizni;</i>\n"
+        f"• {p('HOUSE', '🏠')} <i>Qaysi ko‘chada yashashingizni;</i>\n"
+        f"• {p('BOMB', '💣')} <i>Qachon uyda yolg‘iz ekanligingizni!</i>\n\n"
+        f"{p('INFO', 'ℹ️')} Botga istalgan formatdagi fotosuratni yuboring:\n"
+        f"• <b>Oddiy rasm yoki Hujjat (JPG, PNG, WEBP)</b>;\n"
+        f"• <b>Apple iPhone formatidagi (.HEIC) fotosuratlar</b>;\n"
+        f"• <b>.ZIP arxivdagi fotosuratlar to‘plami</b>!\n\n"
+        f"🧪 <i>Sinov uchun GPS-li tayyor rasm olish: /sample buyrug‘ini bosing.</i>"
+    )
+    
+    if os.path.exists(LOGO_PATH):
+        with open(LOGO_PATH, "rb") as photo:
+            await update.message.reply_photo(
+                photo=photo,
+                caption=welcome_text,
+                parse_mode="HTML",
+                reply_markup=MAIN_KEYBOARD
+            )
+    else:
+        await update.message.reply_text(
+            welcome_text,
+            parse_mode="HTML",
+            reply_markup=MAIN_KEYBOARD
+        )
+
+async def sample_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Sends a sample image with real GPS EXIF metadata for testing OSINT."""
+    if os.path.exists(SAMPLE_PATH):
+        with open(SAMPLE_PATH, "rb") as doc:
+            await update.message.reply_document(
+                document=doc,
+                filename="sample_gps_school4.jpg",
+                caption=(
+                    f"{p('SEARCH', '🔍')} <b>OSINT SINOV UCHUN NAMUNA FOTOSURAT</b>\n\n"
+                    f"Ushbu faylga <b>haqiqiy GPS koordinatalari (Toshkent, 4-maktab atrofi)</b> va qurilma ma’lumotlari biriktirilgan.\n\n"
+                    f"👉 <b>Tekshirish uchun:</b> Ushbu faylni yuklab olib, botga qayta yuboring (<b>'Fayl / Hujjat'</b> tarzida). "
+                    f"Bot 1 soniyada xaritadagi aniq nuqtani va qurilma modelini fosh qilib beradi!"
+                ),
+                parse_mode="HTML"
+            )
+    else:
+        await update.message.reply_text("Namuna fayl topilmadi.", parse_mode="HTML")
+
+async def checklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    checklist_text = (
+        f"{p('SHIELD', '🛡️')} <b>5 DAQIQALIK «XAVFSIZ PROFIL» CHEK-LISTI</b>\n"
+        f"<i>Profilingizni kiber-qalqon bilan yopish bo‘yicha qo‘llanma:</i>\n\n"
+        f"{p('TIMER', '⏰')} <b>1-daqiqa: Telefon raqamni yashirish</b>\n"
+        f"└ Telegram sozlamalari ➔ Maxfiylik ➔ Telefon raqam ➔ <b>«Hech kimga»</b> qilib qo‘ying.\n\n"
+        f"{p('TIMER', '⏰')} <b>2-daqiqa: Ikki bosqichli tekshiruv (2FA) yoqish</b>\n"
+        f"└ Maxfiylik ➔ Ikki bosqichli tekshiruv ➔ Kuchli parol o‘rnating. Bu parolsiz sim-kartangiz o‘g‘irlansa ham akkauntga kira olishmaydi!\n\n"
+        f"{p('TIMER', '⏰')} <b>3-daqiqa: Suratlarda geolokatsiyani o‘chirish</b>\n"
+        f"└ Telefoningiz Kamera sozlamalari ➔ <b>«Joylashuv belgisi (GPS tag)»</b> funksiyasini o‘chirib qo‘ying.\n\n"
+        f"{p('TIMER', '⏰')} <b>4-daqiqa: Faol sessiyalarni tekshirish</b>\n"
+        f"└ Sozlamalar ➔ Qurilmalar bo‘limiga kiring. O‘zingiz tanimagan barcha begona qurilmalarni <b>«Seansni tugatish»</b> qiling.\n\n"
+        f"{p('TIMER', '⏰')} <b>5-daqiqa: Guruhlarga qo‘shishni cheklash</b>\n"
+        f"└ Maxfiylik ➔ Guruhlar va kanallar ➔ <b>«Faqat kontaktlarim»</b> qilib belgilang.\n\n"
+        f"{p('CHECK', '✅')} <i>Ushbu 5 ta qadam profilingizni 99% kiberhujumlardan to‘liq himoya qiladi!</i>"
+    )
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("2FA qo‘llanmasini ochish", callback_data="guide_2fa", icon_custom_emoji_id=E["KEY_LOCK"])],
+        [InlineKeyboardButton("Profil xavfsizligini tekshirish", callback_data="start_quiz", icon_custom_emoji_id=E["TEST"])]
+    ])
+    
+    await update.message.reply_text(checklist_text, parse_mode="HTML", reply_markup=keyboard)
+
+async def cases_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    cases_text = (
+        f"{p('SEARCH', '🔍')} <b>OSINT: BIRGINA SURATDAGI 3 TA KATTA XAVF</b>\n\n"
+        f"{p('SCHOOL', '🏫')} <b>1-xavf: Maktabingiz fosh bo‘lishi</b>\n"
+        f"O‘quvchi maktab yo‘lagida yoki formasi bilan selfi oladi. Ko‘krak nishoni, sinf xonasi eshigidagi raqam yoki orqa fondagi o‘qituvchi orqali firibgar qaysi maktab va qaysi sinfda o‘qishingizni 1 daqiqada aniqlaydi!\n\n"
+        f"{p('HOUSE', '🏠')} <b>2-xavf: Uy manzilingiz va xaritadagi aniq nuqta</b>\n"
+        f"Uy derazasidan olingan manzara surati. Firibgarlar derazadan ko‘rinib turgan do‘kon lavhasi, bino burchagi yoki transformator orqali uyingiz qaysi ko‘chada, hatto qaysi qavatda ekanligini osongina hisoblab chiqadi!\n\n"
+        f"{p('BOMB', '💣')} <b>3-xavf: «Men hozir uyda yolg‘izman» signali</b>\n"
+        f"«Ota-onam safarga ketishdi, men esa serial ko‘ryapman» qabilidagi post yoki storis. Bu — firibgarlar va o‘g‘rilar uchun ochiqdan-ochiq taklifnoma hisoblanadi!\n\n"
+        f"{p('LIGHT', '💡')} <b>Muhim qoida:</b> Hech qachon ochiq tarmoqlarga uy kaliti, yo‘nalish chiptasi, pasport va dars jadvalingizni joylamang!"
+    )
+    await update.message.reply_text(cases_text, parse_mode="HTML")
+
+async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sos_text = (
+        f"{p('SOS', '🚨')} <b>ANONIM SOS VA YORDAM MARKAZI</b>\n\n"
+        f"Agar siz ijtimoiy tarmoqda:\n"
+        f"• {p('WARNING', '⚠️')} Kiberbulling yoki haqoratga uchragan bo‘lsangiz;\n"
+        f"• {p('WARNING', '⚠️')} Shaxsiy rasmlaringiz bilan shantaj qilishayotgan bo‘lsa;\n"
+        f"• {p('WARNING', '⚠️')} Akkauntingiz buzilib, pul talab qilishayotgan bo‘lsa — <b>HECH QACHON QO‘RQMANG VA YASHIRMANG!</b>\n\n"
+        f"{p('CALL', '📞')} <b>Tezkor ishonch raqamlari:</b>\n"
+        f"• Maktab psixologi kabineti: 4-maktab 2-qavat, 204-xona\n"
+        f"• O‘zbekiston Kiberxavfsizlik markazi: <b>1133</b>\n"
+        f"• Bolalar ishonch telefoni: <b>1111</b>\n\n"
+        f"{p('CHAT', '💬')} Istalgan vaqtda muammoingizni shu botga yozib qoldirishingiz mumkin (shaxsingiz to‘liq sir saqlanadi)."
+    )
+    await update.message.reply_text(sos_text, parse_mode="HTML")
+
+async def web_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    web_text = (
+        f"{p('GLOBE', '🌐')} <b>«KIBERIZ-4» INTERAKTIV VEB-PLATFORMASI</b>\n\n"
+        f"Loyihaning to‘liq interaktiv veb-platformasida siz:\n"
+        f"• {p('EXIF_PHOTO', '🖼️')} O‘z suratingizning EXIF metama’lumotlarini onlayn tekshirishingiz;\n"
+        f"• {p('LOCK', '🔒')} Interaktiv parol mustahkamligi kalkulyatoridan foydalanishingiz;\n"
+        f"• {p('TROPHY', '🏆')} 4-maktab sinflari reytingini jonli kuzatishingiz mumkin!\n\n"
+        f"Platformani ochish uchun quyidagi tugmani bosing:"
+    )
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Veb-Platformani ochish", url="http://localhost:8080", icon_custom_emoji_id=E["ROCKET"])]
+    ])
+    await update.message.reply_text(web_text, parse_mode="HTML", reply_markup=keyboard)
+
+# ==========================================
+# QUIZ / CALCULATOR HANDLER
+# ==========================================
+QUIZ_QUESTIONS = [
+    {
+        "q": "1. Ijtimoiy tarmoq (Instagram, TikTok) profilingiz ochiqmi (public) yoki yopiqmi (private)?",
+        "options": [
+            ("Yopiq (Faqat do‘stlarim ko‘radi)", 20),
+            ("Ochiq (Hamma ko‘ra oladi)", 0)
+        ]
+    },
+    {
+        "q": "2. Telegram profilingizda telefon raqamingiz kimlarga ko‘rinadi?",
+        "options": [
+            ("Hech kimga", 20),
+            ("Faqat kontaktlarimga", 10),
+            ("Hammaga ko‘rinadi", 0)
+        ]
+    },
+    {
+        "q": "3. Akkauntingizda Ikki bosqichli parol (2FA) yoqilganmi?",
+        "options": [
+            ("Ha, mustahkam parol o‘rnatganman", 20),
+            ("Yo‘q / Bilmayman", 0)
+        ]
+    },
+    {
+        "q": "4. Suratlaringizda uyingiz derazasidan ko‘rinish yoki maktab formangiz ko‘rinadimi?",
+        "options": [
+            ("Yo‘q, shaxsiy joylarni ko‘rsatmayman", 20),
+            ("Ha, ko‘pincha shunday suratlar yuklayman", 0)
+        ]
+    },
+    {
+        "q": "5. Begonalardan kelgan 'Ovoz bering' yoki 'Telegram Premium yuting' havolalarini ochasizmi?",
+        "options": [
+            ("Hech qachon shubhali havolalarni bosmayman", 20),
+            ("Ba’zan qiziqib kirib ko‘raman", 0)
+        ]
+    }
+]
+
+async def start_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data["quiz_step"] = 0
+    context.user_data["quiz_score"] = 0
+    await send_quiz_question(update, context)
+
+async def send_quiz_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    step = context.user_data.get("quiz_step", 0)
+    if step < len(QUIZ_QUESTIONS):
+        q_data = QUIZ_QUESTIONS[step]
+        buttons = []
+        for opt_text, score in q_data["options"]:
+            icon = E["CHECK"] if score > 0 else E["CROSS"]
+            buttons.append([InlineKeyboardButton(opt_text, callback_data=f"q_{step}_{score}", icon_custom_emoji_id=icon)])
+        keyboard = InlineKeyboardMarkup(buttons)
+        
+        msg_text = (
+            f"{p('TEST', '🧪')} <b>«Raqamli Iz» Testi ({step+1}/{len(QUIZ_QUESTIONS)})</b>\n\n"
+            f"{html.escape(q_data['q'])}"
+        )
+        
+        if update.callback_query:
+            await update.callback_query.edit_message_text(msg_text, parse_mode="HTML", reply_markup=keyboard)
+        else:
+            await update.message.reply_text(msg_text, parse_mode="HTML", reply_markup=keyboard)
+    else:
+        # Final result
+        total = context.user_data.get("quiz_score", 0)
+        if total >= 80:
+            status = f"{p('GREEN', '🟢')} <b>YASHIL QALQON — A’LO DARAJADA!</b> {p('HUNDRED', '💯')}"
+            advice = "Siz o‘z raqamli izingizni juda yaxshi nazorat qilasiz. Firibgarlar sizning profilingizdan ma’lumot topishi o‘ta qiyin!"
+        elif total >= 50:
+            status = f"{p('YELLOW', '🟡')} <b>SARIQ OGOHLIK — O‘RTA XAVF!</b> {p('WARNING', '⚠️')}"
+            advice = "Profilingizda ba’zi ochiq teshiklar bor (masalan, telefon raqam yoki 2FA). 5 daqiqalik chek-list orqali ularni zudlik bilan to‘g‘irlang."
+        else:
+            status = f"{p('RED', '🔴')} <b>QIZIL XAVF — YUQORI ZAIFLIK!</b> {p('BOMB', '💣')}"
+            advice = "Sizning profilingiz firibgarlar va kiberhujumchilar uchun ochiq kitob kabidir! Hoziroq barcha xavfsizlik sozlamalarini yoqishingiz shart."
+            
+        result_text = (
+            f"{p('STATS', '📊')} <b>SIZNING RAQAMLI IZINGIZ NATIJASI:</b>\n\n"
+            f"Ball: <b>{total} / 100</b>\n"
+            f"Holat: {status}\n\n"
+            f"{p('LIGHT', '💡')} <b>Tavsiya:</b> {advice}\n\n"
+            f"Pastdagi tugma orqali profilingizni 5 daqiqada himoyalang:"
+        )
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("5 daqiqalik Chek-listni ko‘rish", callback_data="show_checklist", icon_custom_emoji_id=E["SHIELD"])],
+            [InlineKeyboardButton("Qaytadan topshirish", callback_data="start_quiz", icon_custom_emoji_id=E["REFRESH"])]
+        ])
+        if update.callback_query:
+            await update.callback_query.edit_message_text(result_text, parse_mode="HTML", reply_markup=keyboard)
+        else:
+            await update.message.reply_text(result_text, parse_mode="HTML", reply_markup=keyboard)
+
+async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    
+    if data == "start_quiz":
+        context.user_data["quiz_step"] = 0
+        context.user_data["quiz_score"] = 0
+        await send_quiz_question(update, context)
+    elif data.startswith("q_"):
+        parts = data.split("_")
+        score = int(parts[2])
+        context.user_data["quiz_score"] = context.user_data.get("quiz_score", 0) + score
+        context.user_data["quiz_step"] = context.user_data.get("quiz_step", 0) + 1
+        await send_quiz_question(update, context)
+    elif data == "show_checklist":
+        checklist_text = (
+            f"{p('SHIELD', '🛡️')} <b>«Xavfsiz Profil» chek-listi:</b>\n"
+            f"1. {p('PHONE', '📱')} Telefon raqamingizni 'Hech kimga' qilib yashiring.\n"
+            f"2. {p('KEY_LOCK', '🔐')} Ikki bosqichli tekshiruv (2FA) parolini yoqing.\n"
+            f"3. {p('EXIF_PHOTO', '🖼️')} Suratga olayotganda GPS teglarni o‘chiring.\n"
+            f"4. {p('LAPTOP', '💻')} Begona sessiyalarni (qurilmalarni) yakunlang.\n"
+            f"5. {p('LOCK', '🔒')} Guruhlarga faqat kontaktlar qo‘shishiga ruxsat bering."
+        )
+        await query.message.reply_text(checklist_text, parse_mode="HTML")
+    elif data == "guide_2fa":
+        guide_text = (
+            f"{p('KEY_LOCK', '🔐')} <b>IKKI BOSQICHLI TEKSHIRUV (2FA) YOQISH QO‘LLANMASI:</b>\n\n"
+            f"1. {p('GEAR', '⚙️')} Telegramda <b>Sozlamalar</b> (Settings) ga kiring;\n"
+            f"2. {p('SHIELD', '🛡️')} <b>Maxfiylik va xavfsizlik</b> (Privacy and Security) bo‘limini tanlang;\n"
+            f"3. {p('KEY', '🔑')} <b>Ikki bosqichli tekshiruv</b> (Two-Step Verification) ni bosing;\n"
+            f"4. {p('LOCK', '🔒')} Esda qoladigan, lekin oson topilmaydigan maxfiy parol kiriting;\n"
+            f"5. {p('CHECK', '✅')} E-mail manzilingizni tasdiqlang.\n\n"
+            f"{p('CHECK', '✅')} <i>Endi yangi qurilmadan kirilganda SMS koddan tashqari shu maxfiy parol ham so‘raladi!</i>"
+        )
+        await query.message.reply_text(guide_text, parse_mode="HTML")
+
+# ==========================================
+# REAL OSINT HELPER (JPG, PNG, HEIC, ZIP)
+# ==========================================
+def parse_single_image_exif(file_bytes, filename="surat"):
+    """Extracts EXIF and GPS from raw image bytes (supports JPG, PNG, HEIC, WEBP)."""
+    try:
+        img = Image.open(io.BytesIO(file_bytes))
+        exif_data = img.getexif()
+    except Exception as e:
+        return None, None, str(e)
+        
+    details = []
+    lat_val, lon_val = None, None
+    device_name = None
+    captured_time = None
+    
+    if exif_data:
+        make = exif_data.get(ExifTags.Base.Make)
+        model = exif_data.get(ExifTags.Base.Model)
+        date_time = exif_data.get(ExifTags.Base.DateTime)
+        software = exif_data.get(ExifTags.Base.Software)
+        
+        if make or model:
+            device_name = f"{make or ''} {model or ''}".strip()
+            details.append(f"{p('PHONE', '📱')} <b>Qurilma:</b> <code>{html.escape(device_name)}</code>")
+            
+        if date_time:
+            captured_time = str(date_time)
+            details.append(f"{p('TIMER', '⏰')} <b>Olingan vaqt:</b> <code>{html.escape(captured_time)}</code>")
+            
+        if software:
+            details.append(f"{p('GEAR', '⚙️')} <b>Dastur:</b> <code>{html.escape(str(software))}</code>")
+            
+        # Parse GPS
+        try:
+            gps_info = exif_data.get_ifd(ExifTags.IFD.GPSInfo)
+            if gps_info:
+                lat_ref = gps_info.get(1, "N")
+                raw_lat = gps_info.get(2)
+                lon_ref = gps_info.get(3, "E")
+                raw_lon = gps_info.get(4)
+                
+                if raw_lat and raw_lon:
+                    lat_deg = float(raw_lat[0]) + float(raw_lat[1])/60.0 + float(raw_lat[2])/3600.0
+                    if lat_ref == "S": lat_deg = -lat_deg
+                    lon_deg = float(raw_lon[0]) + float(raw_lon[1])/60.0 + float(raw_lon[2])/3600.0
+                    if lon_ref == "W": lon_deg = -lon_deg
+                    
+                    lat_val = round(lat_deg, 6)
+                    lon_val = round(lon_deg, 6)
+                    
+                    maps_url = f"https://www.google.com/maps?q={lat_val},{lon_val}"
+                    details.append(
+                        f"{p('SEARCH', '📍')} <b>GPS Lokatsiya:</b> <code>{lat_val}° {lat_ref}, {lon_val}° {lon_ref}</code>\n"
+                        f"👉 <a href=\"{maps_url}\">Google Xaritalarda ko‘rish</a>"
+                    )
+        except Exception as e:
+            logging.error(f"GPS parsing error: {e}")
+            
+    coords = (lat_val, lon_val) if (lat_val is not None and lon_val is not None) else None
+    return details, coords, None
+
+async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message
+    if not msg:
+        return
+        
+    await msg.reply_chat_action("typing")
+    
+    is_doc = bool(msg.document)
+    file_bytes = None
+    file_name = "surat.jpg"
+    
+    if is_doc:
+        doc = msg.document
+        file_name = doc.file_name or "fayl"
+        mime = (doc.mime_type or "").lower()
+        valid_exts = (".jpg", ".jpeg", ".png", ".tiff", ".heic", ".heif", ".webp", ".zip")
+        if not (mime.startswith("image/") or "zip" in mime or any(file_name.lower().endswith(ext) for ext in valid_exts)):
+            await msg.reply_text(
+                f"{p('WARNING', '⚠️')} Iltimos, tahlil qilish uchun <b>fotosurat</b> (JPG, PNG, HEIC) yoki <b>ZIP arxiv</b> yuboring.",
+                parse_mode="HTML"
+            )
+            return
+            
+        tg_file = await doc.get_file()
+        file_bytes = await tg_file.download_as_bytearray()
+    elif msg.photo:
+        tg_file = await msg.photo[-1].get_file()
+        file_bytes = await tg_file.download_as_bytearray()
+        
+    if not file_bytes:
+        return
+
+    # Check if ZIP archive
+    if is_doc and (file_name.lower().endswith(".zip") or "zip" in (msg.document.mime_type or "").lower()):
+        await handle_zip_archive(msg, file_bytes, file_name)
+        return
+
+    # Process Single Image (JPG, PNG, HEIC, WEBP, TIFF)
+    details, coords, err = parse_single_image_exif(file_bytes, file_name)
+    
+    if err:
+        await msg.reply_text(
+            f"{p('WARNING', '⚠️')} Rasmni ochishda xatolik yuz berdi ({html.escape(err)}). Iltimos, boshqa surat yuboring.",
+            parse_mode="HTML"
+        )
+        return
+        
+    analysis_msg = f"{p('SEARCH', '🔍')} <b>OSINT TAHLIL NATIJASI ({html.escape(file_name)}):</b>\n\n"
+    
+    if details:
+        analysis_msg += (
+            f"{p('WARNING', '⚠️')} <b>SURATDAGI YASHIRIN METAMA’LUMOTLAR (EXIF TOPILDI):</b>\n"
+        )
+        for d in details:
+            analysis_msg += f"• {d}\n"
+        analysis_msg += (
+            f"\n{p('SOS', '🚨')} <b>Xavf:</b> Firibgar suratingiz qaysi qurilmada olinganini va "
+            f"<b>qaysi aniq manzilda joylashganingizni</b> xaritada ko‘rib turibdi!\n\n"
+        )
+    else:
+        if not is_doc:
+            analysis_msg += (
+                f"{p('INFO', 'ℹ️')} <i>Telegram orqali oddiy rasm holida yuborilgani uchun Telegram "
+                f"uning EXIF parametrlarini (GPS, kamera modelini) avtomatik tozalab yuborgan.\n"
+                f"Original EXIF-ni sinash uchun suratni botga <b>'Hujjat / Fayl' (Document, .HEIC yoki .ZIP)</b> tarzida yuboring yoki /sample buyrug‘ini bosing!</i>\n\n"
+            )
+        else:
+            analysis_msg += (
+                f"{p('CHECK', '✅')} <i>Ushbu faylda EXIF yoki GPS metama’lumotlari topilmadi (tozalangan yoki internetdan olingan).</i>\n\n"
+            )
+            
+    analysis_msg += (
+        f"{p('HACKER', '👨‍💻')} <b>SURATNING VIZUAL FOZASI BO‘YICHA OSINT XAVFLARI:</b>\n"
+        f"1. {p('SCHOOL', '🏫')} <b>Maktab formasi va emblemalar:</b> Maktab raqami va manzili fosh bo‘ladi.\n"
+        f"2. {p('HOUSE', '🏠')} <b>Deraza ortidagi manzara:</b> Ko‘cha, yon atrofdagi binolar va hatto qavat aniqlanadi.\n"
+        f"3. {p('TIMER', '⏰')} <b>Soat va yorug‘lik:</b> Dars jadvali yoki o‘quvchi qachon uyda yolg‘iz ekanligi bilib olinadi.\n\n"
+        f"{p('SHIELD', '🛡️')} <b>Maslahat:</b> Suratlarni tarmoqqa yuklashdan avval fonni loyqalang yoki shaxsiy belgilarni qirqing!"
+    )
+    
+    await msg.reply_text(analysis_msg, parse_mode="HTML", disable_web_page_preview=True)
+    
+    # If GPS coordinates were detected, send real Telegram Location pin!
+    if coords:
+        lat_val, lon_val = coords
+        await msg.reply_location(latitude=lat_val, longitude=lon_val)
+
+async def handle_zip_archive(msg, file_bytes, file_name):
+    """Unpacks a zip archive and performs OSINT analysis on all contained images."""
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as z:
+            namelist = [n for n in z.namelist() if not n.endswith("/")]
+            valid_exts = (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tiff")
+            image_names = [n for n in namelist if any(n.lower().endswith(ext) for ext in valid_exts)]
+            
+            if not image_names:
+                await msg.reply_text(
+                    f"{p('WARNING', '⚠️')} <b>{html.escape(file_name)}</b> arxivi ichida fotosuratlar (JPG, PNG, HEIC) topilmadi.",
+                    parse_mode="HTML"
+                )
+                return
+                
+            report = (
+                f"📦 <b>ZIP ARXIVI OCHILDI: {html.escape(file_name)}</b>\n"
+                f"Aniqlangan fotosuratlar soni: <b>{len(image_names)} ta</b>\n"
+                f"<i>Quyida arxivdagi rasmlarning OSINT tahlili:</i>\n\n"
+            )
+            
+            first_gps_coords = None
+            # Analyze up to 5 images to keep Telegram message clean
+            for idx, img_name in enumerate(image_names[:5], 1):
+                img_bytes = z.read(img_name)
+                details, coords, err = parse_single_image_exif(img_bytes, img_name)
+                clean_name = os.path.basename(img_name)
+                
+                report += f"━━━━━━━━━━━━━━━━━━━━\n"
+                report += f"🖼 <b>{idx}. {html.escape(clean_name)}</b>:\n"
+                
+                if err:
+                    report += f"  ⚠️ Xatolik: {html.escape(err)}\n"
+                elif details:
+                    for d in details:
+                        report += f"  {d}\n"
+                    if coords and not first_gps_coords:
+                        first_gps_coords = coords
+                else:
+                    report += f"  {p('CHECK', '✅')} EXIF tozalanib yuborilgan (GPS xavfi yo‘q).\n"
+                    
+            if len(image_names) > 5:
+                report += f"\n<i>...va yana {len(image_names)-5} ta rasm mavjud.</i>\n"
+                
+            report += (
+                f"\n{p('SHIELD', '🛡️')} <b>Xulosa:</b> Arxivlangan suratlarni begonalarga yuborishdan avval "
+                f"ularning metama’lumotlarini tozalash zarur!"
+            )
+            
+            await msg.reply_text(report, parse_mode="HTML", disable_web_page_preview=True)
+            
+            # Send Telegram Location Pin if any image had GPS
+            if first_gps_coords:
+                lat, lon = first_gps_coords
+                await msg.reply_location(latitude=lat, longitude=lon)
+                
+    except zipfile.BadZipFile:
+        await msg.reply_text(
+            f"{p('WARNING', '⚠️')} ZIP fayli buzilgan yoki noto‘g‘ri formatda.",
+            parse_mode="HTML"
+        )
+    except Exception as e:
+        await msg.reply_text(
+            f"{p('WARNING', '⚠️')} Arxivni ochishda xatolik yuz berdi: {html.escape(str(e))}",
+            parse_mode="HTML"
+        )
+
+async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+    if "Suratni tekshirish" in text or "OSINT" in text:
+        await update.message.reply_text(
+            f"{p('EXIF_PHOTO', '🖼️')} Iltimos, tahlil qilish uchun botga <b>istalgan fotosuratni</b> yuboring:\n"
+            f"• <b>JPG, PNG, WEBP</b> (fayl yoki rasm holida);\n"
+            f"• <b>Apple iPhone (.HEIC)</b> fotosuratlari;\n"
+            f"• <b>.ZIP arxivdagi fotosuratlar</b>!\n\n"
+            f"💡 <i>Sinov uchun GPS-li tayyor namuna surat olish: /sample buyrug‘ini bosing!</i>",
+            parse_mode="HTML"
+        )
+    elif "Chek-list" in text:
+        await checklist_command(update, context)
+    elif "Testi" in text:
+        await start_quiz(update, context)
+    elif "Real keyslar" in text:
+        await cases_command(update, context)
+    elif "SOS" in text:
+        await sos_command(update, context)
+    elif "Veb-Platforma" in text:
+        await web_command(update, context)
+    else:
+        await update.message.reply_text(
+            f"{p('INFO', 'ℹ️')} Iltimos, pastdagi menyu tugmalaridan birini tanlang yoki tahlil uchun fotosurat yuboring.",
+            parse_mode="HTML",
+            reply_markup=MAIN_KEYBOARD
+        )
+
+def main():
+    start_health_check_if_needed()
+    print("Starting KiberIz-4 Telegram Bot with Real OSINT, HEIC & ZIP Support...")
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("sample", sample_command))
+    app.add_handler(CommandHandler("checklist", checklist_command))
+    app.add_handler(CommandHandler("test", start_quiz))
+    app.add_handler(CommandHandler("sos", sos_command))
+    
+    app.add_handler(CallbackQueryHandler(quiz_callback))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.ALL, photo_or_doc_handler))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+    
+    print("Bot is successfully polling!")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
