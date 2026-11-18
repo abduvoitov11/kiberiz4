@@ -7,6 +7,7 @@
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <script src="exifr.full.umd.js"></script>
   <script src="exif.min.js"></script>
   <script src="jszip.min.js"></script>
   <style>
@@ -144,30 +145,18 @@
         </h3>
         
         <div id="scanContent" class="space-y-4 text-sm text-slate-300">
-          <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center space-x-3">
-            <i class="fa-solid fa-circle-info text-cyan-400 text-lg"></i>
-            <div>
-              <div class="font-semibold text-white">Surat hali yuklanmadi</div>
-              <div class="text-xs text-slate-400">Chap tarafdagi oynaga o‘zingizning biron suratingizni tashlab ko‘ring.</div>
+          <div class="p-8 rounded-2xl bg-slate-900/50 border border-slate-800 text-center flex flex-col items-center justify-center py-10">
+            <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-3xl mb-4">
+              <i class="fa-solid fa-radar animate-pulse"></i>
             </div>
-          </div>
-          
-          <div class="border-t border-slate-800 pt-4">
-            <h4 class="text-xs uppercase font-bold text-slate-400 mb-2 tracking-wider">Namuna tahlil (Standart selfi surati):</h4>
-            <ul class="space-y-2 text-xs">
-              <li class="flex items-start space-x-2 text-red-400">
-                <i class="fa-solid fa-triangle-exclamation mt-0.5"></i>
-                <span><b>GPS Lokatsiya:</b> 41.311081° N, 69.240562° E (Uy manzili 5 metr aniqlikda oshkor bo‘lgan)</span>
-              </li>
-              <li class="flex items-start space-x-2 text-amber-400">
-                <i class="fa-solid fa-clock mt-0.5"></i>
-                <span><b>Olingan vaqti:</b> Dushanba, 14:35 (O‘quvchining darsdan qaytgan payti)</span>
-              </li>
-              <li class="flex items-start space-x-2 text-sky-400">
-                <i class="fa-solid fa-mobile-screen mt-0.5"></i>
-                <span><b>Qurilma modeli:</b> iPhone 13 Pro (Kamera parametrlari)</span>
-              </li>
-            </ul>
+            <div class="font-bold text-white text-base mb-1">Surat hali yuklanmadi</div>
+            <div class="text-xs text-slate-400 max-w-sm leading-relaxed mb-4">
+              Haqiqiy tahlilni boshlash uchun chap tarafdagi maydonga o‘zingizning biror suratingizni (JPG, PNG, HEIC) yoki ZIP arxivni yuklang.
+            </div>
+            <div class="inline-flex items-center space-x-2 text-[11px] text-cyan-400/90 bg-cyan-950/40 px-3.5 py-1.5 rounded-lg border border-cyan-500/20">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Fayl yuklangach, tizim real vaqtda aynan o‘sha suratdan ma’lumotlarni qidiradi</span>
+            </div>
           </div>
         </div>
       </div>
@@ -387,22 +376,80 @@
       });
     }
 
-    function handleFile(file) {
+    async function parseExifData(fileOrBuffer) {
+      let parsed = null;
+      let gps = null;
+      // 1. Try modern exifr library (supports JPEG, HEIC, PNG, WebP, TIFF)
+      if (window.exifr) {
+        try {
+          parsed = await exifr.parse(fileOrBuffer, {
+            gps: true,
+            tiff: true,
+            xmp: true,
+            exif: true
+          });
+          gps = await exifr.gps(fileOrBuffer);
+        } catch(e) {
+          console.warn("exifr parse notice:", e);
+        }
+      }
+      // 2. Fallback to exif.js
+      if ((!parsed || !gps) && window.EXIF && EXIF.readFromBinaryFile) {
+        try {
+          let buf;
+          if (fileOrBuffer instanceof ArrayBuffer) {
+            buf = fileOrBuffer;
+          } else if (fileOrBuffer.arrayBuffer) {
+            buf = await fileOrBuffer.arrayBuffer();
+          }
+          if (buf) {
+            const raw = EXIF.readFromBinaryFile(buf);
+            if (raw) {
+              parsed = parsed || raw;
+              if (!gps && raw.GPSLatitude && raw.GPSLongitude) {
+                gps = {
+                  latitude: convertDMSToDD(raw.GPSLatitude, raw.GPSLatitudeRef || "N"),
+                  longitude: convertDMSToDD(raw.GPSLongitude, raw.GPSLongitudeRef || "E")
+                };
+              }
+            }
+          }
+        } catch(e) {
+          console.warn("EXIF fallback notice:", e);
+        }
+      }
+      return { parsed: parsed || {}, gps: gps || null };
+    }
+
+    async function handleFile(file) {
       if(!file) return;
-      const preview = document.getElementById('imagePreview');
+      const fileInput = document.getElementById('fileInput');
+      if (fileInput) fileInput.value = '';
+
       const container = document.getElementById('imagePreviewContainer');
       const scanBadge = document.getElementById('scanBadge');
       const scanContent = document.getElementById('scanContent');
       
+      const fileName = file.name || "surat.jpg";
+      const isZip = fileName.toLowerCase().endsWith('.zip');
+      const isHeic = fileName.toLowerCase().endsWith('.heic') || fileName.toLowerCase().endsWith('.heif');
+
       // Check if ZIP archive
-      if (file.name.toLowerCase().endsWith('.zip')) {
+      if (isZip) {
         container.classList.add('hidden');
         scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
         scanBadge.innerText = "📦 ZIP ochilmoqda...";
+        scanContent.innerHTML = `
+          <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-center">
+            <i class="fa-solid fa-spinner fa-spin text-2xl text-cyan-400 mb-2"></i>
+            <div class="text-xs text-slate-300 font-medium">ZIP arxiv tarkibi ochilmoqda...</div>
+            <div class="text-[11px] text-slate-500 mt-1">Har bir fayldan real EXIF va GPS qidirilmoqda</div>
+          </div>`;
         
         if (window.JSZip) {
-          JSZip.loadAsync(file).then(async (zip) => {
-            const validExts = ['.jpg', '.jpeg', '.png', '.webp'];
+          try {
+            const zip = await JSZip.loadAsync(file);
+            const validExts = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
             const entries = [];
             zip.forEach((relPath, entry) => {
               if (!entry.dir && validExts.some(ext => relPath.toLowerCase().endsWith(ext))) {
@@ -413,7 +460,7 @@
             if (entries.length === 0) {
               scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
               scanBadge.innerText = "Suratlar topilmadi";
-              scanContent.innerHTML = `<div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-amber-300">ZIP arxiv ichida fotosuratlar (JPG, PNG) topilmadi.</div>`;
+              scanContent.innerHTML = `<div class="p-4 rounded-xl bg-slate-900 border border-slate-800 text-xs text-amber-300">ZIP arxiv ichida fotosuratlar (JPG, PNG, HEIC) topilmadi.</div>`;
               return;
             }
             
@@ -422,19 +469,16 @@
             </div><div class="space-y-2.5 max-h-72 overflow-y-auto pr-1 text-xs">`;
             
             let hasAnyGps = false;
-            for (let i = 0; i < Math.min(entries.length, 5); i++) {
+            for (let i = 0; i < Math.min(entries.length, 10); i++) {
               const entry = entries[i];
               const buf = await entry.async("arraybuffer");
-              let exifData = {};
-              try {
-                if (window.EXIF) exifData = EXIF.readFromBinaryFile(buf) || {};
-              } catch(e){}
+              const { parsed, gps } = await parseExifData(buf);
               
-              const dev = ((exifData.Make || "") + " " + (exifData.Model || "")).trim();
+              const dev = ((parsed.Make || "") + " " + (parsed.Model || "")).trim();
               let lat = null, lon = null;
-              if (exifData.GPSLatitude && exifData.GPSLongitude) {
-                lat = convertDMSToDD(exifData.GPSLatitude, exifData.GPSLatitudeRef || "N");
-                lon = convertDMSToDD(exifData.GPSLongitude, exifData.GPSLongitudeRef || "E");
+              if (gps && typeof gps.latitude === 'number' && typeof gps.longitude === 'number') {
+                lat = Number(gps.latitude.toFixed(6));
+                lon = Number(gps.longitude.toFixed(6));
                 hasAnyGps = true;
               }
               
@@ -456,56 +500,87 @@
             scanBadge.className = hasAnyGps ? "text-xs px-2.5 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30" : "text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
             scanBadge.innerText = hasAnyGps ? "🚨 ZIP: GPS TOPILDI!" : "✅ ZIP TEKSHIRILDI";
             scanContent.innerHTML = listHtml;
-          });
+          } catch(err) {
+            console.error("ZIP read error:", err);
+            scanBadge.innerText = "Xatolik";
+            scanContent.innerHTML = `<div class="p-4 rounded-xl bg-slate-900 border border-rose-500/40 text-xs text-rose-400">ZIP faylni ochishda xatolik yuz berdi.</div>`;
+          }
         }
         return;
       }
       
-      // Show image preview for single images
-      const previewReader = new FileReader();
-      previewReader.onload = function(e) {
-        preview.src = e.target.result;
+      // Image Preview (for standard images or HEIC badge)
+      if (isHeic) {
+        container.innerHTML = `
+          <div class="max-h-48 p-6 mx-auto rounded-xl border border-slate-700 bg-slate-900 text-center flex flex-col items-center justify-center">
+            <i class="fa-brands fa-apple text-3xl text-slate-300 mb-2"></i>
+            <span class="text-xs font-semibold text-white">${fileName}</span>
+            <span class="text-[11px] text-slate-400 mt-1">Apple HEIC formati (Metama’lumotlar tekshirilmoqda)</span>
+          </div>`;
         container.classList.remove('hidden');
-      };
-      previewReader.readAsDataURL(file);
+      } else {
+        container.innerHTML = `<img id="imagePreview" class="max-h-48 mx-auto rounded-xl border border-slate-700 object-cover shadow-lg">`;
+        const previewEl = document.getElementById('imagePreview');
+        const previewReader = new FileReader();
+        previewReader.onload = function(e) {
+          previewEl.src = e.target.result;
+          container.classList.remove('hidden');
+        };
+        previewReader.readAsDataURL(file);
+      }
 
       scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30";
-      scanBadge.innerText = "⏳ Tahlil qilinmoqda...";
+      scanBadge.innerText = "⏳ Real tahlil qilinmoqda...";
 
-      // Read binary for real EXIF
-      const binaryReader = new FileReader();
-      binaryReader.onload = function(e) {
-        const buffer = e.target.result;
-        let exifData = {};
-        try {
-          if (window.EXIF && EXIF.readFromBinaryFile) {
-            exifData = EXIF.readFromBinaryFile(buffer) || {};
-          }
-        } catch(err) {
-          console.error("EXIF error:", err);
-        }
+      scanContent.innerHTML = `
+        <div class="p-6 rounded-2xl bg-slate-900 border border-slate-800 text-center">
+          <i class="fa-solid fa-spinner fa-spin text-2xl text-cyan-400 mb-2"></i>
+          <div class="text-xs text-slate-300 font-medium">Yuklangan "${fileName}" tahlil qilinmoqda...</div>
+          <div class="text-[11px] text-slate-500 mt-1">EXIF, GPS lokatsiya va kamera parametrlari o‘qilmoqda</div>
+        </div>`;
 
+      try {
+        const { parsed, gps } = await parseExifData(file);
         setTimeout(() => {
-          renderAnalysis(file, exifData);
-        }, 400);
-      };
-      binaryReader.readAsArrayBuffer(file);
+          renderAnalysis(file, parsed, gps);
+        }, 350);
+      } catch(err) {
+        console.error("Parse error:", err);
+        renderAnalysis(file, {}, null);
+      }
     }
 
-    function renderAnalysis(file, exif) {
+    function renderAnalysis(file, parsed, gps) {
       const scanBadge = document.getElementById('scanBadge');
       const scanContent = document.getElementById('scanContent');
 
-      const make = exif.Make || "";
-      const model = exif.Model || "";
-      const device = (make + " " + model).trim();
-      const dateTime = exif.DateTimeOriginal || exif.DateTime || "";
-      const software = exif.Software || "";
+      const make = parsed.Make || "";
+      const model = parsed.Model || "";
+      let device = (make + " " + model).trim();
+      if (!device && parsed.HostComputer) device = parsed.HostComputer;
+
+      let dateTime = "";
+      if (parsed.DateTimeOriginal) {
+        dateTime = parsed.DateTimeOriginal instanceof Date ? parsed.DateTimeOriginal.toLocaleString('uz-UZ') : String(parsed.DateTimeOriginal);
+      } else if (parsed.CreateDate) {
+        dateTime = parsed.CreateDate instanceof Date ? parsed.CreateDate.toLocaleString('uz-UZ') : String(parsed.CreateDate);
+      } else if (parsed.ModifyDate) {
+        dateTime = parsed.ModifyDate instanceof Date ? parsed.ModifyDate.toLocaleString('uz-UZ') : String(parsed.ModifyDate);
+      } else if (parsed.DateTime) {
+        dateTime = String(parsed.DateTime);
+      }
+
+      const software = parsed.Software || "";
+      const fileSizeKb = (file.size / 1024).toFixed(1);
+      const fileSizeStr = file.size > 1048576 ? (file.size / 1048576).toFixed(2) + " MB" : fileSizeKb + " KB";
 
       let lat = null, lon = null;
-      if (exif.GPSLatitude && exif.GPSLongitude) {
-        lat = convertDMSToDD(exif.GPSLatitude, exif.GPSLatitudeRef || "N");
-        lon = convertDMSToDD(exif.GPSLongitude, exif.GPSLongitudeRef || "E");
+      if (gps && typeof gps.latitude === 'number' && typeof gps.longitude === 'number') {
+        lat = Number(gps.latitude.toFixed(6));
+        lon = Number(gps.longitude.toFixed(6));
+      } else if (parsed.latitude && parsed.longitude) {
+        lat = Number(Number(parsed.latitude).toFixed(6));
+        lon = Number(Number(parsed.longitude).toFixed(6));
       }
 
       if (lat && lon) {
@@ -518,21 +593,21 @@
           <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 space-y-2">
             <div class="font-bold text-rose-400 flex items-center text-sm">
               <i class="fa-solid fa-triangle-exclamation mr-2 text-rose-400"></i>
-              <span>OSINT XAVFI: Aniq geolokatsiya oshkor bo‘ldi!</span>
+              <span>OSINT XAVFI: Aniq geolokatsiya fosh bo‘ldi!</span>
             </div>
             <p class="text-xs text-slate-300 leading-relaxed">
-              Surat ichida yashirin <b>GPS koordinatalari</b> mavjud. Firibgar yoki begona shaxs ushbu surat orqali sizning uyingiz yoki maktabingiz qayerda ekanligini 5 metr aniqlikda ko‘ra oladi!
+              Siz yuklagan surat ichida yashirin <b>GPS koordinatalari</b> aniqlandi. Begona shaxs yoki firibgar ushbu surat orqali qayerda bo‘lganingizni bir necha metr aniqlikda ko‘ra oladi!
             </p>
           </div>
 
           <div class="space-y-2 text-xs">
-            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+            <div class="p-3 rounded-lg bg-slate-900 border border-rose-500/30 flex justify-between items-center">
               <span class="text-slate-400">📍 GPS Koordinata:</span>
               <span class="font-mono font-bold text-rose-400">${lat}° N, ${lon}° E</span>
             </div>
             ${device ? `
             <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
-              <span class="text-slate-400">📱 Qurilma modeli:</span>
+              <span class="text-slate-400">📱 Haqiqiy qurilma:</span>
               <span class="font-semibold text-white">${device}</span>
             </div>` : ''}
             ${dateTime ? `
@@ -540,21 +615,26 @@
               <span class="text-slate-400">⏰ Olingan vaqt:</span>
               <span class="font-semibold text-white">${dateTime}</span>
             </div>` : ''}
+            ${software ? `
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">⚙️ Dastur / Tizim:</span>
+              <span class="font-semibold text-slate-300">${software}</span>
+            </div>` : ''}
             <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
               <span class="text-slate-400">📁 Fayl:</span>
-              <span class="font-semibold text-slate-300">${file.name} (${(file.size/1024).toFixed(1)} KB)</span>
+              <span class="font-semibold text-slate-300">${file.name} (${fileSizeStr})</span>
             </div>
           </div>
 
           <div class="pt-2">
             <a href="${mapsUrl}" target="_blank" class="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-slate-950 font-bold text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg shadow-rose-500/20 transition">
               <i class="fa-solid fa-map-location-dot"></i>
-              <span>Xaritada ochish (Google Maps)</span>
+              <span>Google Xaritada ko‘rish (Jonli nuqta)</span>
             </a>
           </div>
 
           <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-amber-300">
-            💡 <b>Qanday himoyalanish kerak:</b> Telefon kamerasi sozlamalariga kiring va <i>«Joylashuv belgisi (Location tags)»</i> funksiyasini zudlik bilan o‘chirib qo‘ying!
+            💡 <b>Qanday himoyalanish kerak:</b> Telefoningiz kamera sozlamalariga kiring va <i>«Joylashuv teglari (Location tags)»</i> funksiyasini zudlik bilan o‘chirib qo‘ying!
           </div>
         `;
       } else if (device || dateTime) {
@@ -566,53 +646,62 @@
           <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-500/40 space-y-2">
             <div class="font-bold text-amber-400 flex items-center text-sm">
               <i class="fa-solid fa-circle-exclamation mr-2"></i>
-              <span>Qurilma va vaqt ma’lumotlari fosh bo‘ldi</span>
+              <span>Qurilma yoki vaqt parametrlari aniqlandi</span>
             </div>
             <p class="text-xs text-slate-300 leading-relaxed">
-              GPS koordinatalari topilmadi, lekin surat qaysi telefonda va qachon olinganligi saqlanib qolgan.
+              Suratda GPS koordinatalari yo‘q (o‘chirilgan), lekin qurilma modeli va olingan vaqt ma’lumotlari saqlanib qolgan.
             </p>
           </div>
 
           <div class="space-y-2 text-xs">
             ${device ? `
             <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
-              <span class="text-slate-400">📱 Qurilma:</span>
+              <span class="text-slate-400">📱 Aniqlangan qurilma:</span>
               <span class="font-semibold text-white">${device}</span>
             </div>` : ''}
             ${dateTime ? `
             <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
-              <span class="text-slate-400">⏰ Olingan sana/vaqt:</span>
+              <span class="text-slate-400">⏰ Suratga olingan vaqt:</span>
               <span class="font-semibold text-white">${dateTime}</span>
             </div>` : ''}
+            ${software ? `
             <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
-              <span class="text-slate-400">📁 Fayl nomi:</span>
-              <span class="font-semibold text-slate-300">${file.name}</span>
+              <span class="text-slate-400">⚙️ Tizim:</span>
+              <span class="font-semibold text-slate-300">${software}</span>
+            </div>` : ''}
+            <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 flex justify-between items-center">
+              <span class="text-slate-400">📁 Fayl:</span>
+              <span class="font-semibold text-slate-300">${file.name} (${fileSizeStr})</span>
             </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-[11px] text-emerald-400">
+            ✅ <b>Ijobiy tomoni:</b> Suratda GPS joylashuv koordinatalari fosh bo‘lmagan.
           </div>
         `;
       } else {
         // Clean EXIF
         scanBadge.className = "text-xs px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
-        scanBadge.innerText = "✅ EXIF TOZALANGAN";
+        scanBadge.innerText = "✅ EXIF TOZALANGAN (TOZA)";
 
         scanContent.innerHTML = `
           <div class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-500/40 space-y-2">
             <div class="font-bold text-emerald-400 flex items-center text-sm">
               <i class="fa-solid fa-shield-check mr-2"></i>
-              <span>EXIF metama’lumotlari tozalandi</span>
+              <span>Haqiqiy metama’lumotlar topilmadi</span>
             </div>
             <p class="text-xs text-slate-300 leading-relaxed">
-              Ushbu faylda GPS lokatsiyasi yoki kamera parametrlari aniqlanmadi (Telegram orqali siqilgan yoki skrinshot olingan).
+              Yuklangan «${file.name}» (${fileSizeStr}) faylida GPS koordinatalari yoki kamera teglari aniqlanmadi. Surat toza (Telegram orqali oddiy rasm sifatida yuborilgan yoki skrinshot qilingan bo‘lishi mumkin).
             </p>
           </div>
 
           <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2 text-xs">
-            <h4 class="font-bold text-cyan-400 uppercase tracking-wider text-[11px]">Vizual OSINT tekshiruvi:</h4>
-            <p class="text-slate-400">Metama’lumot bo‘lmasa ham, quyidagi belgilarni tekshiring:</p>
+            <h4 class="font-bold text-cyan-400 uppercase tracking-wider text-[11px]">Vizual fon OSINT tekshiruvi:</h4>
+            <p class="text-slate-400">EXIF toza bo‘lsa ham, surat fonidagi belgilarga e’tibor bering:</p>
             <ul class="space-y-1.5 text-slate-300">
-              <li>• 🏫 <b>Maktab formasi:</b> 4-maktab nishoni yoki galstugi ko‘rinmayaptimi?</li>
-              <li>• 🪟 <b>Deraza orqasidagi manzara:</b> Do‘kon yoki ko‘cha binosi ko‘rinmayaptimi?</li>
-              <li>• 🕒 <b>Soat va xona:</b> Dars jadvali yoki uyda yolg‘izlik belgisi yo‘qmi?</li>
+              <li>• 🏫 <b>Maktab formasi:</b> 4-maktab nishoni, galstugi yoki maktab devori ko‘rinmayaptimi?</li>
+              <li>• 🪟 <b>Deraza manzarasi:</b> Ko‘cha nomi, do‘kon peshlavhasi yoki tanish bino yo‘qmi?</li>
+              <li>• 🕒 <b>Vaqt belgilari:</b> Devordagi soat, kompyuter ekrani yoki xonadagi yolg‘izlik belgilari.</li>
             </ul>
           </div>
         `;
