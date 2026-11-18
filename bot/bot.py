@@ -673,13 +673,112 @@ def parse_document_metadata(file_bytes: bytes, file_name: str):
             except Exception:
                 pass
 
+URL_REGEX = re.compile(
+    r'(https?://[^\s]+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:/[^\s]*)?)',
+    re.IGNORECASE
+)
+
+# Taqiqlangan va qonunga zid saytlar, ijtimoiy tarmoq profillari bazasi (Oliy Sud, Qimor, 18+, Narkotik, Fishing)
+FORBIDDEN_RULES = [
+    {
+        "category": "⚠️ O‘zbekiston Oliy Sudi taqiqlagan diniy-ekstremistik va terroristik manbalar (Telegram, Instagram, YouTube, TikTok)",
+        "badge": "🚨 O‘ZBEKISTON RESPUBLIKASI OLIY SUDI TOMONIDAN QAT’IYAN TAQIQLANGAN (JK 244-1)!",
+        "law": "O‘zbekiston Respublikasi JK 244-1-moddasi (Jamoat xavfsizligiga tahdid soluvchi materiallarni tayyorlash, saqlash, tarqatish yoki namoyish etish) hamda JK 244-2-moddasi bo‘yicha 5 yildan 8 yilgacha ozodlikdan mahrum qilish jazosiga sabab bo‘ladi! Oliy sud va Din ishlari bo‘yicha qo‘mitaning rasmiy reyestriga kiritilgan (my.sud.uz).",
+        "patterns": [
+            r"abdulloh-?zufar", r"abdullah-?zufar", r"zufar-?darslari",
+            r"sodiq-?samarqandiy", r"sodiqsamarqandiy", r"shayx-?sodiq",
+            r"abu-?saloh", r"abusaloh", r"abu-?solih",
+            r"mahmud-?abdulm[ou]min", r"mahmudabdulm[ou]min", r"mahmud-?rajab",
+            r"rashod-?qori", r"rashodqori",
+            r"abu-?hurayra", r"abuhurayra",
+            r"hizb-?ut-?tahrir", r"hizbuttahrir",
+            r"katibat-?al-?tawhid", r"tavhid-?va-?jihod", r"tavhidvajihod",
+            r"jabhat-?al-?nusra", r"al-?nusra",
+            r"ishid", r"daesh", r"isis", r"al-?qoida", r"al-?qaeda",
+            r"jannat-?oshiqlari", r"muhojir-?tv", r"muhojirtv",
+            r"najot-?forum", r"najotforum", r"ansorulloh", r"ansorullah",
+            r"xuruj", r"halifalik", r"xalifalik", r"sodiqlar", r"diyor-?news"
+        ]
+    },
+    {
+        "category": "🎰 Qimor, Bukmekerlik va Tavakkalchilik o‘yinlari",
+        "badge": "🚨 QAT’IYAN TAQIQLANGAN (QIMOR / BUKMEKER)",
+        "law": "O‘zbekiston Respublikasi JK 278-moddasi (Qimor va tavakkalchilikka asoslangan o‘yinlarni tashkil etish hamda o‘tkazish) bo‘yicha qat’iyan jinoiy javobgarlikka sabab bo‘ladi!",
+        "patterns": [
+            r"1-?x-?bet", r"most-?bet", r"mel-?bet", r"line-?bet", r"1-?win", r"pin-?up",
+            r"pari-?match", r"vavada", r"leon-?bet", r"fon-?bet", r"bet-?and-?you",
+            r"bet365", r"joy-?casino", r"(^|[\.\-_/])casino([\.\-_/]|$)", r"bukmeker",
+            r"poker-?dom", r"(^|[\.\-_/])stavk[ai]", r"qimor", r"(^|[\.\-_/])slot[s]?([\.\-_/]|$)",
+            r"aviator-?(game|play)?", r"lucky-?jet", r"olimp-?bet", r"betwinner",
+            r"gg-?bet", r"marathonbet", r"winline", r"baltbet", r"liga-?stavok",
+            r"zenit-?bet", r"spin-?win", r"roulette", r"ruletka"
+        ]
+    },
+    {
+        "category": "🔞 18+ Axloqsiz va Pornografik Kontent",
+        "badge": "🚨 QAT’IYAN TAQIQLANGAN (18+ PORNOGRAFIK MAZMUN)",
+        "law": "O‘zbekiston Respublikasi JK 130-moddasi (Pornografik mahsulotlarni tarqatish, reklama qilish, namoyish etish) bo‘yicha qonun bilan qat’iyan taqiqlangan!",
+        "patterns": [
+            r"pornhub", r"xvideos", r"xnxx", r"redtube", r"xhamster", r"onlyfans",
+            r"chaturbate", r"brazzers", r"stripchat", r"erome", r"rule34",
+            r"(^|[\.\-_/])porn[o]?([\.\-_/]|$)", r"(^|[\.\-_/])sex([\.\-_/]|$)",
+            r"hentai", r"bongacams", r"livejasmin", r"fapello", r"fap-?house",
+            r"youporn", r"tube8", r"spankbang", r"eporner", r"beeg", r"camsoda",
+            r"cam4", r"hqporner", r"(^|[\.\-_/])xxx([\.\-_/]|$)", r"nsfw"
+        ]
+    },
+    {
+        "category": "☠️ Narkotik, Darknet (.onion) va Noqonuniy Qora Bozor",
+        "badge": "🚨 QAT’IYAN TAQIQLANGAN (DARKNET / .ONION / NARKOTIK)",
+        "law": "O‘zbekiston Respublikasi JK 273-moddasi va kiberxavfsizlik talablariga ko‘ra, Darknet (.onion) tarmog‘i hamda uning qidiruv tizimlari (Ahmia) orqali noqonuniy vositalar, taqiqlangan moddalar va kiberjinoyatlar tarqatilishi qat’iyan man etiladi!",
+        "patterns": [
+            r"ahmia(\.fi)?", r"\.onion($|[./:])", r"tor2web", r"darksearch",
+            r"kraken", r"hydra", r"blacksprut", r"solaris", r"mega-?dark",
+            r"omg-?omg", r"narkotik", r"psixotrop", r"zakladka", r"mefedron",
+            r"alfa-?pvp", r"spice", r"spays", r"apteka-?online", r"narko-?shop",
+            r"(^|[\.\-_/])darknet([\.\-_/]|$)"
+        ]
+    },
+    {
+        "category": "🎣 Fishing, Bank Tuzog‘i va Akkaunt O‘g‘riligi",
+        "badge": "🚨 O‘TA XAVFLI FIRIBGARLIK (FISHING / TUZOQ)",
+        "law": "O‘zbekiston Respublikasi JK 168-moddasi (Axborot texnologiyalaridan foydalangan holda sodir etilgan firibgarlik) bo‘yicha jinoiy javobgarlikka sabab bo‘ladi!",
+        "patterns": [
+            r"click-?sovrin", r"payme-?bonus", r"humo-?bonus", r"ovoz-?ber",
+            r"bepul-?ovoz", r"pul-?yutu[gq]", r"telegram-?free", r"bepul-?premium",
+            r"tg-?premium", r"tg-?bonus", r"soxta-?ovoz", r"openbudget-?(ovoz|bonus)",
+            r"click-?bonus", r"payme-?login", r"uzcard-?bonus", r"uzcard-?verify",
+            r"telegram-?gift", r"free-?nitro"
+        ]
+    },
+    {
+        "category": "💸 Soxta Investitsiya va Moliyaviy Piramida",
+        "badge": "🚨 FIRIBGARLIK TUZOG‘I (MOLIYAVIY PIRAMIDA)",
+        "law": "O‘zbekiston Respublikasi JK 188-1-moddasi (Noqonuniy moliyaviy piramida faoliyati) bo‘yicha qat’iyan taqiqlangan!",
+        "patterns": [
+            r"uzcard-?invest", r"humo-?invest", r"gazprom-?invest", r"daromad-?invest",
+            r"robot-?daromad", r"pul-?ishlash", r"bepul-?daromad", r"olymp-?trade",
+            r"binomo", r"iq-?option", r"finiko", r"express-?doxod", r"smart-?invest"
+        ]
+    }
+]
+
 def audit_username(u: str):
     """Audits a social media username for exposed age, school, interest profiling, and live platform presence."""
     raw = u.lstrip('@').strip()
+    norm_raw = raw.lower().replace('_', '-').replace('.', '-')
     warnings = []
     insights = []
     platforms_found = []
     score = 95
+
+    # Check against Forbidden / Banned Social Media Profiles (Oliy Sud, Qimor, Narkotik)
+    for cat in FORBIDDEN_RULES:
+        for p in cat["patterns"]:
+            if re.search(p, norm_raw) or re.search(p, raw.lower()):
+                warnings.append(f"🛑 <b>Taqiqlangan profil/kanal:</b> {cat['category']} doirasidagi noqonuniy manba!")
+                warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {cat['law']}")
+                return 0, warnings, insights, platforms_found, raw, True, cat
     
     # 1. Year of birth detection
     year_match = re.search(r'(19\d\d|20\d\d)$', raw)
@@ -744,77 +843,7 @@ def audit_username(u: str):
         pass
         
     score = max(min(score, 100), 15)
-    return score, warnings, insights, platforms_found, raw
-
-URL_REGEX = re.compile(
-    r'(https?://[^\s]+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:/[^\s]*)?)',
-    re.IGNORECASE
-)
-
-# Taqiqlangan va qonunga zid saytlar bazasi (Qimor, 18+, Narkotik, Fishing, Soxta investitsiya)
-FORBIDDEN_RULES = [
-    {
-        "category": "🎰 Qimor, Bukmekerlik va Tavakkalchilik o‘yinlari",
-        "badge": "🚨 QAT’IYAN TAQIQLANGAN (QIMOR / BUKMEKER)",
-        "law": "O‘zbekiston Respublikasi JK 278-moddasi (Qimor va tavakkalchilikka asoslangan o‘yinlarni tashkil etish hamda o‘tkazish) bo‘yicha qat’iyan jinoiy javobgarlikka sabab bo‘ladi!",
-        "patterns": [
-            r"1-?x-?bet", r"most-?bet", r"mel-?bet", r"line-?bet", r"1-?win", r"pin-?up",
-            r"pari-?match", r"vavada", r"leon-?bet", r"fon-?bet", r"bet-?and-?you",
-            r"bet365", r"joy-?casino", r"(^|[\.\-_/])casino([\.\-_/]|$)", r"bukmeker",
-            r"poker-?dom", r"(^|[\.\-_/])stavk[ai]", r"qimor", r"(^|[\.\-_/])slot[s]?([\.\-_/]|$)",
-            r"aviator-?(game|play)?", r"lucky-?jet", r"olimp-?bet", r"betwinner",
-            r"gg-?bet", r"marathonbet", r"winline", r"baltbet", r"liga-?stavok",
-            r"zenit-?bet", r"spin-?win", r"roulette", r"ruletka"
-        ]
-    },
-    {
-        "category": "🔞 18+ Axloqsiz va Pornografik Kontent",
-        "badge": "🚨 QAT’IYAN TAQIQLANGAN (18+ PORNOGRAFIK MAZMUN)",
-        "law": "O‘zbekiston Respublikasi JK 130-moddasi (Pornografik mahsulotlarni tarqatish, reklama qilish, namoyish etish) bo‘yicha qonun bilan qat’iyan taqiqlangan!",
-        "patterns": [
-            r"pornhub", r"xvideos", r"xnxx", r"redtube", r"xhamster", r"onlyfans",
-            r"chaturbate", r"brazzers", r"stripchat", r"erome", r"rule34",
-            r"(^|[\.\-_/])porn[o]?([\.\-_/]|$)", r"(^|[\.\-_/])sex([\.\-_/]|$)",
-            r"hentai", r"bongacams", r"livejasmin", r"fapello", r"fap-?house",
-            r"youporn", r"tube8", r"spankbang", r"eporner", r"beeg", r"camsoda",
-            r"cam4", r"hqporner", r"(^|[\.\-_/])xxx([\.\-_/]|$)", r"nsfw"
-        ]
-    },
-    {
-        "category": "☠️ Narkotik, Darknet (.onion) va Noqonuniy Qora Bozor",
-        "badge": "🚨 QAT’IYAN TAQIQLANGAN (DARKNET / .ONION / NARKOTIK)",
-        "law": "O‘zbekiston Respublikasi JK 273-moddasi va kiberxavfsizlik talablariga ko‘ra, Darknet (.onion) tarmog‘i hamda uning qidiruv tizimlari (Ahmia) orqali noqonuniy vositalar, taqiqlangan moddalar va kiberjinoyatlar tarqatilishi qat’iyan man etiladi!",
-        "patterns": [
-            r"ahmia(\.fi)?", r"\.onion($|[./:])", r"tor2web", r"darksearch",
-            r"kraken", r"hydra", r"blacksprut", r"solaris", r"mega-?dark",
-            r"omg-?omg", r"narkotik", r"psixotrop", r"zakladka", r"mefedron",
-            r"alfa-?pvp", r"spice", r"spays", r"apteka-?online", r"narko-?shop",
-            r"(^|[\.\-_/])darknet([\.\-_/]|$)"
-        ]
-    },
-    {
-        "category": "🎣 Fishing, Bank Tuzog‘i va Akkaunt O‘g‘riligi",
-        "badge": "🚨 O‘TA XAVFLI FIRIBGARLIK (FISHING / TUZOQ)",
-        "law": "O‘zbekiston Respublikasi JK 168-moddasi (Axborot texnologiyalaridan foydalangan holda sodir etilgan firibgarlik) bo‘yicha jinoiy javobgarlikka sabab bo‘ladi!",
-        "patterns": [
-            r"click-?sovrin", r"payme-?bonus", r"humo-?bonus", r"ovoz-?ber",
-            r"bepul-?ovoz", r"pul-?yutu[gq]", r"telegram-?free", r"bepul-?premium",
-            r"tg-?premium", r"tg-?bonus", r"soxta-?ovoz", r"openbudget-?(ovoz|bonus)",
-            r"click-?bonus", r"payme-?login", r"uzcard-?bonus", r"uzcard-?verify",
-            r"telegram-?gift", r"free-?nitro"
-        ]
-    },
-    {
-        "category": "💸 Soxta Investitsiya va Moliyaviy Piramida",
-        "badge": "🚨 FIRIBGARLIK TUZOG‘I (MOLIYAVIY PIRAMIDA)",
-        "law": "O‘zbekiston Respublikasi JK 188-1-moddasi (Noqonuniy moliyaviy piramida faoliyati) bo‘yicha qat’iyan taqiqlangan!",
-        "patterns": [
-            r"uzcard-?invest", r"humo-?invest", r"gazprom-?invest", r"daromad-?invest",
-            r"robot-?daromad", r"pul-?ishlash", r"bepul-?daromad", r"olymp-?trade",
-            r"binomo", r"iq-?option", r"finiko", r"express-?doxod", r"smart-?invest"
-        ]
-    }
-]
+    return score, warnings, insights, platforms_found, raw, False, None
 
 def audit_link(url_text: str):
     """Audits a URL for forbidden illegal content, phishing, malicious TLDs, and scam keywords."""
@@ -827,6 +856,7 @@ def audit_link(url_text: str):
     domain = (parsed.netloc or parsed.path).lower().split(':')[0]
     path = parsed.path.lower()
     full_lower = full_url.lower()
+    norm_url = full_lower.replace('_', '-').replace('.', '-')
     
     warnings = []
     features = []
@@ -834,16 +864,16 @@ def audit_link(url_text: str):
     
     # 0. Darknet (.onion) va Ahmia qidiruv tizimlari
     if domain.endswith('.onion') or '.onion.' in domain or '.onion/' in full_lower or full_lower.endswith('.onion') or 'ahmia' in domain or 'ahmia.fi' in full_lower:
-        cat = FORBIDDEN_RULES[2]
+        darknet_cat = next((c for c in FORBIDDEN_RULES if "Darknet" in c["category"]), FORBIDDEN_RULES[0])
         warnings.append("🛑 <b>Darknet / Yashirin tarmoq (.onion):</b> Ushbu havola Tor / Darknet tarmog‘iga yoki uning qidiruv tizimiga (Ahmia) tegishli!")
-        warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {cat['law']}")
-        return True, cat, 100, warnings, features, domain, ""
+        warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {darknet_cat['law']}")
+        return True, darknet_cat, 100, warnings, features, domain, ""
 
-    # Check against Forbidden / Illegal Patterns
+    # Check against Forbidden / Illegal Patterns (Websites, Telegram, Instagram, YouTube, TikTok)
     for cat in FORBIDDEN_RULES:
         for p in cat["patterns"]:
-            if re.search(p, domain) or re.search(p, path) or re.search(p, full_lower):
-                warnings.append(f"🛑 <b>Taqiqlangan manba:</b> {cat['category']} doirasidagi noqonuniy sayt!")
+            if re.search(p, domain) or re.search(p, path) or re.search(p, full_lower) or re.search(p, norm_url):
+                warnings.append(f"🛑 <b>Taqiqlangan manba:</b> {cat['category']} doirasidagi noqonuniy sayt/profil!")
                 warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {cat['law']}")
                 return True, cat, 100, warnings, features, domain, ""
 
@@ -1566,7 +1596,26 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     elif text.startswith("@") or (len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)):
         # Username OSINT Audit
-        score, warnings, insights, platforms_found, raw = audit_username(text)
+        score, warnings, insights, platforms_found, raw, is_forbidden, forbidden_info = audit_username(text)
+        
+        # 1. Taqiqlangan va qonunga zid profillar (Oliy Sud, Qimor, Narkotik)
+        if is_forbidden and forbidden_info:
+            resp = (
+                f"{p('BOMB', '🚨')} <b>QAT’IYAN TAQIQLANGAN VA NOQONUNIY PROFIL!</b>\n\n"
+                f"👤 <b>Kiritilgan profil / nikneym:</b> <code>@{html.escape(raw)}</code>\n\n"
+                f"📊 <b>Kiber-Xavf Indeksi:</b> <code>[██████████]</code> <b>100% (KRITIK JINOIY XAVF)</b>\n"
+                f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n\n"
+                f"⚠️ <b>ANIQLANGAN TAQIQLANGAN KATEGORIYA:</b>\n"
+                f"• <b>Turi:</b> {forbidden_info['category']}\n"
+                f"• ⚖️ <b>Qonuniy asos:</b> <i>{forbidden_info['law']}</i>\n\n"
+                f"🚫 <b>XAVFSIZLIK CHORALARI:</b>\n"
+                f"1. Ushbu profil, kanal yoki sahifaga <b>HECH QACHON a’zo bo‘lmang</b>, materiallarini saqlamang va boshqalarga ulashmang!\n"
+                f"2. Qonunchilikka ko‘ra (JK 244-1 va 278-moddalar), bunday manbalarni saqlash yoki tarqatish to‘g‘ridan-to‘g‘ri jinoiy javobgarlikka sabab bo‘ladi.\n"
+                f"3. Ushbu yozishmani darhol o‘chirib tashlash tavsiya etiladi."
+            )
+            await update.message.reply_text(resp, parse_mode="HTML")
+            return
+
         filled = int(score / 10)
         bar = "█" * filled + "░" * (10 - filled)
         
