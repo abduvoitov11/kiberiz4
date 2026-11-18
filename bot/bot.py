@@ -59,17 +59,19 @@ from telegram.ext import (
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Load BOT_TOKEN from environment variable or local gitignored .env file
+# Load BOT_TOKEN and ADMIN_ID from environment variable or local gitignored .env file
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
-if not BOT_TOKEN:
-    env_file = os.path.join(BASE_DIR, ".env")
-    if not os.path.exists(env_file):
-        env_file = os.path.join(BASE_DIR, "../.env")
-    if os.path.exists(env_file):
-        with open(env_file, "r") as f:
-            for line in f:
-                if line.strip().startswith("BOT_TOKEN="):
-                    BOT_TOKEN = line.strip().split("=", 1)[1].strip("\"' ")
+ADMIN_ID = os.environ.get("ADMIN_ID", "")
+env_file = os.path.join(BASE_DIR, ".env")
+if not os.path.exists(env_file):
+    env_file = os.path.join(BASE_DIR, "../.env")
+if os.path.exists(env_file):
+    with open(env_file, "r") as f:
+        for line in f:
+            if line.strip().startswith("BOT_TOKEN=") and not BOT_TOKEN:
+                BOT_TOKEN = line.strip().split("=", 1)[1].strip("\"' ")
+            elif line.strip().startswith("ADMIN_ID=") and not ADMIN_ID:
+                ADMIN_ID = line.strip().split("=", 1)[1].strip("\"' ")
 
 def resolve_path(candidates):
     for c in candidates:
@@ -409,17 +411,24 @@ async def cases_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sos_text = (
-        f"{p('SOS', '🚨')} <b>ANONIM SOS VA YORDAM MARKAZI</b>\n\n"
-        f"Agar siz ijtimoiy tarmoqda:\n"
-        f"• {p('WARNING', '⚠️')} Kiberbulling yoki haqoratga uchragan bo‘lsangiz;\n"
-        f"• {p('WARNING', '⚠️')} Shaxsiy rasmlaringiz bilan shantaj qilishayotgan bo‘lsa;\n"
-        f"• {p('WARNING', '⚠️')} Akkauntingiz buzilib, pul talab qilishayotgan bo‘lsa — <b>HECH QACHON QO‘RQMANG VA YASHIRMANG!</b>\n\n"
-        f"{p('CALL', '📞')} <b>Tezkor ishonch raqamlari:</b>\n"
+        f"{p('SOS', '🚨')} <b>4-MAKTAB ANONIM ISHONCH VA SOS MARKAZI</b>\n\n"
+        f"Agar siz ijtimoiy tarmoqda yoki maktabda:\n"
+        f"• {p('WARNING', '⚠️')} Kiberbulling, haqorat yoki guruhlarda kamsitilishga;\n"
+        f"• {p('WARNING', '⚠️')} Shaxsiy rasmlaringiz yoki videolaringiz bilan shantajga;\n"
+        f"• {p('WARNING', '⚠️')} Soxta akkaunt ochish, pul talab qilish yoki firibgarlikka duch kelgan bo‘lsangiz — <b>HECH QACHON QO‘RQMANG VA YASHIRMANG!</b>\n\n"
+        f"{p('CALL', '📞')} <b>Davlat ishonch raqamlari (bepul):</b>\n"
         f"• O‘zbekiston Kiberxavfsizlik markazi: <b>1133</b>\n"
         f"• Bolalar ishonch telefoni: <b>1111</b>\n\n"
-        f"{p('CHAT', '💬')} Istalgan vaqtda muammoingizni shu botga yozib qoldirishingiz mumkin (shaxsingiz to‘liq sir saqlanadi)."
+        f"🛡️ <b>SIZNING SHAXSINGIZ 100% SIR SAQLANADI!</b>\n"
+        f"Pastdagi <b>«✍️ Anonim Murojaat Qoldirish»</b> tugmasini bosing va muammoingizni yozing. "
+        f"Sizning Telegram profilingiz, ismingiz yoki raqamingiz tizim tomonidan to‘liq yashirilgan holda xavfsiz qabul qilinadi."
     )
-    await update.message.reply_text(sos_text, parse_mode="HTML")
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✍️ Anonim Murojaat Qoldirish", callback_data="start_anon_sos", icon_custom_emoji_id=E["CHAT"])],
+        [InlineKeyboardButton("📞 1133 Kiberxavfsizlik (Qo‘ng‘iroq)", url="tel:1133", icon_custom_emoji_id=E["CALL"])],
+        [InlineKeyboardButton("📞 1111 Bolalar Ishonch Telefoni", url="tel:1111", icon_custom_emoji_id=E["CALL"])]
+    ])
+    await update.message.reply_text(sos_text, parse_mode="HTML", reply_markup=keyboard)
 
 async def web_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     web_text = (
@@ -595,6 +604,67 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             await query.message.reply_text(f"Tozalashda xatolik: {e}")
+    elif data == "start_anon_sos":
+        context.user_data["waiting_for_sos"] = True
+        prompt = (
+            f"{p('CHAT', '✍️')} <b>ANONIM MUROJAAT YOZISH MAYDONI:</b>\n\n"
+            f"Iltimos, sizni bezovta qilayotgan muammo yoki hodisani batafsil yozib yuboring "
+            f"(xohlasangiz dalil sifatida fotosurat yoki skrinshot ham yuborishingiz mumkin).\n\n"
+            f"🔒 <b>KiberIz-4 Xavfsizlik Kafolati:</b>\n"
+            f"Sizning Telegram ID, Ismingiz yoki @username'ingiz HECH KIMGA ko‘rsatilmaydi! "
+            f"Xabar tizimga faqat maxsus kod (masalan: <code>#SOS-4M-8291</code>) bilan qayd etiladi.\n\n"
+            f"<i>Bekor qilish uchun: /cancel deb yozing.</i>"
+        )
+        await query.message.reply_text(prompt, parse_mode="HTML")
+    elif data == "confirm_quick_sos":
+        pending_text = context.user_data.get("pending_sos_text", "Anonim xabar")
+        import random, datetime
+        report_code = f"SOS-4M-{random.randint(1000, 9999)}"
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        
+        try:
+            reports_dir = os.path.join(BASE_DIR, "data")
+            os.makedirs(reports_dir, exist_ok=True)
+            reports_file = os.path.join(reports_dir, "anon_sos_reports.json")
+            existing = []
+            if os.path.exists(reports_file):
+                with open(reports_file, "r", encoding="utf-8") as rf:
+                    existing = json.load(rf)
+            existing.append({
+                "code": report_code,
+                "timestamp": timestamp,
+                "text": pending_text,
+                "has_photo": False
+            })
+            with open(reports_file, "w", encoding="utf-8") as wf:
+                json.dump(existing, wf, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logging.error(f"Error saving anon report: {e}")
+
+        if ADMIN_ID:
+            try:
+                alert_text = (
+                    f"🚨 <b>YANGI ANONIM SOS MUROJAAT (4-MAKTAB)</b>\n\n"
+                    f"🆔 <b>Kodi:</b> <code>#{report_code}</code>\n"
+                    f"📅 <b>Vaqti:</b> {timestamp}\n\n"
+                    f"📝 <b>Murojaat matni:</b>\n<i>«{html.escape(pending_text)}»</i>\n\n"
+                    f"🔒 <i>Foydalanuvchi ma’lumotlari to‘liq anonimlashtirilgan.</i>"
+                )
+                await context.bot.send_message(chat_id=int(ADMIN_ID), text=alert_text, parse_mode="HTML")
+            except Exception as e:
+                logging.warning(f"Failed to alert admin: {e}")
+
+        success_msg = (
+            f"{p('CHECK', '✅')} <b>ANONIM MUROJAATINGIZ QABUL QILINDI!</b>\n\n"
+            f"🆔 <b>Murojaat kodi:</b> <code>#{report_code}</code>\n"
+            f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
+            f"🛡️ <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
+            f"Muammoingiz 4-maktab profilaktika inspektori va psixologiga ko‘rib chiqish uchun uzatildi.\n\n"
+            f"{p('CALL', '📞')} <b>Zudlik bilan yordam kerak bo‘lsa:</b>\n"
+            f"• <b>1133</b> — Kiberxavfsizlik markazi\n"
+            f"• <b>1111</b> — Bolalar ishonch telefoni"
+        )
+        await query.message.reply_text(success_msg, parse_mode="HTML")
 
 # ==========================================
 # ADVANCED OSINT UTILITIES (REVERSE GEO, QR, DOCS, USERNAME, LINKS)
@@ -1219,6 +1289,59 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     if not msg:
         return
         
+    # Check if this photo/doc is an anonymous SOS evidence submission
+    if context.user_data.get("waiting_for_sos"):
+        context.user_data["waiting_for_sos"] = False
+        import random, datetime
+        report_code = f"SOS-4M-{random.randint(1000, 9999)}"
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        caption_text = msg.caption or "(Dalil fotosurati / skrinshot biriktirildi)"
+        
+        try:
+            reports_dir = os.path.join(BASE_DIR, "data")
+            os.makedirs(reports_dir, exist_ok=True)
+            reports_file = os.path.join(reports_dir, "anon_sos_reports.json")
+            existing = []
+            if os.path.exists(reports_file):
+                with open(reports_file, "r", encoding="utf-8") as rf:
+                    existing = json.load(rf)
+            existing.append({
+                "code": report_code,
+                "timestamp": timestamp,
+                "text": caption_text,
+                "has_photo": True
+            })
+            with open(reports_file, "w", encoding="utf-8") as wf:
+                json.dump(existing, wf, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logging.error(f"Error saving anon report: {e}")
+
+        if ADMIN_ID:
+            try:
+                alert_text = (
+                    f"🚨 <b>YANGI ANONIM SOS MUROJAAT (DALIL FOTOSURATI BILAN)</b>\n\n"
+                    f"🆔 <b>Kodi:</b> <code>#{report_code}</code>\n"
+                    f"📅 <b>Vaqti:</b> {timestamp}\n"
+                    f"📝 <b>Izoh / Matn:</b> <i>{html.escape(caption_text)}</i>\n\n"
+                    f"🔒 <i>Foydalanuvchi shaxsi to‘liq yashirilgan.</i>"
+                )
+                await context.bot.send_message(chat_id=int(ADMIN_ID), text=alert_text, parse_mode="HTML")
+            except Exception as e:
+                logging.warning(f"Failed to alert admin: {e}")
+
+        success_msg = (
+            f"{p('CHECK', '✅')} <b>ANONIM MUROJAAT VA DALIL SURATI QABUL QILINDI!</b>\n\n"
+            f"🆔 <b>Murojaat kodi:</b> <code>#{report_code}</code>\n"
+            f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
+            f"🛡️ <b>Maxfiylik maqomi:</b> <i>Sizning shaxsingiz (ism, raqam, profil) to‘liq yashirildi va sir saqlanadi.</i>\n\n"
+            f"Yuborilgan skrinshot va ma’lumotlar maktab profilaktika inspektori hamda psixologiga ko‘rib chiqish uchun taqdim etildi.\n\n"
+            f"{p('CALL', '📞')} <b>Shoshilinch hollarda bepul ishonch telefonlari:</b>\n"
+            f"• <b>1133</b> — Kiberxavfsizlik markazi\n"
+            f"• <b>1111</b> — Bolalar ishonch telefoni"
+        )
+        await msg.reply_text(success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
+        return
+
     await msg.reply_chat_action("typing")
     
     is_doc = bool(msg.document)
@@ -1529,7 +1652,74 @@ async def handle_zip_archive(msg, file_bytes, file_name):
         )
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
+    text = (update.message.text or "").strip()
+    if not text:
+        return
+
+    # 0. Cancel active modes
+    if text.lower() in ["/cancel", "bekor qilish", "bekor"]:
+        context.user_data["waiting_for_sos"] = False
+        context.user_data["waiting_for_audit"] = False
+        await update.message.reply_text(
+            f"{p('CHECK', '✅')} Barcha amallar bekor qilindi.",
+            parse_mode="HTML",
+            reply_markup=MAIN_KEYBOARD
+        )
+        return
+
+    # 1. Active Anonymous SOS Submission
+    if context.user_data.get("waiting_for_sos"):
+        context.user_data["waiting_for_sos"] = False
+        import random, datetime
+        report_code = f"SOS-4M-{random.randint(1000, 9999)}"
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        
+        try:
+            reports_dir = os.path.join(BASE_DIR, "data")
+            os.makedirs(reports_dir, exist_ok=True)
+            reports_file = os.path.join(reports_dir, "anon_sos_reports.json")
+            existing = []
+            if os.path.exists(reports_file):
+                with open(reports_file, "r", encoding="utf-8") as rf:
+                    existing = json.load(rf)
+            existing.append({
+                "code": report_code,
+                "timestamp": timestamp,
+                "text": text,
+                "has_photo": False
+            })
+            with open(reports_file, "w", encoding="utf-8") as wf:
+                json.dump(existing, wf, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logging.error(f"Error saving anon report: {e}")
+
+        if ADMIN_ID:
+            try:
+                alert_text = (
+                    f"🚨 <b>YANGI ANONIM SOS MUROJAAT (4-MAKTAB)</b>\n\n"
+                    f"🆔 <b>Kodi:</b> <code>#{report_code}</code>\n"
+                    f"📅 <b>Vaqti:</b> {timestamp}\n\n"
+                    f"📝 <b>Murojaat matni:</b>\n<i>«{html.escape(text)}»</i>\n\n"
+                    f"🔒 <i>Foydalanuvchi ma’lumotlari to‘liq anonimlashtirilgan.</i>"
+                )
+                await context.bot.send_message(chat_id=int(ADMIN_ID), text=alert_text, parse_mode="HTML")
+            except Exception as e:
+                logging.warning(f"Failed to alert admin: {e}")
+
+        success_msg = (
+            f"{p('CHECK', '✅')} <b>ANONIM MUROJAATINGIZ QABUL QILINDI!</b>\n\n"
+            f"🆔 <b>Murojaat kodi:</b> <code>#{report_code}</code>\n"
+            f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
+            f"🛡️ <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
+            f"Muammoingiz 4-maktab profilaktika inspektori va psixologiga ko‘rib chiqish uchun uzatildi.\n\n"
+            f"{p('CALL', '📞')} <b>Zudlik bilan yordam kerak bo‘lsa:</b>\n"
+            f"• <b>1133</b> — Kiberxavfsizlik markazi\n"
+            f"• <b>1111</b> — Bolalar ishonch telefoni"
+        )
+        await update.message.reply_text(success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
+        return
+
+    # 2. Main Menu Actions
     if "Suratni tekshirish" in text or "OSINT" in text:
         await update.message.reply_text(
             f"{p('EXIF_PHOTO', '🖼️')} Iltimos, tahlil qilish uchun botga <b>fotosurat</b> yuboring:\n"
@@ -1547,21 +1737,23 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif "SOS" in text:
         await sos_command(update, context)
     elif "Nikneym" in text or "Havola" in text:
+        context.user_data["waiting_for_audit"] = True
         await update.message.reply_text(
             f"{p('HACKER', '🕵️‍♂️')} <b>NIKNEYM VA HAVOLA OSINT AUDITI:</b>\n\n"
             f"1. <b>Nikneym (Username) tekshirish:</b>\n"
-            f"   Botga o‘zingizning yoki biror do‘stingizning nikneymini yuboring (masalan: <code>@sarvar_2008</code> yoki <code>malika_07</code>).\n"
+            f"   Botga o‘zingizning yoki do‘stingizning nikneymini yuboring (masalan: <code>@sarvar_2008</code> yoki <code>@malika_07</code>).\n"
             f"   └ <i>Bot nikneym orqali yosh, maktab va boshqa tarmoqlardagi izlarni tahlil qilib beradi!</i>\n\n"
             f"2. <b>Shubhali havola (Sayt) tekshirish:</b>\n"
-            f"   Sizga yuborilgan har qanday shubhali sayt havolasini yuboring (masalan: <code>http://click-sovrin.xyz</code> yoki <code>t.me/...</code>).\n"
-            f"   └ <i>Bot uning firibgarlik (fishing) ekanligini bir zumda fosh qiladi!</i>",
+            f"   Sizga yuborilgan har qanday shubhali sayt havolasini yuboring (masalan: <code>http://click-sovrin.xyz</code> yoki <code>kun.uz</code>).\n"
+            f"   └ <i>Bot uning firibgarlik (fishing) ekanligini bir zumda fosh qiladi!</i>\n\n"
+            f"👉 <i>Tekshirmoqchi bo‘lgan sayt havolasi yoki @nikneymni shu yerga yozib yuboring:</i>",
             parse_mode="HTML"
         )
     elif "Veb-Platforma" in text or "Kiber-Portal" in text or "Web App" in text:
         await web_command(update, context)
-    elif URL_REGEX.search(text.strip()) and not text.strip().startswith("@"):
+    elif URL_REGEX.search(text) and not text.startswith("@"):
         # URL / Link Audit
-        m_url = URL_REGEX.search(text.strip())
+        m_url = URL_REGEX.search(text)
         matched_url = m_url.group(1).rstrip('.,;!?')
         is_forbidden, forbidden_info, risk, warnings, features, domain, site_title = audit_link(matched_url)
         
@@ -1662,106 +1854,155 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as ss_e:
             logging.warning(f"Screenshot error for url: {ss_e}")
         return
-    elif text.startswith("@") or (len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)):
-        # Username OSINT Audit
-        score, warnings, insights, platforms_found, raw, is_forbidden, forbidden_info = audit_username(text)
+    else:
+        # Check if text is an explicit or intended username
+        is_explicit_username = text.startswith("@")
+        is_audit_mode = context.user_data.get("waiting_for_audit") and len(text.split()) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)
+        is_forbidden_username = False
         
-        # 1. Taqiqlangan va qonunga zid profillar (Oliy Sud, Qimor, Narkotik)
-        if is_forbidden and forbidden_info:
-            resp = (
-                f"{p('BOMB', '🚨')} <b>QAT’IYAN TAQIQLANGAN VA NOQONUNIY PROFIL!</b>\n\n"
-                f"👤 <b>Kiritilgan profil / nikneym:</b> <code>@{html.escape(raw)}</code>\n\n"
-                f"📊 <b>Kiber-Xavf Indeksi:</b> <code>[██████████]</code> <b>100% (KRITIK JINOIY XAVF)</b>\n"
-                f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n\n"
-                f"⚠️ <b>ANIQLANGAN TAQIQLANGAN KATEGORIYA:</b>\n"
-                f"• <b>Turi:</b> {forbidden_info['category']}\n"
-                f"• ⚖️ <b>Qonuniy asos:</b> <i>{forbidden_info['law']}</i>\n\n"
-                f"🚫 <b>XAVFSIZLIK CHORALARI:</b>\n"
-                f"1. Ushbu profil, kanal yoki sahifaga <b>HECH QACHON a’zo bo‘lmang</b>, materiallarini saqlamang va boshqalarga ulashmang!\n"
-                f"2. Qonunchilikka ko‘ra (JK 244-1 va 278-moddalar), bunday manbalarni saqlash yoki tarqatish to‘g‘ridan-to‘g‘ri jinoiy javobgarlikka sabab bo‘ladi.\n"
-                f"3. Ushbu yozishmani darhol o‘chirib tashlash tavsiya etiladi."
-            )
-            await update.message.reply_text(resp, parse_mode="HTML")
+        if not is_explicit_username and len(text.split()) == 1 and 3 <= len(text) <= 30:
+            norm_t = text.lower().replace('_', '-').replace('.', '-')
+            for cat in FORBIDDEN_RULES:
+                for pat in cat["patterns"]:
+                    if re.search(pat, norm_t) or re.search(pat, text.lower()):
+                        is_forbidden_username = True
+                        break
+                if is_forbidden_username:
+                    break
 
-            # Xavfsiz kanal/profil sendboks ekrani (Screenshot)
-            try:
-                loop = asyncio.get_running_loop()
-                ss_bytes = await loop.run_in_executor(None, get_website_screenshot, f"https://t.me/s/{raw}")
-                if ss_bytes:
-                    caption = (
-                        f"{p('CAMERA', '📸')} <b>@{html.escape(raw)} kanalining jonli ko‘rinishi (Sandbox):</b>\n\n"
-                        f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n"
-                        f"🛡️ <i>Xavfsiz bulutli sendboks orqali olindi. Kanalga a’zo bo‘lmasdan ko‘rishingiz mumkin.</i>"
-                    )
-                    await update.message.reply_photo(
-                        photo=io.BytesIO(ss_bytes),
-                        caption=caption,
-                        parse_mode="HTML"
-                    )
-            except Exception as ss_e:
-                logging.warning(f"Screenshot error for forbidden username: {ss_e}")
+        if is_explicit_username or is_audit_mode or is_forbidden_username:
+            context.user_data["waiting_for_audit"] = False
+            # Username OSINT Audit
+            score, warnings, insights, platforms_found, raw, is_forbidden, forbidden_info = audit_username(text)
+            
+            # 1. Taqiqlangan va qonunga zid profillar (Oliy Sud, Qimor, Narkotik)
+            if is_forbidden and forbidden_info:
+                resp = (
+                    f"{p('BOMB', '🚨')} <b>QAT’IYAN TAQIQLANGAN VA NOQONUNIY PROFIL!</b>\n\n"
+                    f"👤 <b>Kiritilgan profil / nikneym:</b> <code>@{html.escape(raw)}</code>\n\n"
+                    f"📊 <b>Kiber-Xavf Indeksi:</b> <code>[██████████]</code> <b>100% (KRITIK JINOIY XAVF)</b>\n"
+                    f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n\n"
+                    f"⚠️ <b>ANIQLANGAN TAQIQLANGAN KATEGORIYA:</b>\n"
+                    f"• <b>Turi:</b> {forbidden_info['category']}\n"
+                    f"• ⚖️ <b>Qonuniy asos:</b> <i>{forbidden_info['law']}</i>\n\n"
+                    f"🚫 <b>XAVFSIZLIK CHORALARI:</b>\n"
+                    f"1. Ushbu profil, kanal yoki sahifaga <b>HECH QACHON a’zo bo‘lmang</b>, materiallarini saqlamang va boshqalarga ulashmang!\n"
+                    f"2. Qonunchilikka ko‘ra (JK 244-1 va 278-moddalar), bunday manbalarni saqlash yoki tarqatish to‘g‘ridan-to‘g‘ri jinoiy javobgarlikka sabab bo‘ladi.\n"
+                    f"3. Ushbu yozishmani darhol o‘chirib tashlash tavsiya etiladi."
+                )
+                await update.message.reply_text(resp, parse_mode="HTML")
+
+                # Xavfsiz kanal/profil sendboks ekrani (Screenshot)
+                try:
+                    loop = asyncio.get_running_loop()
+                    ss_bytes = await loop.run_in_executor(None, get_website_screenshot, f"https://t.me/s/{raw}")
+                    if ss_bytes:
+                        caption = (
+                            f"{p('CAMERA', '📸')} <b>@{html.escape(raw)} kanalining jonli ko‘rinishi (Sandbox):</b>\n\n"
+                            f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n"
+                            f"🛡️ <i>Xavfsiz bulutli sendboks orqali olindi. Kanalga a’zo bo‘lmasdan ko‘rishingiz mumkin.</i>"
+                        )
+                        await update.message.reply_photo(
+                            photo=io.BytesIO(ss_bytes),
+                            caption=caption,
+                            parse_mode="HTML"
+                        )
+                except Exception as ss_e:
+                    logging.warning(f"Screenshot error for forbidden username: {ss_e}")
+                return
+
+            filled = int(score / 10)
+            bar = "█" * filled + "░" * (10 - filled)
+            
+            if score <= 50:
+                anon_label = f"🚨 JUDA PAST ANONIMLIK ({score}%) — Shaxsingiz osongina fosh bo‘ladi!"
+            elif score <= 75:
+                anon_label = f"⚠️ O‘RTA DARAJA ({score}%) — Ayrim shaxsiy belgilar mavjud"
+            else:
+                anon_label = f"✅ YUQORI ANONIMLIK ({score}%) — Xavfsiz nikneym"
+                
+            resp = (
+                f"{p('HACKER', '🕵️‍♂️')} <b>NIKNEYM RAQAMLI IZ AUDITI: @{html.escape(raw)}</b>\n\n"
+                f"📊 <b>Anonimlik darajasi:</b>\n"
+                f"<code>[{bar}]</code> <b>{anon_label}</b>\n\n"
+            )
+            if warnings:
+                resp += f"{p('WARNING', '⚠️')} <b>Oshkor bo‘lgan ma’lumotlar:</b>\n"
+                for w in warnings:
+                    resp += f"• {w}\n"
+                resp += "\n"
+            else:
+                resp += f"{p('CHECK', '✅')} <i>Nikneymda yosh, maktab yoki tug‘ilgan yil belgilari topilmadi (toza).</i>\n\n"
+                
+            if insights:
+                for ins in insights:
+                    resp += f"{ins}\n"
+                resp += "\n"
+                
+            if platforms_found:
+                resp += f"{p('SEARCH', '🌐')} <b>Jonli topilgan akkauntlar:</b>\n"
+                for pf in platforms_found:
+                    resp += f"• {pf}\n"
+                resp += "\n"
+                
+            resp += (
+                f"{p('SEARCH', '🔎')} <b>Boshqa tarmoqlardagi raqamli izlarni tekshirish:</b>\n"
+                f"Ushbu nikneym orqali boshqa platformalardagi profillarni bir bosishda qidirishingiz mumkin:"
+            )
+            
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("Telegram", url=f"https://t.me/{raw}", icon_custom_emoji_id=E["CALL"]),
+                    InlineKeyboardButton("Instagram", url=f"https://instagram.com/{raw}", icon_custom_emoji_id=E["EXIF_PHOTO"])
+                ],
+                [
+                    InlineKeyboardButton("TikTok", url=f"https://tiktok.com/@{raw}", icon_custom_emoji_id=E["FIRE"]),
+                    InlineKeyboardButton("GitHub", url=f"https://github.com/{raw}", icon_custom_emoji_id=E["LAPTOP"])
+                ],
+                [
+                    InlineKeyboardButton("WhatsMyName (Global Qidiruv)", url="https://whatsmyname.app/", icon_custom_emoji_id=E["SEARCH"])
+                ]
+            ])
+            await update.message.reply_text(resp, parse_mode="HTML", reply_markup=keyboard)
             return
 
-        filled = int(score / 10)
-        bar = "█" * filled + "░" * (10 - filled)
+        # General text / Question / Problem statement
+        context.user_data["waiting_for_audit"] = False
+        sos_keywords = [
+            "yordam", "bulling", "shantaj", "tahdid", "buzildi", "og'irlan", "o‘g‘irlan",
+            "pul", "firibgar", "kamsit", "haqorat", "qutqar", "help", "sos", "murojaat",
+            "kiberxavf", "qo'rq", "qo‘rq", "rasmim", "suratim"
+        ]
+        is_sos_related = any(kw in text.lower() for kw in sos_keywords)
         
-        if score <= 50:
-            anon_label = f"🚨 JUDA PAST ANONIMLIK ({score}%) — Shaxsingiz osongina fosh bo‘ladi!"
-        elif score <= 75:
-            anon_label = f"⚠️ O‘RTA DARAJA ({score}%) — Ayrim shaxsiy belgilar mavjud"
+        if is_sos_related:
+            help_text = (
+                f"{p('SOS', '🚨')} <b>DIQQAT: SIZGA YORDAM KERAKMI?</b>\n\n"
+                f"Siz yozgan xabarda yordam yoki xavfsizlik murojaati belgilari aniqlandi:\n"
+                f"<i>«{html.escape(text[:120])}{'...' if len(text)>120 else ''}»</i>\n\n"
+                f"Agar siz kiberbulling, shantaj yoki firibgarlikka duch kelgan bo‘lsangiz, shaxsingizni to‘liq yashirgan holda "
+                f"ushbu xabarni <b>Anonim SOS Murojaat</b> sifatida maktab mutaxassislariga yuborishingiz mumkin:"
+            )
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✍️ Ushbu xabarni Anonim SOS sifatida yuborish", callback_data="confirm_quick_sos", icon_custom_emoji_id=E["CHAT"])],
+                [InlineKeyboardButton("📞 1133 Kiberxavfsizlikka qo‘ng‘iroq", url="tel:1133", icon_custom_emoji_id=E["CALL"])],
+                [InlineKeyboardButton("📞 1111 Bolalar ishonch telefoniga qo‘ng‘iroq", url="tel:1111", icon_custom_emoji_id=E["CALL"])]
+            ])
+            context.user_data["pending_sos_text"] = text
+            await update.message.reply_text(help_text, parse_mode="HTML", reply_markup=keyboard)
+            return
         else:
-            anon_label = f"✅ YUQORI ANONIMLIK ({score}%) — Xavfsiz nikneym"
-            
-        resp = (
-            f"{p('HACKER', '🕵️‍♂️')} <b>NIKNEYM RAQAMLI IZ AUDITI: @{html.escape(raw)}</b>\n\n"
-            f"📊 <b>Anonimlik darajasi:</b>\n"
-            f"<code>[{bar}]</code> <b>{anon_label}</b>\n\n"
-        )
-        if warnings:
-            resp += f"{p('WARNING', '⚠️')} <b>Oshkor bo‘lgan ma’lumotlar:</b>\n"
-            for w in warnings:
-                resp += f"• {w}\n"
-            resp += "\n"
-        else:
-            resp += f"{p('CHECK', '✅')} <i>Nikneymda yosh, maktab yoki tug‘ilgan yil belgilari topilmadi (toza).</i>\n\n"
-            
-        if insights:
-            for ins in insights:
-                resp += f"{ins}\n"
-            resp += "\n"
-            
-        if platforms_found:
-            resp += f"{p('SEARCH', '🌐')} <b>Jonli topilgan akkauntlar:</b>\n"
-            for pf in platforms_found:
-                resp += f"• {pf}\n"
-            resp += "\n"
-            
-        resp += (
-            f"{p('SEARCH', '🔎')} <b>Boshqa tarmoqlardagi raqamli izlarni tekshirish:</b>\n"
-            f"Ushbu nikneym orqali boshqa platformalardagi profillarni bir bosishda qidirishingiz mumkin:"
-        )
-        
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("Telegram", url=f"https://t.me/{raw}", icon_custom_emoji_id=E["CALL"]),
-                InlineKeyboardButton("Instagram", url=f"https://instagram.com/{raw}", icon_custom_emoji_id=E["EXIF_PHOTO"])
-            ],
-            [
-                InlineKeyboardButton("TikTok", url=f"https://tiktok.com/@{raw}", icon_custom_emoji_id=E["FIRE"]),
-                InlineKeyboardButton("GitHub", url=f"https://github.com/{raw}", icon_custom_emoji_id=E["LAPTOP"])
-            ],
-            [
-                InlineKeyboardButton("WhatsMyName (Global Qidiruv)", url="https://whatsmyname.app/", icon_custom_emoji_id=E["SEARCH"])
-            ]
-        ])
-        await update.message.reply_text(resp, parse_mode="HTML", reply_markup=keyboard)
-        return
-    else:
-        await update.message.reply_text(
-            f"{p('INFO', 'ℹ️')} Iltimos, pastdagi menyu tugmalaridan birini tanlang yoki tahlil uchun fotosurat yuboring.",
-            parse_mode="HTML",
-            reply_markup=MAIN_KEYBOARD
-        )
+            await update.message.reply_text(
+                f"{p('INFO', 'ℹ️')} <b>«KiberIz-4» Bot yordamchisi:</b>\n\n"
+                f"Men quyidagi amallarni bajara olaman:\n"
+                f"• 🖼️ <b>Surat yuborsangiz:</b> Undagi yashirin GPS koordinatalarni va kamerani fosh qilaman;\n"
+                f"• 🌐 <b>Sayt havolasini yuborsangiz:</b> Xavfsizlikka tekshirib, jonli Chromium skrinshotini ko‘rsataman;\n"
+                f"• 👤 <b>@nikneym yuborsangiz:</b> Ijtimoiy tarmoqlardagi raqamli izlarini tahlil qilaman;\n"
+                f"• 🚨 <b>Anonim SOS:</b> Muammoingiz haqida shaxsingizni yashirgan holda xabar yuborishingiz mumkin.\n\n"
+                f"<i>Pastdagi menyu tugmalaridan birini tanlang yoki savolingizni bering:</i>",
+                parse_mode="HTML",
+                reply_markup=MAIN_KEYBOARD
+            )
 
 def main():
     start_health_check_if_needed()
