@@ -425,8 +425,8 @@ async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("✍️ Anonim Murojaat Qoldirish", callback_data="start_anon_sos", icon_custom_emoji_id=E["CHAT"])],
-        [InlineKeyboardButton("📞 1133 Kiberxavfsizlik (Qo‘ng‘iroq)", url="tel:1133", icon_custom_emoji_id=E["CALL"])],
-        [InlineKeyboardButton("📞 1111 Bolalar Ishonch Telefoni", url="tel:1111", icon_custom_emoji_id=E["CALL"])]
+        [InlineKeyboardButton("🌐 Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])],
+        [InlineKeyboardButton("🌐 Bolalar huquqlari portali", url="https://bolahuquqlari.uz", icon_custom_emoji_id=E["SCHOOL"])]
     ])
     await update.message.reply_text(sos_text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -1985,8 +1985,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("✍️ Ushbu xabarni Anonim SOS sifatida yuborish", callback_data="confirm_quick_sos", icon_custom_emoji_id=E["CHAT"])],
-                [InlineKeyboardButton("📞 1133 Kiberxavfsizlikka qo‘ng‘iroq", url="tel:1133", icon_custom_emoji_id=E["CALL"])],
-                [InlineKeyboardButton("📞 1111 Bolalar ishonch telefoniga qo‘ng‘iroq", url="tel:1111", icon_custom_emoji_id=E["CALL"])]
+                [InlineKeyboardButton("🌐 Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])]
             ])
             context.user_data["pending_sos_text"] = text
             await update.message.reply_text(help_text, parse_mode="HTML", reply_markup=keyboard)
@@ -2004,6 +2003,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=MAIN_KEYBOARD
             )
 
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Log the error gracefully without crashing."""
+    logging.error(f"Telegram handler exception: {context.error}")
+
 def main():
     start_health_check_if_needed()
     print("Starting KiberIz-4 Telegram Bot with Real OSINT, Video, HEIC & ZIP Support...")
@@ -2019,6 +2022,7 @@ def main():
     app.add_handler(CallbackQueryHandler(quiz_callback))
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.Document.ALL, photo_or_doc_handler))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+    app.add_error_handler(error_handler)
     
     print("Bot is successfully polling!")
     app.run_polling()
