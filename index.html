@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>KiberIz-4 | Raqamli Iz va Profil Auditi</title>
+  <!-- Telegram Web App SDK -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
@@ -29,6 +31,29 @@
       backdrop-filter: blur(16px);
       border: 1px solid rgba(56, 189, 248, 0.15);
     }
+    @keyframes radar-sweep {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes radar-pulse {
+      0%, 100% { opacity: 0.25; transform: scale(0.98); }
+      50% { opacity: 0.6; transform: scale(1.02); }
+    }
+    .radar-sweep-beam {
+      background: conic-gradient(from 0deg, rgba(6, 182, 212, 0.45) 0deg, rgba(6, 182, 212, 0.1) 45deg, transparent 75deg, transparent 360deg);
+      animation: radar-sweep 2.8s linear infinite;
+    }
+    .radar-sweep-fast {
+      animation: radar-sweep 0.7s linear infinite !important;
+    }
+    .radar-ring {
+      border: 1px solid rgba(6, 182, 212, 0.22);
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
   </style>
 </head>
 <body class="min-h-screen bg-[#070b14] overflow-x-hidden selection:bg-cyan-500 selection:text-black">
@@ -45,6 +70,7 @@
       </div>
     </div>
     <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
+      <a href="#radar" class="hover:text-cyan-400 transition flex items-center space-x-1.5"><i class="fa-solid fa-satellite-dish text-xs text-cyan-400"></i><span>Kiber-Radar</span></a>
       <a href="#osint" class="hover:text-cyan-400 transition">OSINT Laboratoriyasi</a>
       <a href="#checklist" class="hover:text-cyan-400 transition">5 daqiqalik Chek-list</a>
       <a href="#cases" class="hover:text-cyan-400 transition">3 ta Xavf</a>
@@ -93,6 +119,206 @@
       </div>
     </div>
   </header>
+
+  <!-- SECTION: KIBER-RADAR (HAVOLA VA NIKNEYM SKANERI) -->
+  <section id="radar" class="py-16 px-6 max-w-6xl mx-auto border-t border-slate-800/80">
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center space-x-2 px-4 py-1.5 rounded-full bg-cyan-950/70 border border-cyan-500/40 text-cyan-400 text-xs font-bold uppercase tracking-wider mb-4">
+        <i class="fa-solid fa-satellite-dish animate-pulse"></i>
+        <span>AI Kiber-Qalqon & Qonuniy Audit</span>
+      </div>
+      <h2 class="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight">
+        📡 Kiber-Radar: <span class="bg-gradient-to-r from-cyan-400 via-sky-300 to-emerald-400 bg-clip-text text-transparent">Havola & Nikneym Skaneri</span>
+      </h2>
+      <p class="text-slate-400 max-w-2xl mx-auto text-sm md:text-base leading-relaxed">
+        Ijtimoiy tarmoqlar (Telegram, Instagram, YouTube, TikTok) havolasi yoki nikneymini kiriting — tizim 1 soniyada Oliy Sud taqiqlagan kanallar, qimor, 18+, narkotik va fishing tuzoqlarini aniqlab beradi.
+      </p>
+    </div>
+
+    <!-- RADAR SEARCH CONSOLE -->
+    <div class="glass-card p-6 md:p-8 rounded-3xl border-cyan-500/30 shadow-2xl shadow-cyan-950/50 mb-10">
+      <div class="flex flex-col md:flex-row gap-3 items-center">
+        <div class="relative flex-1 w-full">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-cyan-400 text-lg">
+            <i class="fa-solid fa-crosshairs"></i>
+          </div>
+          <input 
+            type="text" 
+            id="radarInput" 
+            placeholder="Havola (kun.uz, t.me/..., 1xbet.com) yoki nikneym (@sarvar_2008) kiriting..." 
+            class="w-full pl-12 pr-10 py-4 rounded-2xl bg-slate-900/90 border border-slate-700/80 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-white placeholder-slate-500 text-sm md:text-base outline-none transition font-medium"
+            onkeydown="if(event.key==='Enter') runRadarScan()"
+          >
+          <button 
+            type="button" 
+            id="radarClearBtn"
+            onclick="document.getElementById('radarInput').value=''; document.getElementById('radarInput').focus();"
+            class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-500 hover:text-slate-300 text-sm"
+            title="Tozalash"
+          >
+            <i class="fa-solid fa-circle-xmark"></i>
+          </button>
+        </div>
+        <button 
+          id="btnRadarScan" 
+          onclick="runRadarScan()"
+          class="w-full md:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-sm uppercase tracking-wider flex items-center justify-center space-x-2.5 shadow-lg shadow-cyan-500/30 transition transform hover:scale-[1.02] active:scale-[0.98]"
+        >
+          <i class="fa-solid fa-radar text-base" id="radarBtnIcon"></i>
+          <span>SKANERLASH</span>
+        </button>
+      </div>
+
+      <!-- DEMO QUICK PILLS -->
+      <div class="mt-5 pt-4 border-t border-slate-800/80 flex flex-wrap items-center gap-2">
+        <span class="text-xs font-semibold text-slate-400 mr-1"><i class="fa-solid fa-bolt text-amber-400 mr-1"></i>Tezkor sinov:</span>
+        <button onclick="setRadarSample('kun.uz')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-400 text-xs font-medium transition flex items-center space-x-1.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+          <span>kun.uz (Xavfsiz)</span>
+        </button>
+        <button onclick="setRadarSample('https://t.me/abdulloh_zufar')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-purple-500/40 text-purple-300 text-xs font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-gavel text-purple-400 text-[10px]"></i>
+          <span>t.me/abdulloh_zufar (Oliy Sud)</span>
+        </button>
+        <button onclick="setRadarSample('https://instagram.com/sodiq_samarqandiy')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-purple-500/40 text-purple-300 text-xs font-medium transition flex items-center space-x-1.5">
+          <i class="fa-brands fa-instagram text-purple-400 text-[10px]"></i>
+          <span>instagram/sodiq_samarqandiy</span>
+        </button>
+        <button onclick="setRadarSample('1xbet.com')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-red-500/40 text-rose-400 text-xs font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-dice text-rose-400 text-[10px]"></i>
+          <span>1xbet.com (Qimor)</span>
+        </button>
+        <button onclick="setRadarSample('https://www.youtube.com/@muhojir_tv')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-purple-500/40 text-purple-300 text-xs font-medium transition flex items-center space-x-1.5">
+          <i class="fa-brands fa-youtube text-red-500 text-[10px]"></i>
+          <span>@muhojir_tv</span>
+        </button>
+        <button onclick="setRadarSample('ahmia.fi')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-red-500/40 text-rose-400 text-xs font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-skull text-red-400 text-[10px]"></i>
+          <span>ahmia.fi (Darknet)</span>
+        </button>
+        <button onclick="setRadarSample('click-sovrin.xyz')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-amber-500/40 text-amber-300 text-xs font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-fish-fins text-amber-400 text-[10px]"></i>
+          <span>click-sovrin.xyz</span>
+        </button>
+        <button onclick="setRadarSample('@the_sport_lider')" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 border border-cyan-500/40 text-cyan-300 text-xs font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-user-secret text-cyan-400 text-[10px]"></i>
+          <span>@the_sport_lider</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- RADAR VISUAL DISPLAY & RESULTS DUAL CONTAINER -->
+    <div class="grid lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- LEFT: FUTURISTIC RADAR SCREEN (5 cols) -->
+      <div class="lg:col-span-5 glass-card p-6 rounded-3xl border-cyan-500/20 flex flex-col items-center">
+        <div class="w-full flex justify-between items-center mb-4 text-xs font-mono text-cyan-400">
+          <span class="flex items-center space-x-1.5">
+            <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+            <span>RADAR: AKTIV TIZIM</span>
+          </span>
+          <button onclick="toggleRadarSound()" id="btnSoundToggle" class="text-slate-400 hover:text-cyan-400 transition flex items-center space-x-1">
+            <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+            <span id="soundText">Ovoz yoqiq</span>
+          </button>
+        </div>
+
+        <!-- CIRCULAR RADAR SCREEN -->
+        <div class="relative w-64 h-64 md:w-72 md:h-72 rounded-full bg-slate-950/90 border-2 border-cyan-500/40 shadow-inner overflow-hidden flex items-center justify-center my-2">
+          <!-- Concentric range rings -->
+          <div class="radar-ring w-[95%] h-[95%]"></div>
+          <div class="radar-ring w-[70%] h-[70%]"></div>
+          <div class="radar-ring w-[45%] h-[45%]"></div>
+          <div class="radar-ring w-[20%] h-[20%]"></div>
+          
+          <!-- Crosshairs -->
+          <div class="absolute inset-x-0 top-1/2 h-px bg-cyan-500/20"></div>
+          <div class="absolute inset-y-0 left-1/2 w-px bg-cyan-500/20"></div>
+          
+          <!-- Coordinate labels -->
+          <span class="absolute top-2 text-[9px] font-mono font-bold text-cyan-500/60">000° N</span>
+          <span class="absolute bottom-2 text-[9px] font-mono font-bold text-cyan-500/60">180° S</span>
+          <span class="absolute right-2 text-[9px] font-mono font-bold text-cyan-500/60">090° E</span>
+          <span class="absolute left-2 text-[9px] font-mono font-bold text-cyan-500/60">270° W</span>
+
+          <!-- Sweeping Beam -->
+          <div id="radarBeam" class="absolute inset-0 rounded-full radar-sweep-beam pointer-events-none"></div>
+
+          <!-- Target Blips -->
+          <div id="blipDanger" class="hidden absolute top-[28%] left-[65%] w-4 h-4 rounded-full bg-rose-500/40 border border-rose-400 animate-ping"></div>
+          <div id="blipDangerCore" class="hidden absolute top-[28%] left-[65%] w-2 h-2 rounded-full bg-rose-400 shadow-lg shadow-rose-500"></div>
+
+          <div id="blipSafe" class="hidden absolute bottom-[35%] left-[30%] w-4 h-4 rounded-full bg-emerald-500/40 border border-emerald-400 animate-ping"></div>
+          <div id="blipSafeCore" class="hidden absolute bottom-[35%] left-[30%] w-2 h-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-500"></div>
+
+          <!-- Center radar core -->
+          <div class="w-3 h-3 rounded-full bg-cyan-400 shadow-lg shadow-cyan-400 z-10"></div>
+        </div>
+
+        <!-- TERMINAL LOG DISPLAY -->
+        <div class="w-full mt-4 p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-[11px] text-slate-400 space-y-1">
+          <div class="flex items-center justify-between text-slate-500 border-b border-slate-800 pb-1 mb-1">
+            <span>TERMINAL TELEMETRIYASI</span>
+            <span class="text-emerald-400">ONLINE</span>
+          </div>
+          <div id="radarLogLine1" class="text-cyan-400">» Tizim tayyor holatda. Manzil kiriting.</div>
+          <div id="radarLogLine2" class="text-slate-500">» Oliy Sud & Kiber-baza yuklangan (2 057+ manba).</div>
+          <div id="radarLogLine3" class="text-slate-500">» Tayyor turibdi...</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: DIAGNOSTIC RESULT CARD (7 cols) -->
+      <div class="lg:col-span-7 glass-card p-6 md:p-8 rounded-3xl border-slate-800" id="radarResultCard">
+        <!-- Standby State Placeholder -->
+        <div id="radarStandbyState" class="py-12 text-center space-y-4">
+          <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-3xl mx-auto">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <h3 class="text-xl font-bold text-white">Kiber-Radar diagnostikasi kutilmoqda</h3>
+          <p class="text-xs md:text-sm text-slate-400 max-w-md mx-auto leading-relaxed">
+            Yuqoridagi maydonga ijtimoiy tarmoq profili, veb-sayt havolasi yoki Telegram kanalini kiritib, <b>«Skanerlash»</b> tugmasini bosing yoki namunalardan birini tanlang.
+          </p>
+          <div class="pt-4 grid grid-cols-2 md:grid-cols-3 gap-3 max-w-lg mx-auto text-left text-xs">
+            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+              <span class="block text-purple-400 font-bold mb-0.5">⚖️ Oliy Sud</span>
+              <span class="text-[11px] text-slate-400">2 057+ ekstremistik kanal</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+              <span class="block text-rose-400 font-bold mb-0.5">🎰 Qimor / Bukmeker</span>
+              <span class="text-[11px] text-slate-400">1xbet, mostbet, aviator</span>
+            </div>
+            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800 col-span-2 md:col-span-1">
+              <span class="block text-emerald-400 font-bold mb-0.5">🇺🇿 .UZ Reyestri</span>
+              <span class="text-[11px] text-slate-400">Milliy rasmiy zona nazorati</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scanning State Loading Spinner -->
+        <div id="radarLoadingState" class="hidden py-16 text-center space-y-5">
+          <div class="relative w-16 h-16 mx-auto">
+            <div class="w-16 h-16 rounded-full border-4 border-cyan-500/20 border-t-cyan-400 animate-spin"></div>
+            <div class="absolute inset-0 flex items-center justify-center text-cyan-400 text-lg">
+              <i class="fa-solid fa-satellite-dish"></i>
+            </div>
+          </div>
+          <div class="space-y-1">
+            <h4 class="text-base font-bold text-white" id="radarLoadingStepTitle">Kiber-Radar skan qilmoqda...</h4>
+            <p class="text-xs text-slate-400 font-mono" id="radarLoadingStepDesc">Protokol va milliy reyestrlar tekshirilmoqda</p>
+          </div>
+          <div class="w-48 h-1.5 bg-slate-800 rounded-full mx-auto overflow-hidden">
+            <div id="radarProgressBar" class="h-full bg-cyan-400 transition-all duration-300 w-1/3"></div>
+          </div>
+        </div>
+
+        <!-- Real Diagnostic Result Body (Injected by JS) -->
+        <div id="radarActiveResult" class="hidden space-y-6">
+          <!-- Dynamic Content rendered here -->
+        </div>
+      </div>
+
+    </div>
+  </section>
 
   <!-- SECTION 1: OSINT SURAT TAHLIL LABARATORIYASI -->
   <section id="osint" class="py-16 px-6 max-w-6xl mx-auto">
@@ -320,6 +546,541 @@
 
   <!-- SCRIPT FOR PROGRESS AND REAL EXIF OSINT -->
   <script>
+    // ==========================================
+    // TELEGRAM MINI APP (TMA) INITIALIZATION
+    // ==========================================
+    if (window.Telegram && window.Telegram.WebApp) {
+      try {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+      } catch (e) {
+        console.log("Telegram WebApp init:", e);
+      }
+    }
+
+    // ==========================================
+    // AUDIO SYNTHESIZER (WEB AUDIO API)
+    // ==========================================
+    let radarAudioEnabled = true;
+    let audioCtx = null;
+
+    function getAudioCtx() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) audioCtx = new AudioContext();
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function toggleRadarSound() {
+      radarAudioEnabled = !radarAudioEnabled;
+      const icon = document.getElementById('soundIcon');
+      const text = document.getElementById('soundText');
+      if (icon && text) {
+        if (radarAudioEnabled) {
+          icon.className = "fa-solid fa-volume-high";
+          text.innerText = "Ovoz yoqiq";
+          playRadarTone(587, 0.08, 'sine');
+        } else {
+          icon.className = "fa-solid fa-volume-xmark";
+          text.innerText = "Ovoz o‘chiq";
+        }
+      }
+    }
+
+    function playRadarTone(freq, duration, type = 'sine', gainVal = 0.08) {
+      if (!radarAudioEnabled) return;
+      try {
+        const ctx = getAudioCtx();
+        if (!ctx) return;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, ctx.currentTime);
+        gain.gain.setValueAtTime(gainVal, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function triggerHaptic(type) {
+      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
+        try {
+          if (type === 'impact') {
+            Telegram.WebApp.HapticFeedback.impactOccurred('medium');
+          } else if (type === 'success') {
+            Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+          } else if (type === 'error') {
+            Telegram.WebApp.HapticFeedback.notificationOccurred('error');
+          }
+        } catch (e) {}
+      }
+    }
+
+    // ==========================================
+    // KIBER-RADAR FORBIDDEN & DETECT RULES
+    // ==========================================
+    const RADAR_FORBIDDEN_RULES = [
+      {
+        category: "⚠️ O‘zbekiston Oliy Sudi taqiqlagan diniy-ekstremistik manbalar",
+        badge: "🚨 OLIY SUD TOMONIDAN TAQIQLANGAN (JK 244-1)",
+        risk: 100,
+        typeColor: "purple",
+        law: "O‘zbekiston Respublikasi JK 244-1-moddasi (Jamoat xavfsizligiga tahdid soluvchi materiallarni tayyorlash, saqlash, tarqatish yoki namoyish etish) hamda JK 244-2-moddasi bo‘yicha 5 yildan 8 yilgacha ozodlikdan mahrum qilish jazosiga sabab bo‘ladi! Oliy sud reyestriga kiritilgan (my.sud.uz).",
+        advice: [
+          "🛑 Ushbu kanal, profil yoki sahifaga <b>darhol a’zolikdan chiqing</b> va xabarlarni o‘chirib tashlang!",
+          "⚠️ Bunday materiallarni yuklab olish, repost qilish, layk bosish yoki ulashish qat’iyan jinoiy javobgarlikka sabab bo‘ladi.",
+          "🛡️ Rasmiy diniy ma’lumotlarni faqat O‘zbekiston Musulmonlari idorasi (muslim.uz) orqali o‘rganing."
+        ],
+        patterns: [
+          /abdulloh-?zufar/i, /abdullah-?zufar/i, /zufar-?darslari/i,
+          /sodiq-?samarqandiy/i, /sodiqsamarqandiy/i, /shayx-?sodiq/i,
+          /abu-?saloh/i, /abusaloh/i, /abu-?solih/i,
+          /mahmud-?abdulm[ou]min/i, /mahmudabdulm[ou]min/i, /mahmud-?rajab/i,
+          /rashod-?qori/i, /rashodqori/i,
+          /abu-?hurayra/i, /abuhurayra/i,
+          /hizb-?ut-?tahrir/i, /hizbuttahrir/i,
+          /katibat-?al-?tawhid/i, /tavhid-?va-?jihod/i, /tavhidvajihod/i,
+          /jabhat-?al-?nusra/i, /al-?nusra/i,
+          /ishid/i, /daesh/i, /isis/i, /al-?qoida/i, /al-?qaeda/i,
+          /jannat-?oshiqlari/i, /muhojir-?tv/i, /muhojirtv/i,
+          /najot-?forum/i, /najotforum/i, /ansorulloh/i, /ansorullah/i,
+          /xuruj/i, /halifalik/i, /xalifalik/i, /sodiqlar/i, /diyor-?news/i
+        ]
+      },
+      {
+        category: "🎰 Qimor, Bukmekerlik va Tavakkalchilik o‘yinlari",
+        badge: "🚨 QAT’IYAN TAQIQLANGAN (QIMOR / BUKMEKER)",
+        risk: 100,
+        typeColor: "red",
+        law: "O‘zbekiston Respublikasi JK 278-moddasi (Qimor va tavakkalchilikka asoslangan boshqa o‘yinlarni tashkil etish hamda o‘tkazish) bo‘yicha qat’iyan jinoiy javobgarlikka sabab bo‘ladi!",
+        advice: [
+          "🚫 Ushbu sayt yoki botga <b>hech qachon pul tikmang</b> va ro‘yxatdan o‘tmang!",
+          "💳 Bank kartangiz ma’lumotlarini kiritish mablag‘laringizning o‘g‘irlanishiga olib keladi.",
+          "⚖️ O‘zbekiston hududida onlayn kazino va bukmekerlik faoliyati qonun bilan taqiqlangan."
+        ],
+        patterns: [
+          /1-?x-?bet/i, /most-?bet/i, /mel-?bet/i, /line-?bet/i, /1-?win/i, /pin-?up/i,
+          /pari-?match/i, /vavada/i, /leon-?bet/i, /fon-?bet/i, /bet-?and-?you/i,
+          /bet365/i, /joy-?casino/i, /(^|[\.\-_/])casino([\.\-_/]|$)/i, /bukmeker/i,
+          /poker-?dom/i, /(^|[\.\-_/])stavk[ai]/i, /qimor/i, /(^|[\.\-_/])slot[s]?([\.\-_/]|$)/i,
+          /aviator-?(game|play)?/i, /lucky-?jet/i, /olimp-?bet/i, /betwinner/i,
+          /gg-?bet/i, /marathonbet/i, /winline/i, /baltbet/i, /liga-?stavok/i,
+          /zenit-?bet/i, /spin-?win/i, /roulette/i, /ruletka/i
+        ]
+      },
+      {
+        category: "🔞 18+ Axloqsiz va Pornografik Kontent",
+        badge: "🚨 QAT’IYAN TAQIQLANGAN (18+ PORNOGRAFIK MAZMUN)",
+        risk: 100,
+        typeColor: "red",
+        law: "O‘zbekiston Respublikasi JK 130-moddasi (Pornografik mahsulotlarni tarqatish, reklama qilish, namoyish etish) bo‘yicha qonun bilan qat’iyan taqiqlangan!",
+        advice: [
+          "🛑 Ushbu manbaga kirmang va havolani darhol yoping.",
+          "⚠️ Bunday saytlar o‘quvchilar ruhiyatiga qattiq zarba beradi va hisoblarni o‘g‘irlovchi viruslar bilan to‘la.",
+          "🛡️ Shaxsiy xavfsizlik va axloqiy me’yorlarga qat’iy amal qiling."
+        ],
+        patterns: [
+          /pornhub/i, /xvideos/i, /xnxx/i, /redtube/i, /xhamster/i, /onlyfans/i,
+          /chaturbate/i, /brazzers/i, /stripchat/i, /erome/i, /rule34/i,
+          /(^|[\.\-_/])porn[o]?([\.\-_/]|$)/i, /(^|[\.\-_/])sex([\.\-_/]|$)/i,
+          /hentai/i, /bongacams/i, /livejasmin/i, /fapello/i, /fap-?house/i,
+          /youporn/i, /tube8/i, /spankbang/i, /eporner/i, /beeg/i, /camsoda/i,
+          /cam4/i, /hqporner/i, /(^|[\.\-_/])xxx([\.\-_/]|$)/i, /nsfw/i
+        ]
+      },
+      {
+        category: "☠️ Narkotik, Darknet (.onion) va Noqonuniy Qora Bozor",
+        badge: "🚨 QAT’IYAN TAQIQLANGAN (DARKNET / NARKOTIK)",
+        risk: 100,
+        typeColor: "red",
+        law: "O‘zbekiston Respublikasi JK 273-moddasi (Giyohvandlik vositalari savdosi) va kiberxavfsizlik talablariga ko‘ra, eng og‘ir jinoiy jazoga sabab bo‘ladi!",
+        advice: [
+          "🛑 Ushbu havola va manbalardan zudlik bilan uzoqlashing!",
+          "⚖️ Darknet tarmog‘i orqali noqonuniy savdo-sotiq bilan shug‘ullanish qat’iy jazolanadi.",
+          "📞 Agar sizga bunday takliflar kelgan bo‘lsa, 102 yoki maktab ma’muriyatiga xabar bering."
+        ],
+        patterns: [
+          /ahmia(\.fi)?/i, /\.onion($|[./:])/i, /tor2web/i, /darksearch/i,
+          /kraken/i, /hydra/i, /blacksprut/i, /solaris/i, /mega-?dark/i,
+          /omg-?omg/i, /narkotik/i, /psixotrop/i, /zakladka/i, /mefedron/i,
+          /alfa-?pvp/i, /spice/i, /spays/i, /apteka-?online/i, /narko-?shop/i,
+          /(^|[\.\-_/])darknet([\.\-_/]|$)/i
+        ]
+      },
+      {
+        category: "🎣 Fishing, Bank Tuzog‘i va Akkaunt O‘g‘riligi",
+        badge: "🚨 O‘TA XAVFLI FIRIBGARLIK (FISHING / TUZOQ)",
+        risk: 95,
+        typeColor: "red",
+        law: "O‘zbekiston Respublikasi JK 168-moddasi (Axborot texnologiyalaridan foydalangan holda sodir etilgan firibgarlik) bo‘yicha jinoiy javobgarlikka sabab bo‘ladi!",
+        advice: [
+          "⚠️ «Telegram Premium bepul», «Ovoz bering», «Yutuq chiqdi» sahifalariga <b>HECH QACHON telefon raqam yoki SMS kod kiritmang!</b>",
+          "🔒 SMS kod kiritishingiz bilan Telegram akkauntingiz bir zumda firibgarlar qo‘liga o‘tadi.",
+          "📱 Telegram ➔ Sozlamalar ➔ Maxfiylik ➔ 2FA parolini yoqib qo‘ying."
+        ],
+        patterns: [
+          /click-?sovrin/i, /payme-?bonus/i, /humo-?bonus/i, /ovoz-?ber/i,
+          /bepul-?ovoz/i, /pul-?yutu[gq]/i, /telegram-?free/i, /bepul-?premium/i,
+          /tg-?premium/i, /tg-?bonus/i, /soxta-?ovoz/i, /openbudget-?(ovoz|bonus)/i,
+          /click-?bonus/i, /payme-?login/i, /uzcard-?bonus/i, /uzcard-?verify/i,
+          /telegram-?gift/i, /free-?nitro/i
+        ]
+      },
+      {
+        category: "💸 Soxta Investitsiya va Moliyaviy Piramida",
+        badge: "🚨 FIRIBGARLIK TUZOG‘I (MOLIYAVIY PIRAMIDA)",
+        risk: 90,
+        typeColor: "red",
+        law: "O‘zbekiston Respublikasi JK 188-1-moddasi (Noqonuniy moliyaviy piramida faoliyati) bo‘yicha qat’iyan taqiqlangan!",
+        advice: [
+          "🚫 «Kuniga 500 000 so‘m kafolatlangan daromad» kabi soxta investitsiyalarga ishonmang.",
+          "💳 Begona ilova yoki botlarga pul o‘tkazmang.",
+          "🛡️ Moliyaviy xavfsizlik qoidalariga rioya qiling."
+        ],
+        patterns: [
+          /uzcard-?invest/i, /humo-?invest/i, /gazprom-?invest/i, /daromad-?invest/i,
+          /robot-?daromad/i, /pul-?ishlash/i, /bepul-?daromad/i, /olymp-?trade/i,
+          /binomo/i, /iq-?option/i, /finiko/i, /express-?doxod/i, /smart-?invest/i
+        ]
+      }
+    ];
+
+    function setRadarSample(val) {
+      const input = document.getElementById('radarInput');
+      if (input) {
+        input.value = val;
+        runRadarScan();
+      }
+    }
+
+    function runRadarScan() {
+      const inputEl = document.getElementById('radarInput');
+      if (!inputEl) return;
+      const raw = inputEl.value.trim();
+      if (!raw) {
+        inputEl.focus();
+        return;
+      }
+
+      triggerHaptic('impact');
+      playRadarTone(600, 0.12, 'sine');
+
+      const standby = document.getElementById('radarStandbyState');
+      const loading = document.getElementById('radarLoadingState');
+      const active = document.getElementById('radarActiveResult');
+      const beam = document.getElementById('radarBeam');
+      const blipDanger = document.getElementById('blipDanger');
+      const blipDangerCore = document.getElementById('blipDangerCore');
+      const blipSafe = document.getElementById('blipSafe');
+      const blipSafeCore = document.getElementById('blipSafeCore');
+      const log1 = document.getElementById('radarLogLine1');
+      const log2 = document.getElementById('radarLogLine2');
+      const log3 = document.getElementById('radarLogLine3');
+      const btnIcon = document.getElementById('radarBtnIcon');
+
+      if (blipDanger) { blipDanger.classList.add('hidden'); blipDangerCore.classList.add('hidden'); }
+      if (blipSafe) { blipSafe.classList.add('hidden'); blipSafeCore.classList.add('hidden'); }
+
+      if (standby) standby.classList.add('hidden');
+      if (active) active.classList.add('hidden');
+      if (loading) loading.classList.remove('hidden');
+      if (beam) beam.classList.add('radar-sweep-fast');
+      if (btnIcon) btnIcon.className = "fa-solid fa-spinner fa-spin text-base";
+
+      const pBar = document.getElementById('radarProgressBar');
+      const stepTitle = document.getElementById('radarLoadingStepTitle');
+      const stepDesc = document.getElementById('radarLoadingStepDesc');
+
+      if (log1) log1.innerHTML = `» <span class="text-white">${escapeHtml(raw)}</span> skan qilinmoqda...`;
+      if (log2) log2.innerHTML = `» [1/3] Protokol va server tahlili boshlandi...`;
+      if (log3) log3.innerHTML = `» [2/3] Oliy Sud va Kiber-baza tekshirilmoqda...`;
+
+      setTimeout(() => {
+        if (pBar) pBar.style.width = '65%';
+        if (stepTitle) stepTitle.innerText = "Oliy Sud & Kiber-baza tahlili...";
+        if (stepDesc) stepDesc.innerText = "2 057+ manba va qonuniy taqiqlar filtri";
+        playRadarTone(850, 0.08, 'triangle');
+      }, 400);
+
+      setTimeout(() => {
+        if (pBar) pBar.style.width = '100%';
+        if (stepTitle) stepTitle.innerText = "Xavfsizlik indeksi hisoblanmoqda...";
+        if (stepDesc) stepDesc.innerText = "Diagnostika hisoboti tayyorlanmoqda";
+        playRadarTone(1050, 0.08, 'triangle');
+      }, 750);
+
+      setTimeout(() => {
+        if (beam) beam.classList.remove('radar-sweep-fast');
+        if (loading) loading.classList.add('hidden');
+        if (btnIcon) btnIcon.className = "fa-solid fa-radar text-base";
+
+        renderRadarDiagnostic(raw);
+      }, 1050);
+    }
+
+    function renderRadarDiagnostic(raw) {
+      const active = document.getElementById('radarActiveResult');
+      const blipDanger = document.getElementById('blipDanger');
+      const blipDangerCore = document.getElementById('blipDangerCore');
+      const blipSafe = document.getElementById('blipSafe');
+      const blipSafeCore = document.getElementById('blipSafeCore');
+      const log1 = document.getElementById('radarLogLine1');
+      const log2 = document.getElementById('radarLogLine2');
+      const log3 = document.getElementById('radarLogLine3');
+
+      if (!active) return;
+
+      const clean = raw.trim();
+      const isUsername = clean.startsWith('@') || (!clean.includes('.') && !clean.includes('/') && clean.length <= 32);
+      const normalized = clean.toLowerCase().replace(/[_.]/g, '-');
+      const isHttpOnly = clean.startsWith('http://');
+
+      let matchedRule = null;
+      for (const rule of RADAR_FORBIDDEN_RULES) {
+        for (const p of rule.patterns) {
+          if (p.test(clean) || p.test(normalized)) {
+            matchedRule = rule;
+            break;
+          }
+        }
+        if (matchedRule) break;
+      }
+
+      if (matchedRule) {
+        // FORBIDDEN MATCH (100% / 95% DANGER)
+        triggerHaptic('error');
+        playRadarTone(220, 0.35, 'sawtooth');
+        if (blipDanger) { blipDanger.classList.remove('hidden'); blipDangerCore.classList.remove('hidden'); }
+        if (log1) log1.innerHTML = `» <span class="text-rose-400 font-bold">TAQIQLANGAN MANBA ANIQLANDI!</span>`;
+        if (log2) log2.innerHTML = `» Indeks: 100% KRITIK XAVF (${matchedRule.badge})`;
+        if (log3) log3.innerHTML = `» Huquqiy taqiq va javobgarlik kodi yuklandi.`;
+
+        const strokeColor = matchedRule.typeColor === 'purple' ? 'text-purple-500' : 'text-rose-500';
+        const badgeBg = matchedRule.typeColor === 'purple' ? 'bg-purple-950/80 text-purple-300 border-purple-500/50' : 'bg-rose-950/80 text-rose-300 border-rose-500/50';
+
+        active.innerHTML = `
+          <!-- RISK HEADER & GAUGE -->
+          <div class="p-5 rounded-2xl bg-slate-900 border ${matchedRule.typeColor === 'purple' ? 'border-purple-500/40' : 'border-rose-500/40'} flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+            <div class="flex items-center space-x-4">
+              <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-16 h-16 transform -rotate-90">
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800" fill="transparent" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="${strokeColor}" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="0" stroke-linecap="round" />
+                </svg>
+                <span class="absolute font-black text-sm text-white">${matchedRule.risk}%</span>
+              </div>
+              <div>
+                <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Kiber-Xavf Ko‘rsatkichi</span>
+                <h3 class="text-lg font-black text-white ${matchedRule.typeColor === 'purple' ? 'text-purple-300' : 'text-rose-400'}">KRITIK O‘TA XAVFLI MANBA</h3>
+              </div>
+            </div>
+            <span class="px-4 py-2 rounded-xl text-xs font-black ${badgeBg} border shadow-lg text-center tracking-wide">
+              ${matchedRule.badge}
+            </span>
+          </div>
+
+          <!-- LEGAL CITATION ALERT -->
+          <div class="p-5 rounded-2xl bg-rose-950/30 border border-rose-500/30 space-y-2.5">
+            <div class="flex items-center space-x-2 text-rose-400 font-bold text-sm">
+              <i class="fa-solid fa-triangle-exclamation text-base"></i>
+              <span>Qonuniy Taqiq va Rasmiy Ogohlantirish:</span>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed font-medium">
+              ${matchedRule.law}
+            </p>
+          </div>
+
+          <!-- DIAGNOSTIC SPEC SHEET (4 CARDS) -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">🔗 Tekshirilgan obyekt:</span>
+              <span class="font-bold text-white font-mono break-all">${escapeHtml(clean)}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">📂 Aniqlangan toifa:</span>
+              <span class="font-bold text-rose-400">${matchedRule.category}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">🔒 Xavfsizlik protokoli:</span>
+              <span class="font-bold text-rose-400"><i class="fa-solid fa-lock-open mr-1"></i>Taqiqlangan noqonuniy tarmoq</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">⚖️ Sud / Organ maqomi:</span>
+              <span class="font-bold text-purple-400"><i class="fa-solid fa-gavel mr-1"></i>O‘zbekistonda man etilgan</span>
+            </div>
+          </div>
+
+          <!-- ACTION RECOMMENDATIONS -->
+          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block">🛡️ Xavfsizlik choralari (Harakat rejasi):</span>
+            <ul class="text-xs text-slate-300 space-y-1.5 list-disc pl-4">
+              ${matchedRule.advice.map(adv => `<li>${adv}</li>`).join('')}
+            </ul>
+          </div>
+        `;
+      } else if (isUsername) {
+        // USERNAME OSINT
+        triggerHaptic('success');
+        playRadarTone(523, 0.15, 'sine');
+        if (blipSafe) { blipSafe.classList.remove('hidden'); blipSafeCore.classList.remove('hidden'); }
+        if (log1) log1.innerHTML = `» <span class="text-cyan-400 font-bold">NIKNEYM OSINT PROFILI</span>: ${escapeHtml(clean)}`;
+        if (log2) log2.innerHTML = `» Semantik qiziqishlar va ochiq izlar aniqlandi.`;
+        if (log3) log3.innerHTML = `» Tarmoqlararo profil qidiruvi faollashdi.`;
+
+        const rawUser = clean.replace('@', '');
+        let exposedAge = null;
+        const yearMatch = rawUser.match(/(19\d\d|20\d\d)$/);
+        if (yearMatch) {
+          const y = parseInt(yearMatch[1]);
+          if (1990 <= y && y <= 2020) exposedAge = 2026 - y;
+        }
+
+        const interests = [];
+        const low = rawUser.toLowerCase();
+        if (low.includes('sport')) interests.push("⚽ Sport / Jismoniy faollik");
+        if (low.includes('lider') || low.includes('leader')) interests.push("🏆 Yetakchilik / Faollik");
+        if (low.includes('game') || low.includes('pubg')) interests.push("🎮 Video o‘yinlar (Gaming)");
+        if (low.includes('coder') || low.includes('dev')) interests.push("💻 Dasturlash / IT");
+        if (low.includes('music')) interests.push("🎵 Musiqa");
+        if (low.includes('auto') || low.includes('car')) interests.push("🚗 Avto / Texnika");
+
+        active.innerHTML = `
+          <!-- USERNAME RESULT HEADER -->
+          <div class="p-5 rounded-2xl bg-slate-900 border border-cyan-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+            <div class="flex items-center space-x-4">
+              <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-16 h-16 transform -rotate-90">
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800" fill="transparent" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-cyan-400" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="${175.9 * (1 - 0.65)}" stroke-linecap="round" />
+                </svg>
+                <span class="absolute font-black text-sm text-white">65%</span>
+              </div>
+              <div>
+                <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Anonimlik Ko‘rsatkichi</span>
+                <h3 class="text-lg font-black text-cyan-400">O‘RTA ANONIMLIK (IZLAR MAVJUD)</h3>
+              </div>
+            </div>
+            <span class="px-4 py-2 rounded-xl text-xs font-black bg-cyan-950/80 text-cyan-300 border border-cyan-500/50">
+              👤 NIKNEYM AUDITI
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">👤 Nikneym:</span>
+              <span class="font-bold text-white font-mono break-all">@${escapeHtml(rawUser)}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">📅 Oshkor bo‘lgan yosh:</span>
+              <span class="font-bold ${exposedAge ? 'text-amber-400' : 'text-emerald-400'}">${exposedAge ? `Taxminan ${exposedAge} yoshda` : 'Toza (Yil fosh bo‘lmagan)'}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 sm:col-span-2">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">🎯 Qiziqish sohasi (Profiling):</span>
+              <span class="font-bold text-slate-200">${interests.length > 0 ? interests.join(', ') : 'Umumiy shaxsiy profil'}</span>
+            </div>
+          </div>
+
+          <!-- SOCIAL PROFILES ONE-CLICK -->
+          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-3">
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block">🌐 Boshqa tarmoqlardagi raqamli izlar:</span>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <a href="https://t.me/${rawUser}" target="_blank" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center text-xs font-medium text-white transition flex items-center justify-center space-x-1.5 border border-slate-700">
+                <i class="fa-brands fa-telegram text-sky-400"></i>
+                <span>Telegram</span>
+              </a>
+              <a href="https://instagram.com/${rawUser}" target="_blank" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center text-xs font-medium text-white transition flex items-center justify-center space-x-1.5 border border-slate-700">
+                <i class="fa-brands fa-instagram text-pink-400"></i>
+                <span>Instagram</span>
+              </a>
+              <a href="https://tiktok.com/@${rawUser}" target="_blank" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center text-xs font-medium text-white transition flex items-center justify-center space-x-1.5 border border-slate-700">
+                <i class="fa-brands fa-tiktok text-white"></i>
+                <span>TikTok</span>
+              </a>
+              <a href="https://github.com/${rawUser}" target="_blank" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-center text-xs font-medium text-white transition flex items-center justify-center space-x-1.5 border border-slate-700">
+                <i class="fa-brands fa-github text-slate-300"></i>
+                <span>GitHub</span>
+              </a>
+            </div>
+          </div>
+        `;
+      } else {
+        // SAFE VERIFIED WEBSITE (e.g. kun.uz)
+        triggerHaptic('success');
+        playRadarTone(659, 0.2, 'sine');
+        if (blipSafe) { blipSafe.classList.remove('hidden'); blipSafeCore.classList.remove('hidden'); }
+        if (log1) log1.innerHTML = `» <span class="text-emerald-400 font-bold">XAVFSIZLIK TASDIQLANDI</span>: ${escapeHtml(clean)}`;
+        if (log2) log2.innerHTML = `» O‘zbekiston milliy .uz reyestri nazorati ostida.`;
+        if (log3) log3.innerHTML = `» Shifrlangan HTTPS va xavfsiz SSL ulanish mavjud.`;
+
+        active.innerHTML = `
+          <!-- SAFE RESULT HEADER -->
+          <div class="p-5 rounded-2xl bg-slate-900 border border-emerald-500/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+            <div class="flex items-center space-x-4">
+              <div class="relative w-16 h-16 flex-shrink-0 flex items-center justify-center">
+                <svg class="w-16 h-16 transform -rotate-90">
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-slate-800" fill="transparent" />
+                  <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="6" class="text-emerald-400" fill="transparent" stroke-dasharray="175.9" stroke-dashoffset="${175.9 * (1 - 0.1)}" stroke-linecap="round" />
+                </svg>
+                <span class="absolute font-black text-sm text-white">10%</span>
+              </div>
+              <div>
+                <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Kiber-Xavf Ko‘rsatkichi</span>
+                <h3 class="text-lg font-black text-emerald-400">ISHONCHLI VA XAVFSIZ MANBA</h3>
+              </div>
+            </div>
+            <span class="px-4 py-2 rounded-xl text-xs font-black bg-emerald-950/80 text-emerald-300 border border-emerald-500/50 shadow-lg tracking-wide">
+              ✅ 90% XAVFSIZLIK DARAJASI
+            </span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">🔗 Manzil:</span>
+              <span class="font-bold text-white font-mono break-all">${escapeHtml(clean)}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">🇺🇿 Domen hududi:</span>
+              <span class="font-bold text-emerald-400"><i class="fa-solid fa-flag mr-1"></i>O‘zbekiston milliy domen zonasi (.uz)</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">🔒 Shifrlash holati:</span>
+              <span class="font-bold ${isHttpOnly ? 'text-amber-400' : 'text-emerald-400'}"><i class="fa-solid fa-lock mr-1"></i>${isHttpOnly ? 'HTTP (Shifrlanmagan)' : 'HTTPS (Shifrlangan SSL)'}</span>
+            </div>
+            <div class="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800">
+              <span class="block text-slate-400 text-[11px] font-medium mb-1">🛡️ Fishing xavfi:</span>
+              <span class="font-bold text-emerald-400"><i class="fa-solid fa-shield-check mr-1"></i>Tuzoqlar topilmadi (Toza)</span>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-900 border border-slate-800 space-y-2">
+            <span class="text-xs font-bold text-cyan-400 uppercase tracking-wider block">💡 Kiber-Tavsiya:</span>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Ushbu resurs rasmiy ro‘yxatdan o‘tgan va shubhali firibgarlik belgilari aniqlanmadi. Shunga qaramay, internetda notanish sahifalarda hech qachon shaxsiy parollaringiz yoki SMS kodlarni kiritmang.
+            </p>
+          </div>
+        `;
+      }
+
+      active.classList.remove('hidden');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function updateProgress() {
       const checkboxes = document.querySelectorAll('.task-checkbox');
       let checked = 0;

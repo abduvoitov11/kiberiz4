@@ -43,7 +43,8 @@ from telegram import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     InlineKeyboardButton,
-    InlineKeyboardMarkup
+    InlineKeyboardMarkup,
+    WebAppInfo
 )
 from telegram.request import HTTPXRequest
 from telegram.ext import (
@@ -145,6 +146,7 @@ E = {
     "CALL": "5467539229468793355",         # 📞 Hotline
     "TIMER": "5413704112220949842",        # ⏰ 5-minute Timer
     "GLOBE": "6048518064029307235",        # 🌐 Web Platform
+    "RADAR": "5188217332748527444",        # 📡 Kiber-Radar
     "ROCKET": "5445284980978621387",       # 🚀 Launch
     "TEST": "5411512278740640309",         # 🧪 Digital Footprint Quiz
     "LIGHT": "5472146462362048818",        # 💡 Pro Tip
@@ -308,7 +310,7 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
         ],
         [
             KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"]),
-            KeyboardButton("Veb-Platforma havolasi", icon_custom_emoji_id=E["GLOBE"])
+            KeyboardButton("🌐 Kiber-Portal (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["GLOBE"])
         ],
         [
             KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"])
@@ -419,15 +421,17 @@ async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def web_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     web_text = (
-        f"{p('GLOBE', '🌐')} <b>«KIBERIZ-4» INTERAKTIV VEB-PLATFORMASI</b>\n\n"
+        f"{p('GLOBE', '🌐')} <b>«KIBERIZ-4» INTERAKTIV VEB-PLATFORMASI & KIBER-RADAR</b>\n\n"
         f"Loyihaning to‘liq interaktiv veb-platformasida siz:\n"
+        f"• {p('RADAR', '📡')} <b>Kiber-Radar:</b> Havola va nikneymlarni 1 soniyada xavfsizlikka skanerlash;\n"
         f"• {p('EXIF_PHOTO', '🖼️')} O‘z suratingizning EXIF metama’lumotlarini onlayn tekshirishingiz;\n"
         f"• {p('LOCK', '🔒')} Interaktiv parol mustahkamligi kalkulyatoridan foydalanishingiz;\n"
         f"• {p('TROPHY', '🏆')} 4-maktab sinflari reytingini jonli kuzatishingiz mumkin!\n\n"
-        f"Platformani ochish uchun quyidagi tugmani bosing:"
+        f"Telegram ichida to‘g‘ridan-to‘g‘ri ochish uchun pastdagi tugmani bosing:"
     )
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Veb-Platformani ochish", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["ROCKET"])]
+        [InlineKeyboardButton("🌐 Kiber-Portalni ochish (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["ROCKET"])],
+        [InlineKeyboardButton("Brauzerda ochish (Tashqi havola)", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["GLOBE"])]
     ])
     await update.message.reply_text(web_text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -1525,7 +1529,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"   └ <i>Bot uning firibgarlik (fishing) ekanligini bir zumda fosh qiladi!</i>",
             parse_mode="HTML"
         )
-    elif "Veb-Platforma" in text:
+    elif "Veb-Platforma" in text or "Kiber-Portal" in text or "Web App" in text:
         await web_command(update, context)
     elif URL_REGEX.search(text.strip()) and not text.strip().startswith("@"):
         # URL / Link Audit
