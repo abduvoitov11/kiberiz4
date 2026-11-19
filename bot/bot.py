@@ -598,6 +598,18 @@ def _query_gemini_api_sync(prompt: str, image_bytes: bytes = None, mime_type: st
 
     parts = [{"text": prompt}]
     if image_bytes:
+        # Lightweight compression for Termux & mobile environments (saves RAM, battery & mobile data)
+        if len(image_bytes) > 800_000:
+            try:
+                im = Image.open(io.BytesIO(image_bytes))
+                im.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
+                buf = io.BytesIO()
+                im.convert("RGB").save(buf, format="JPEG", quality=82, optimize=True)
+                image_bytes = buf.getvalue()
+                mime_type = "image/jpeg"
+            except Exception:
+                pass
+
         b64_data = base64.b64encode(image_bytes).decode("utf-8")
         parts.append({
             "inline_data": {
