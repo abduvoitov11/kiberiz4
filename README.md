@@ -80,7 +80,7 @@ Brauzerda `http://localhost:8080` manzilini oching.
 
 ---
 
-## 👨‍💻 Muallif va Rahmatlar
+## 👨‍💻 Muallif
 * **Tashabbus:** 4-sonli umumta’lim maktabi
 * **Mavzu:** *"Ijtimoiy tarmoqlarda xavfsizlik va mas’uliyat"*
 * **Telegram Bot:** [@kiberiz_bot](https://t.me/kiberiz_bot)
