@@ -2026,62 +2026,179 @@ def get_website_screenshot(url: str):
 # ==========================================
 # REAL OSINT HELPER (JPG, PNG, HEIC, ZIP)
 # ==========================================
-def parse_single_image_exif(file_bytes, filename="surat"):
-    """Extracts EXIF and GPS from raw image bytes (supports JPG, PNG, HEIC, WEBP)."""
-    try:
-        img = Image.open(io.BytesIO(file_bytes))
-        exif_data = img.getexif()
-    except Exception as e:
-        return None, None, str(e)
+def convert_image_to_jpeg_bytes(file_bytes: bytes, filename: str = "surat.jpg") -> bytes:
+    """Converts HEIC, RAW, WEBP, or other formats to standard JPEG bytes using pillow_heif, ffmpeg, or exiftool."""
+    if not file_bytes:
+        return file_bytes
+    if file_bytes.startswith(b'\xff\xd8\xff') or file_bytes.startswith(b'\x89PNG'):
+        return file_bytes
         
+    # Method 1: Try pillow_heif / PIL
+    try:
+        if pillow_heif:
+            pillow_heif.register_heif_opener()
+        img = Image.open(io.BytesIO(file_bytes))
+        buf = io.BytesIO()
+        img.convert("RGB").save(buf, format="JPEG", quality=92)
+        return buf.getvalue()
+    except Exception:
+        pass
+
+    # Method 2: Try ffmpeg conversion
+    try:
+        cmd = ['ffmpeg', '-y', '-i', 'pipe:0', '-frames:v', '1', '-f', 'image2', '-vcodec', 'mjpeg', 'pipe:1']
+        proc = subprocess.run(cmd, input=file_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+        if proc.returncode == 0 and len(proc.stdout) > 1000:
+            return proc.stdout
+    except Exception:
+        pass
+
+    # Method 3: Try ImageMagick convert
+    try:
+        cmd = ['convert', '-[0]', 'jpg:-']
+        proc = subprocess.run(cmd, input=file_bytes, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+        if proc.returncode == 0 and len(proc.stdout) > 1000:
+            return proc.stdout
+    except Exception:
+        pass
+
+    # Method 4: Try extracting embedded preview with ExifTool
+    ext = os.path.splitext(filename)[1].lower() or ".heic"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+        tf.write(file_bytes)
+        tf_path = tf.name
+    try:
+        for tag in ["-PreviewImage", "-JpgFromRaw", "-ThumbnailImage"]:
+            p_res = subprocess.run(["exiftool", "-b", tag, tf_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=5)
+            if p_res.returncode == 0 and len(p_res.stdout) > 1000:
+                return p_res.stdout
+    except Exception:
+        pass
+    finally:
+        if os.path.exists(tf_path):
+            try:
+                os.remove(tf_path)
+            except Exception:
+                pass
+
+    return file_bytes
+
+def parse_single_image_exif(file_bytes, filename="surat"):
+    """Extracts EXIF and GPS from raw image bytes (supports JPG, PNG, HEIC, WEBP, TIFF, etc.)."""
     details = []
     lat_val, lon_val = None, None
     device_name = None
     captured_time = None
     
-    if exif_data:
-        make = exif_data.get(ExifTags.Base.Make)
-        model = exif_data.get(ExifTags.Base.Model)
-        date_time = exif_data.get(ExifTags.Base.DateTime)
-        software = exif_data.get(ExifTags.Base.Software)
-        
-        if make or model:
-            device_name = f"{make or ''} {model or ''}".strip()
-            details.append(f"{p('PHONE', '📱')} <b>Qurilma:</b> <code>{html.escape(device_name)}</code>")
+    # 1. Try PIL first
+    try:
+        if pillow_heif:
+            pillow_heif.register_heif_opener()
+        img = Image.open(io.BytesIO(file_bytes))
+        exif_data = img.getexif()
+        if exif_data:
+            make = exif_data.get(ExifTags.Base.Make)
+            model = exif_data.get(ExifTags.Base.Model)
+            date_time = exif_data.get(ExifTags.Base.DateTime)
+            software = exif_data.get(ExifTags.Base.Software)
             
-        if date_time:
-            captured_time = str(date_time)
-            details.append(f"{p('TIMER', '⏰')} <b>Olingan vaqt:</b> <code>{html.escape(captured_time)}</code>")
-            
-        if software:
-            details.append(f"{p('GEAR', '⚙️')} <b>Dastur:</b> <code>{html.escape(str(software))}</code>")
-            
-        # Parse GPS
-        try:
-            gps_info = exif_data.get_ifd(ExifTags.IFD.GPSInfo)
-            if gps_info:
-                lat_ref = gps_info.get(1, "N")
-                raw_lat = gps_info.get(2)
-                lon_ref = gps_info.get(3, "E")
-                raw_lon = gps_info.get(4)
+            if make or model:
+                device_name = f"{make or ''} {model or ''}".strip()
+                details.append(f"{p('PHONE', '📱')} <b>Qurilma:</b> <code>{html.escape(device_name)}</code>")
                 
-                if raw_lat and raw_lon:
-                    lat_deg = float(raw_lat[0]) + float(raw_lat[1])/60.0 + float(raw_lat[2])/3600.0
-                    if lat_ref == "S": lat_deg = -lat_deg
-                    lon_deg = float(raw_lon[0]) + float(raw_lon[1])/60.0 + float(raw_lon[2])/3600.0
-                    if lon_ref == "W": lon_deg = -lon_deg
+            if date_time:
+                captured_time = str(date_time)
+                details.append(f"{p('TIMER', '⏰')} <b>Olingan vaqt:</b> <code>{html.escape(captured_time)}</code>")
+                
+            if software:
+                details.append(f"{p('GEAR', '⚙️')} <b>Dastur:</b> <code>{html.escape(str(software))}</code>")
+                
+            # Parse GPS
+            try:
+                gps_info = exif_data.get_ifd(ExifTags.IFD.GPSInfo)
+                if gps_info:
+                    lat_ref = gps_info.get(1, "N")
+                    raw_lat = gps_info.get(2)
+                    lon_ref = gps_info.get(3, "E")
+                    raw_lon = gps_info.get(4)
                     
-                    lat_val = round(lat_deg, 6)
-                    lon_val = round(lon_deg, 6)
-                    
-                    maps_url = f"https://www.google.com/maps?q={lat_val},{lon_val}"
-                    details.append(
-                        f"{p('SEARCH', '📍')} <b>GPS Lokatsiya:</b> <code>{lat_val}° {lat_ref}, {lon_val}° {lon_ref}</code>\n"
-                        f"👉 <a href=\"{maps_url}\">Google Xaritalarda ko‘rish</a>"
-                    )
-        except Exception as e:
-            logging.error(f"GPS parsing error: {e}")
-            
+                    if raw_lat and raw_lon:
+                        lat_deg = float(raw_lat[0]) + float(raw_lat[1])/60.0 + float(raw_lat[2])/3600.0
+                        if lat_ref == "S": lat_deg = -lat_deg
+                        lon_deg = float(raw_lon[0]) + float(raw_lon[1])/60.0 + float(raw_lon[2])/3600.0
+                        if lon_ref == "W": lon_deg = -lon_deg
+                        
+                        lat_val = round(lat_deg, 6)
+                        lon_val = round(lon_deg, 6)
+                        
+                        maps_url = f"https://www.google.com/maps?q={lat_val},{lon_val}"
+                        details.append(
+                            f"{p('SEARCH', '📍')} <b>GPS Lokatsiya:</b> <code>{lat_val}° {lat_ref}, {lon_val}° {lon_ref}</code>\n"
+                            f"👉 <a href=\"{maps_url}\">Google Xaritalarda ko‘rish</a>"
+                        )
+            except Exception as e:
+                logging.error(f"GPS parsing error: {e}")
+    except Exception:
+        pass
+
+    # 2. ExifTool fallback (Crucial for HEIC, TIFF, or when PIL is missing pillow-heif)
+    if not details or lat_val is None:
+        ext = os.path.splitext(filename)[1].lower() or ".jpg"
+        with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+            tf.write(file_bytes)
+            tf_path = tf.name
+        try:
+            cmd = ["exiftool", "-json", "-c", "%.6f", tf_path]
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+            if res.returncode == 0 and res.stdout.strip():
+                data = json.loads(res.stdout)[0]
+                if not device_name:
+                    make = str(data.get("Make", "")).strip()
+                    model = str(data.get("Model", "")).strip()
+                    if make or model:
+                        device_name = f"{make} {model}".strip()
+                        details.append(f"{p('PHONE', '📱')} <b>Qurilma:</b> <code>{html.escape(device_name)}</code>")
+                if not captured_time:
+                    dt = data.get("DateTimeOriginal") or data.get("CreateDate")
+                    if dt:
+                        details.append(f"{p('TIMER', '⏰')} <b>Olingan vaqt:</b> <code>{html.escape(str(dt))}</code>")
+                soft = data.get("Software")
+                if soft and not any("Dastur:" in d for d in details):
+                    details.append(f"{p('GEAR', '⚙️')} <b>Dastur:</b> <code>{html.escape(str(soft))}</code>")
+                
+                # Check GPS in exiftool
+                if lat_val is None:
+                    lat_str = str(data.get("GPSLatitude", "")).strip()
+                    lon_str = str(data.get("GPSLongitude", "")).strip()
+                    if not lat_str or not lon_str:
+                        pos = str(data.get("GPSPosition", "")).strip()
+                        if pos and "," in pos:
+                            parts = pos.split(",")
+                            lat_str, lon_str = parts[0].strip(), parts[1].strip()
+                    if lat_str and lon_str:
+                        try:
+                            lat = float(lat_str.replace("N", "").replace("S", "").strip())
+                            if "S" in lat_str: lat = -lat
+                            lon = float(lon_str.replace("E", "").replace("W", "").strip())
+                            if "W" in lon_str: lon = -lon
+                            lat_val = round(lat, 6)
+                            lon_val = round(lon, 6)
+                            maps_url = f"https://www.google.com/maps?q={lat_val},{lon_val}"
+                            details.append(
+                                f"{p('SEARCH', '📍')} <b>GPS Lokatsiya:</b> <code>{lat_val}° N, {lon_val}° E</code>\n"
+                                f"👉 <a href=\"{maps_url}\">Google Xaritalarda ko‘rish</a>"
+                            )
+                        except Exception:
+                            pass
+        except Exception as e_err:
+            logging.warning(f"ExifTool image fallback error: {e_err}")
+        finally:
+            if os.path.exists(tf_path):
+                try:
+                    os.remove(tf_path)
+                except Exception:
+                    pass
+
     coords = (lat_val, lon_val) if (lat_val is not None and lon_val is not None) else None
     return details, coords, None
 
@@ -2465,11 +2582,12 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     # Process Single Image (JPG, PNG, HEIC, WEBP, TIFF)
-    context.user_data["last_photo"] = file_bytes
+    jpeg_bytes = convert_image_to_jpeg_bytes(file_bytes, file_name)
+    context.user_data["last_photo"] = jpeg_bytes
     details, coords, err = parse_single_image_exif(file_bytes, file_name)
     
-    if err:
-        # If PIL fails to open it as an image, fallback to universal generic file analyzer
+    if err and not details:
+        # If both PIL and ExifTool fail to extract image info, fallback to universal file analyzer
         await handle_generic_file_analysis(msg, file_bytes, file_name)
         return
 
@@ -2484,15 +2602,15 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             )
 
     # QR Code & Barcode Detection
-    qr_data = scan_qr_code(file_bytes)
+    qr_data = scan_qr_code(jpeg_bytes)
 
     # Real Visual OSINT Analysis (Chronolocation & OCR)
-    visual_info = analyze_visual_osint(file_bytes)
+    visual_info = analyze_visual_osint(jpeg_bytes)
     
     # Real AI Vision OSINT & Privacy Analysis (Gemini Multimodal Vision)
     ai_vision_text = ""
     try:
-        ai_vision_text = await analyze_image_with_gemini_vision(file_bytes)
+        ai_vision_text = await analyze_image_with_gemini_vision(jpeg_bytes)
     except Exception as ai_v_err:
         logging.warning(f"AI Vision error: {ai_v_err}")
     
