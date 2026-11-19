@@ -1307,7 +1307,7 @@ def scan_qr_code(file_bytes: bytes) -> str:
         return None
 
 def parse_document_metadata(file_bytes: bytes, file_name: str):
-    """Extracts Author, Creator, Software, Dates from documents (PDF, DOCX) via exiftool."""
+    """Extracts Author, Creator, Software, Dates, and macro security risks from documents."""
     ext = os.path.splitext(file_name)[1].lower() or ".pdf"
     with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
         tf.write(file_bytes)
@@ -1315,38 +1315,641 @@ def parse_document_metadata(file_bytes: bytes, file_name: str):
     try:
         cmd = ["exiftool", "-json", tf_path]
         res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
-        if res.returncode != 0 or not res.stdout.strip():
-            return []
-        data = json.loads(res.stdout)[0]
         details = []
-        author = data.get("Author") or data.get("Creator")
-        if author:
-            details.append(f"👤 <b>Hujjat muallifi:</b> {html.escape(str(author))}")
-        company = data.get("Company")
-        if company:
-            details.append(f"🏢 <b>Tashkilot / Muassasa:</b> {html.escape(str(company))}")
-        software = data.get("Software") or data.get("Producer") or data.get("CreatorTool")
-        if software:
-            details.append(f"💻 <b>Yaratilgan dastur:</b> {html.escape(str(software))}")
-        create_date = data.get("CreateDate")
-        if create_date:
-            details.append(f"⏰ <b>Yaratilgan vaqt:</b> {html.escape(str(create_date))}")
-        mod_date = data.get("ModifyDate")
-        if mod_date:
-            details.append(f"✏️ <b>Oxirgi tahrir vaqti:</b> {html.escape(str(mod_date))}")
-        pages = data.get("PageCount")
-        if pages:
-            details.append(f"📄 <b>Sahifalar soni:</b> {html.escape(str(pages))}")
-        return details
+        has_macro = ext in [".docm", ".xlsm", ".pptm", ".dotm", ".xltm"]
+        
+        # Check for embedded macros in office OpenXML archives
+        if not has_macro and ext in [".docx", ".xlsx", ".pptx"]:
+            try:
+                with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as z:
+                    if any("vbaproject.bin" in name.lower() for name in z.namelist()):
+                        has_macro = True
+            except Exception:
+                pass
+                
+        if res.returncode == 0 and res.stdout.strip():
+            data = json.loads(res.stdout)[0]
+            title = data.get("Title")
+            if title:
+                details.append(f"📑 <b>Hujjat sarlavhasi:</b> {html.escape(str(title))}")
+            author = data.get("Author") or data.get("Creator")
+            if author:
+                details.append(f"👤 <b>Hujjat muallifi:</b> <code>{html.escape(str(author))}</code>")
+            company = data.get("Company")
+            if company:
+                details.append(f"🏢 <b>Tashkilot / Muassasa:</b> <code>{html.escape(str(company))}</code>")
+            last_mod_by = data.get("LastModifiedBy")
+            if last_mod_by:
+                details.append(f"✏️ <b>Oxirgi tahrirchi:</b> <code>{html.escape(str(last_mod_by))}</code>")
+            software = data.get("Software") or data.get("Producer") or data.get("CreatorTool") or data.get("Application")
+            if software:
+                details.append(f"💻 <b>Yaratilgan dastur:</b> <code>{html.escape(str(software))}</code>")
+            create_date = data.get("CreateDate")
+            if create_date:
+                details.append(f"⏰ <b>Yaratilgan vaqt:</b> {html.escape(str(create_date))}")
+            mod_date = data.get("ModifyDate")
+            if mod_date:
+                details.append(f"🔄 <b>Oxirgi o‘zgarish:</b> {html.escape(str(mod_date))}")
+            pages = data.get("PageCount")
+            if pages:
+                details.append(f"📄 <b>Sahifalar soni:</b> {html.escape(str(pages))}")
+            words = data.get("Words") or data.get("WordCount")
+            if words:
+                details.append(f"📝 <b>So‘zlar soni:</b> {html.escape(str(words))}")
+        return details, has_macro
     except Exception as e:
         logging.warning(f"Doc metadata error: {e}")
-        return []
+        return [], False
     finally:
         if os.path.exists(tf_path):
             try:
                 os.remove(tf_path)
             except Exception:
                 pass
+
+def parse_binary_or_script_metadata(file_bytes: bytes, file_name: str):
+    """Calculates hashes and static metadata for binaries, scripts, and generic files."""
+    md5 = hashlib.md5(file_bytes).hexdigest()
+    sha256 = hashlib.sha256(file_bytes).hexdigest()
+    size_kb = round(len(file_bytes) / 1024, 2)
+    return {
+        "file_name": file_name,
+        "size_kb": size_kb,
+        "md5": md5,
+        "sha256": sha256
+    }
+
+def parse_audio_metadata(file_bytes: bytes, file_name: str):
+    """Extracts ID3 tags, recording software, and parameters from audio files."""
+    ext = os.path.splitext(file_name)[1].lower() or ".mp3"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+        tf.write(file_bytes)
+        tf_path = tf.name
+    try:
+        cmd = ["exiftool", "-json", tf_path]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+        if res.returncode != 0 or not res.stdout.strip():
+            return [], None
+        data = json.loads(res.stdout)[0]
+        details = []
+        
+        title = data.get("Title")
+        if title:
+            details.append(f"🎵 <b>Nomi:</b> {html.escape(str(title))}")
+        artist = data.get("Artist") or data.get("Composer")
+        if artist:
+            details.append(f"👤 <b>Ijrochi / Muallif:</b> {html.escape(str(artist))}")
+        album = data.get("Album")
+        if album:
+            details.append(f"💿 <b>Albom:</b> {html.escape(str(album))}")
+        year = data.get("Year") or data.get("RecordingTime") or data.get("DateTimeOriginal")
+        if year:
+            details.append(f"📅 <b>Yili / Vaqti:</b> {html.escape(str(year))}")
+            
+        encoded_by = data.get("EncodedBy") or data.get("Encoder") or data.get("WritingApplication")
+        if encoded_by:
+            details.append(f"{p('GEAR', '⚙️')} <b>Yozib olingan / Saqlangan dastur:</b> <code>{html.escape(str(encoded_by))}</code>")
+            
+        duration = data.get("Duration")
+        if duration:
+            details.append(f"{p('TIMER', '⏱️')} <b>Davomiyligi:</b> {html.escape(str(duration))}")
+            
+        bitrate = data.get("AudioBitrate") or data.get("Bitrate")
+        sample_rate = data.get("SampleRate")
+        channels = data.get("ChannelMode") or data.get("Channels")
+        tech = []
+        if bitrate: tech.append(f"{bitrate}")
+        if sample_rate: tech.append(f"{sample_rate} Hz")
+        if channels: tech.append(f"{channels}")
+        if tech:
+            details.append(f"🔊 <b>Audio parametrlari:</b> {html.escape(' | '.join(str(x) for x in tech))}")
+            
+        comment = data.get("Comment")
+        if comment and len(str(comment)) < 200:
+            details.append(f"💬 <b>Teg izohi:</b> <i>{html.escape(str(comment))}</i>")
+            
+        return details, None
+    except Exception as e:
+        logging.warning(f"Audio metadata error: {e}")
+        return [], None
+    finally:
+        if os.path.exists(tf_path):
+            try:
+                os.remove(tf_path)
+            except Exception:
+                pass
+
+def parse_raw_image_exif(file_bytes: bytes, file_name: str):
+    """Extracts rich EXIF, camera, lens, and GPS from RAW images (DNG, CR2, NEF, ARW, etc.)
+    and extracts embedded JPEG preview for visual OSINT."""
+    ext = os.path.splitext(file_name)[1].lower() or ".dng"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+        tf.write(file_bytes)
+        tf_path = tf.name
+    try:
+        cmd = ["exiftool", "-json", "-c", "%.6f", tf_path]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
+        if res.returncode != 0 or not res.stdout.strip():
+            return [], None, None, "Fayl metama'lumotlarini o'qib bo'lmadi"
+        
+        data = json.loads(res.stdout)[0]
+        details = []
+        
+        # Camera & Lens
+        make = str(data.get("Make", "")).strip()
+        model = str(data.get("Model", "")).strip()
+        camera = f"{make} {model}".strip()
+        if camera:
+            details.append(f"{p('PHONE', '📷')} <b>Kamera modeli:</b> <code>{html.escape(camera)}</code>")
+        lens = data.get("LensModel") or data.get("Lens")
+        if lens:
+            details.append(f"🔍 <b>Ob'yektiv (Lens):</b> <code>{html.escape(str(lens))}</code>")
+            
+        serial = data.get("SerialNumber") or data.get("InternalSerialNumber")
+        if serial:
+            details.append(f"🆔 <b>Kamera seriya raqami:</b> <code>{html.escape(str(serial))}</code>")
+            
+        # Shooting specs
+        date_time = data.get("DateTimeOriginal") or data.get("CreateDate")
+        if date_time:
+            details.append(f"{p('TIMER', '⏰')} <b>Suratga olingan vaqt:</b> <code>{html.escape(str(date_time))}</code>")
+            
+        shutter = data.get("ShutterSpeed") or data.get("ExposureTime")
+        aperture = data.get("Aperture") or data.get("FNumber")
+        iso = data.get("ISO")
+        focal = data.get("FocalLength")
+        specs = []
+        if shutter: specs.append(f"Chiqarish: {shutter}s")
+        if aperture: specs.append(f"Diafragma: f/{aperture}")
+        if iso: specs.append(f"ISO: {iso}")
+        if focal: specs.append(f"Fokus: {focal}")
+        if specs:
+            details.append(f"⚙️ <b>Eksponometriya:</b> {html.escape(' | '.join(specs))}")
+            
+        software = data.get("Software") or data.get("CreatorTool")
+        if software:
+            details.append(f"{p('GEAR', '💻')} <b>Dastur:</b> <code>{html.escape(str(software))}</code>")
+            
+        # GPS extraction
+        lat_val, lon_val = None, None
+        lat_str = str(data.get("GPSLatitude", "")).strip()
+        lon_str = str(data.get("GPSLongitude", "")).strip()
+        if not lat_str or not lon_str:
+            pos = str(data.get("GPSPosition", "")).strip()
+            if pos and "," in pos:
+                parts = pos.split(",")
+                lat_str, lon_str = parts[0].strip(), parts[1].strip()
+        if lat_str and lon_str:
+            try:
+                lat = float(lat_str.replace("N", "").replace("S", "").strip())
+                if "S" in lat_str: lat = -lat
+                lon = float(lon_str.replace("E", "").replace("W", "").strip())
+                if "W" in lon_str: lon = -lon
+                lat_val = round(lat, 6)
+                lon_val = round(lon, 6)
+                maps_link = f"https://www.google.com/maps?q={lat_val},{lon_val}"
+                details.append(
+                    f"{p('SEARCH', '📍')} <b>GPS Lokatsiya:</b> <code>{lat_val}° N, {lon_val}° E</code>\n"
+                    f"   └ 🗺️ <a href=\"{maps_link}\">Google Xaritada ochish (Jonli nuqta)</a>"
+                )
+            except Exception:
+                pass
+                
+        # Extract embedded preview JPEG
+        preview_bytes = None
+        for tag in ["-PreviewImage", "-JpgFromRaw", "-ThumbnailImage"]:
+            try:
+                p_res = subprocess.run(["exiftool", "-b", tag, tf_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10)
+                if p_res.returncode == 0 and len(p_res.stdout) > 2000:
+                    preview_bytes = p_res.stdout
+                    break
+            except Exception:
+                pass
+                
+        coords = (lat_val, lon_val) if (lat_val is not None and lon_val is not None) else None
+        return details, coords, preview_bytes, None
+    except Exception as e:
+        return [], None, None, str(e)
+    finally:
+        if os.path.exists(tf_path):
+            try:
+                os.remove(tf_path)
+            except Exception:
+                pass
+
+def parse_apk_metadata(file_bytes: bytes, file_name: str):
+    """Extracts package name, version, label, permissions, and structure from APK packages."""
+    ext = os.path.splitext(file_name)[1].lower() or ".apk"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+        tf.write(file_bytes)
+        tf_path = tf.name
+
+    info = {
+        "package_name": "",
+        "version_name": "",
+        "version_code": "",
+        "app_label": "",
+        "sdk_target": "",
+        "sdk_min": "",
+        "permissions": [],
+        "dangerous_perms": [],
+        "dex_count": 0,
+        "has_native_lib": False,
+        "file_size_mb": round(len(file_bytes) / (1024 * 1024), 2)
+    }
+
+    # 1. Try AAPT (Android Asset Packaging Tool)
+    try:
+        res = subprocess.run(["aapt", "dump", "badging", tf_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=15)
+        out = res.stdout
+        m_pkg = re.search(r"package:\s+name='([^']+)'(?:\s+versionCode='([^']+)')?(?:\s+versionName='([^']+)')?", out)
+        if m_pkg:
+            info["package_name"] = m_pkg.group(1)
+            info["version_code"] = m_pkg.group(2) or ""
+            info["version_name"] = m_pkg.group(3) or ""
+        m_label = re.search(r"application-label(?:-[^:]+)?:'([^']+)'", out)
+        if m_label:
+            info["app_label"] = m_label.group(1)
+        m_target = re.search(r"targetSdkVersion:'([^']+)'", out)
+        if m_target:
+            info["sdk_target"] = m_target.group(1)
+        m_min = re.search(r"sdkVersion:'([^']+)'", out)
+        if m_min:
+            info["sdk_min"] = m_min.group(1)
+        perms = re.findall(r"uses-permission:\s+name='([^']+)'", out)
+        info["permissions"] = sorted(list(set(perms)))
+    except Exception as e:
+        logging.warning(f"AAPT parsing error: {e}")
+
+    # Fallback to Python zipfile parsing if AAPT was missing or empty
+    try:
+        with zipfile.ZipFile(tf_path, "r") as z:
+            names = z.namelist()
+            info["dex_count"] = sum(1 for n in names if n.endswith(".dex"))
+            info["has_native_lib"] = any(n.startswith("lib/") for n in names)
+            
+            if not info["permissions"] and "AndroidManifest.xml" in names:
+                manifest_bytes = z.read("AndroidManifest.xml")
+                perms_utf8 = re.findall(rb'android\.permission\.([A-Za-z0-9_]+)', manifest_bytes)
+                for p_b in perms_utf8:
+                    p_str = "android.permission." + p_b.decode("ascii", errors="ignore")
+                    if p_str not in info["permissions"]:
+                        info["permissions"].append(p_str)
+    except Exception as z_err:
+        logging.warning(f"APK zip inspection error: {z_err}")
+
+    # Identify high-risk dangerous permissions
+    DANGEROUS_SET = {
+        "READ_SMS", "RECEIVE_SMS", "SEND_SMS", "RECEIVE_MMS", "RECEIVE_WAP_PUSH",
+        "SYSTEM_ALERT_WINDOW", "BIND_ACCESSIBILITY_SERVICE", "RECORD_AUDIO",
+        "CAMERA", "READ_CONTACTS", "WRITE_CONTACTS", "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION", "REQUEST_INSTALL_PACKAGES", "RECEIVE_BOOT_COMPLETED",
+        "CALL_PHONE", "READ_PHONE_STATE", "READ_CALL_LOG", "WRITE_CALL_LOG",
+        "NOTIFICATION_LISTENER", "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"
+    }
+    for p_name in info["permissions"]:
+        p_short = p_name.split(".")[-1]
+        if p_short in DANGEROUS_SET and p_short not in info["dangerous_perms"]:
+            info["dangerous_perms"].append(p_short)
+
+    if os.path.exists(tf_path):
+        try:
+            os.remove(tf_path)
+        except Exception:
+            pass
+
+    return info
+
+async def audit_apk_with_ai(apk_info: dict, file_name: str) -> str:
+    """Uses Gemini AI to assess maliciousness, stealer risks, and threats in Android APK packages."""
+    pkg = apk_info.get("package_name") or "noma'lum"
+    label = apk_info.get("app_label") or file_name
+    dang = ", ".join(apk_info.get("dangerous_perms", [])) or "Hech qanday kritik ruxsat yo'q"
+    all_perms = ", ".join(apk_info.get("permissions", []))[:400]
+    
+    prompt = (
+        f"Sen professional Kiberxavfsizlik va Android zararli dasturlari (Malware/Stealer) bo'yicha ekspertisan.\n"
+        f"Foydalanuvchi quyidagi Android ilovasini (APK) tekshirish uchun yubordi:\n"
+        f"- Fayl nomi: {file_name}\n"
+        f"- Ilova nomi (Label): {label}\n"
+        f"- Paket identifikatori: {pkg}\n"
+        f"- Aniqlangan xavfli ruxsatlar: {dang}\n"
+        f"- Barcha so'ralgan ruxsatlar: {all_perms}\n\n"
+        f"Vazifang:\n"
+        f"1. Ilova nomi bilan so'ralayotgan ruxsatlar o'rtasidagi nomutanosiblikni ko'rsat (masalan, rasm yoki tozalovchi ilovasi nega SMS yoki qo'ng'iroqni so'raydi?);\n"
+        f"2. Ushbu ilova bank kodlarini o'g'irlaydigan troyan, fishing yoki josus (spyware) bo'lish ehtimolini bahola;\n"
+        f"3. Foydalanuvchiga darhol ko'rilishi lozim bo'lgan 2-3 ta aniq xavfsizlik chorasini ber.\n"
+        f"Javobni Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) juda qisqa, aniq va ta'sirchan qilib yoz."
+    )
+    raw = await asyncio.to_thread(_query_gemini_api_sync, prompt)
+    return format_ai_to_tg_html(raw)
+
+async def handle_apk_analysis(msg, file_bytes: bytes, file_name: str):
+    """Deep Android APK/package cyber security analysis with AAPT and Gemini AI."""
+    await msg.reply_chat_action("typing")
+    apk_info = parse_apk_metadata(file_bytes, file_name)
+    ai_verdict = await audit_apk_with_ai(apk_info, file_name)
+    
+    risk_score = 15
+    dang_list = apk_info.get("dangerous_perms", [])
+    dang_count = len(dang_list)
+    
+    if any(p in dang_list for p in ["READ_SMS", "RECEIVE_SMS", "SEND_SMS"]):
+        risk_score += 50
+    if "BIND_ACCESSIBILITY_SERVICE" in dang_list:
+        risk_score += 45
+    if "SYSTEM_ALERT_WINDOW" in dang_list:
+        risk_score += 25
+    if "NOTIFICATION_LISTENER" in dang_list:
+        risk_score += 35
+    if any(p in dang_list for p in ["RECORD_AUDIO", "CAMERA"]):
+        risk_score += 25
+    if any(p in dang_list for p in ["READ_PHONE_STATE", "CALL_PHONE"]):
+        risk_score += 15
+    if "REQUEST_INSTALL_PACKAGES" in dang_list:
+        risk_score += 25
+    if "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" in dang_list:
+        risk_score += 15
+        
+    misleading_keywords = ["rasm", "foto", "photo", "video", "albom", "album", "bonus", "sovrin", "pul", "click", "payme", "karta"]
+    low_name = file_name.lower() + " " + apk_info.get("app_label", "").lower()
+    if any(k in low_name for k in misleading_keywords) and dang_count >= 2:
+        risk_score += 30
+
+    risk_score = min(max(risk_score, 10), 100)
+    filled = int(risk_score / 10)
+    bar = "█" * filled + "░" * (10 - filled)
+    
+    if risk_score >= 75:
+        risk_label = f"🚨 KRITIK JIDDIY XAVF ({risk_score}%) — TROYAN / STEALER EHTIMOLI!"
+    elif risk_score >= 45:
+        risk_label = f"⚠️ O‘RTA DARAJADAGI XAVF ({risk_score}%) — SHUBHALI RUXSATLAR"
+    else:
+        risk_label = f"✅ XAVFSIZROQ PROFIL ({risk_score}%)"
+
+    report = (
+        f"{p('SHIELD', '🛡️')} <b>ANDROID ILOVA (.APK) KIBERXAVFSIZLIK TAHLILI:</b>\n\n"
+        f"📊 <b>KIBER-XAVF INDEKSI:</b>\n"
+        f"<code>[{bar}]</code> <b>{risk_label}</b>\n\n"
+        f"📦 <b>ILOVA TEXNIK MA’LUMOTLARI:</b>\n"
+        f"• <b>Fayl nomi:</b> <code>{html.escape(file_name)}</code>\n"
+        f"• <b>Hajmi:</b> <code>{apk_info['file_size_mb']} MB</code>\n"
+    )
+    if apk_info.get("app_label"):
+        report += f"• <b>Ilova nomi (Label):</b> <b>{html.escape(apk_info['app_label'])}</b>\n"
+    if apk_info.get("package_name"):
+        report += f"• <b>Paket identifikatori (Package ID):</b> <code>{html.escape(apk_info['package_name'])}</code>\n"
+    if apk_info.get("version_name"):
+        report += f"• <b>Versiyasi:</b> <code>{html.escape(apk_info['version_name'])} (kod: {apk_info.get('version_code', '')})</code>\n"
+    if apk_info.get("sdk_target"):
+        report += f"• <b>Target Android SDK:</b> <code>Android {apk_info['sdk_target']}</code>\n"
+    if apk_info.get("dex_count"):
+        report += f"• <b>DEX kod modullari soni:</b> <code>{apk_info['dex_count']} ta</code>\n"
+    report += "\n"
+
+    if dang_list:
+        report += (
+            f"{p('SOS', '🚨')} <b>ANIQLANGAN XAVFLI VA NOZIK RUXSATLAR ({len(dang_list)} ta):</b>\n"
+        )
+        PERM_EXPLANATIONS = {
+            "READ_SMS": "SMS xabarlarni o‘qish (Bank va 2FA kodlarini o‘g‘irlash)",
+            "RECEIVE_SMS": "Keluvchi SMSlarni tutib olish (Karta pullarini yechish)",
+            "SEND_SMS": "Foydalanuvchisiz pulli SMS yuborish",
+            "SYSTEM_ALERT_WINDOW": "Boshqa oynalar ustidan soxta (fishing) oyna ochish",
+            "BIND_ACCESSIBILITY_SERVICE": "Telefonni to‘liq masofadan boshqarish",
+            "RECORD_AUDIO": "Atrofdagi ovozlarni yashirin yozib olish",
+            "CAMERA": "Yashirin surat va video tasvirga olish",
+            "READ_CONTACTS": "Kontaktlar kitobini serverga o‘g‘irlab ketish",
+            "ACCESS_FINE_LOCATION": "Aniq GPS lokatsiyani doimiy kuzatib borish",
+            "REQUEST_INSTALL_PACKAGES": "Yashirincha boshqa viruslarni telefonga o‘rnatish",
+            "RECEIVE_BOOT_COMPLETED": "Telefon yoqilishi bilan virusni avtomatik ishga tushirish",
+            "CALL_PHONE": "Ruxsatsiz telefon qo‘ng‘iroqlarini amalga oshirish",
+            "READ_PHONE_STATE": "SIM-karta va IMEI parametrlarini aniqlash",
+            "NOTIFICATION_LISTENER": "Bildirishnomalardan (Telegram/SMS) kodlarni o‘g‘irlash",
+            "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS": "Fonda batareya tejamkorligini o‘chirib doimiy ishlash"
+        }
+        for dp in dang_list:
+            expl = PERM_EXPLANATIONS.get(dp, "Tizimning nozik resurslariga ruxsat")
+            report += f"• ⚠️ <code>{dp}</code> — <i>{expl}</i>\n"
+        report += "\n"
+    else:
+        report += f"{p('CHECK', '✅')} <i>Hech qanday o‘ta xavfli (SMS/Kamera/Boshqaruv) ruxsatlar talab qilinmagan.</i>\n\n"
+
+    if ai_verdict:
+        report += (
+            f"{p('LIGHT', '🤖')} <b>GEMINI AI KIBER-EKSPERT XULOSASI:</b>\n"
+            f"{ai_verdict}\n\n"
+        )
+        
+    report += (
+        f"{p('SHIELD', '🛡️')} <b>ESLATMA:</b> Hech qachon Telegram orqali kelgan notanish .APK fayllarni o‘rnatmang! "
+        f"Ilovalarni faqat rasmiy <b>Google Play Store</b> orqali yuklab oling."
+    )
+    
+    await msg.reply_text(report, parse_mode="HTML")
+
+async def handle_raw_image_analysis(msg, file_bytes: bytes, file_name: str):
+    """Analyzes RAW camera files (DNG, CR2, NEF, ARW, etc.) using ExifTool and Gemini Vision."""
+    details, coords, preview_bytes, err = parse_raw_image_exif(file_bytes, file_name)
+    if err:
+        await msg.reply_text(
+            f"{p('WARNING', '⚠️')} RAW faylni ochishda xatolik yuz berdi ({html.escape(err)}).",
+            parse_mode="HTML"
+        )
+        return
+
+    # Reverse Geocoding to Human Address
+    if coords:
+        lat_val, lon_val = coords
+        human_addr = get_human_address(lat_val, lon_val)
+        if human_addr:
+            details.append(
+                f"{p('HOUSE', '🏢')} <b>Haqiqiy tuman / manzil:</b> <code>{html.escape(human_addr)}</code>\n"
+                f"   └ 🚨 <i>Diqqat: Ushbu joy 5 metr aniqlikda oshkor bo‘ldi!</i>"
+            )
+
+    ai_vision_text = ""
+    qr_data = None
+    if preview_bytes:
+        qr_data = scan_qr_code(preview_bytes)
+        try:
+            ai_vision_text = await analyze_image_with_gemini_vision(preview_bytes)
+        except Exception as ai_err:
+            logging.warning(f"RAW preview AI vision error: {ai_err}")
+
+    risk_score = 20
+    if coords:
+        risk_score += 50
+    elif details:
+        risk_score += 25
+    if qr_data:
+        risk_score += 25
+    risk_score = min(risk_score, 100)
+    filled = int(risk_score / 10)
+    bar = "█" * filled + "░" * (10 - filled)
+    
+    if risk_score >= 70:
+        risk_label = f"🚨 KRITIK JIDDIY XAVF ({risk_score}%)"
+    elif risk_score >= 40:
+        risk_label = f"⚠️ O‘RTA DARAJADAGI XAVF ({risk_score}%)"
+    else:
+        risk_label = f"✅ XAVFSIZROQ PROFIL ({risk_score}%)"
+
+    report = (
+        f"{p('SEARCH', '📷')} <b>RAW FOTOSURAT OSINT TAHLILI ({html.escape(file_name)}):</b>\n\n"
+        f"📊 <b>KIBER-XAVF INDEKSI:</b>\n"
+        f"<code>[{bar}]</code> <b>{risk_label}</b>\n\n"
+        f"{p('LOCK', '🔐')} <b>1. PROFESSIONAL KAMERA VA GPS PARAMETRLARI:</b>\n"
+    )
+    if details:
+        for d in details:
+            report += f"• {d}\n"
+    else:
+        report += f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi.</i>\n"
+    report += "\n"
+
+    if ai_vision_text:
+        report += (
+            f"{p('LIGHT', '💡')} <b>2. AI VISION VIZUAL OSINT TAHLILI (Preview tasvirdan):</b>\n"
+            f"{ai_vision_text}\n\n"
+        )
+        
+    if qr_data:
+        report += (
+            f"🚨 <b>SURAT ICHIDA YASHIRIN QR-KOD TOPILDI:</b>\n"
+            f"• <b>QR Tarkibi:</b> <code>{html.escape(qr_data)}</code>\n\n"
+        )
+
+    report += (
+        f"{p('GLOBE', '🌐')} <b>3. TESKARI QIDIRUV (REVERSE SEARCH):</b>\n"
+        f"Surat bo‘yicha internetdagi ochiq ma’lumotlarni qidirish uchun quyidagi tugmalardan foydalanishingiz mumkin:\n"
+    )
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Google Lens qidiruv", url="https://lens.google.com/", icon_custom_emoji_id=E["SEARCH"]),
+            InlineKeyboardButton("Yandex Images", url="https://yandex.com/images/search?rpt=imageview", icon_custom_emoji_id=E["GLOBE"])
+        ],
+        [InlineKeyboardButton("Veb-Platformada tekshirish", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["ROCKET"])]
+    ])
+
+    await msg.reply_text(report, parse_mode="HTML", reply_markup=keyboard, disable_web_page_preview=True)
+    if coords:
+        lat_val, lon_val = coords
+        await msg.reply_location(latitude=lat_val, longitude=lon_val)
+
+async def handle_audio_analysis(msg, file_bytes: bytes, file_name: str):
+    """Analyzes audio/voice recordings for hidden device, author, and software tags."""
+    details, _ = parse_audio_metadata(file_bytes, file_name)
+    
+    audio_msg = (
+        f"{p('CALL', '🎵')} <b>AUDIO VA OVOZ YOZUV TAHLILI ({html.escape(file_name)}):</b>\n\n"
+    )
+    
+    if details:
+        audio_msg += f"{p('WARNING', '⚠️')} <b>ANIQLANGAN METAMA’LUMOTLAR VA TEGLAR:</b>\n"
+        for d in details:
+            audio_msg += f"• {d}\n"
+        audio_msg += (
+            f"\n{p('SHIELD', '🛡️')} <b>Kiber-Tahlil:</b> Ovoz yozuvlari va audio fayllardagi ID3 teglar "
+            f"yozib olingan dastur nomi (DAW), kompyuter yoki telefon modelini oshkor qilishi mumkin."
+        )
+    else:
+        audio_msg += f"{p('CHECK', '✅')} <i>Ushbu audio faylda shaxsiy yoki texnik teglar topilmadi (tozalangan).</i>"
+        
+    await msg.reply_text(audio_msg, parse_mode="HTML")
+
+async def handle_document_analysis(msg, file_bytes: bytes, file_name: str):
+    """Analyzes documents (PDF, DOCX, XLSX, etc.) for metadata leaks and macros."""
+    details, has_macro = parse_document_metadata(file_bytes, file_name)
+    
+    doc_msg = (
+        f"{p('SEARCH', '📄')} <b>HUJJAT OSINT VA XAVFSIZLIK TAHLILI ({html.escape(file_name)}):</b>\n\n"
+    )
+    
+    if has_macro:
+        doc_msg += (
+            f"{p('SOS', '🚨')} <b>KRITIK KIBER-XAVF: HUJJATDA MAKROS (VBA SKRIPT) ANIQLANDI!</b>\n"
+            f"• <b>Holat:</b> Ushbu hujjat ichida avtomatik ishga tushuvchi kod (Macro) mavjud.\n"
+            f"• ⚠️ <i>Ogohlantirish: Kiberjinoyatchilar ko‘pincha Word va Excel hujjatlari orqali "
+            f"kompyuterni buzuvchi troyan va ransomware viruslarini tarqatadi!</i>\n"
+            f"• 🛡️ <b>Xavfsizlik chorasi:</b> Hujjatni ochganda <b>«Enable Content» (Kontentni yoqish)</b> "
+            f"yoki <b>«Enable Macros»</b> tugmasini ASLO BOSMANG!\n\n"
+        )
+    
+    if details:
+        doc_msg += f"{p('WARNING', '⚠️')} <b>ANIQLANGAN YASHIRIN METAMA’LUMOTLAR:</b>\n"
+        for dd in details:
+            doc_msg += f"• {dd}\n"
+        doc_msg += (
+            f"\n{p('SHIELD', '🛡️')} <b>Xavfsizlik eslatmasi:</b> Hujjatlarni tarmoqqa yuklashdan avval "
+            f"Word/Excel dasturidagi «Inspect Document» (Hujjatni tekshirish) orqali shaxsiy ism, tashkilot va kompyuter nomini tozalab qo‘ying!"
+        )
+    else:
+        if not has_macro:
+            doc_msg += f"{p('CHECK', '✅')} <i>Ushbu hujjatda shaxsiy mualliflik metama’lumotlari topilmadi (tozalangan).</i>"
+            
+    await msg.reply_text(doc_msg, parse_mode="HTML")
+
+async def handle_binary_or_script_analysis(msg, file_bytes: bytes, file_name: str):
+    """Handles executables, installation packages, and scripts with security alerts."""
+    info = parse_binary_or_script_metadata(file_bytes, file_name)
+    
+    bin_msg = (
+        f"{p('SOS', '🚨')} <b>KRITIK KIBER-XAVF: DASTUR / SKRIPT FAYLI ({html.escape(file_name)})!</b>\n\n"
+        f"📊 <b>KIBER-XAVF INDEKSI:</b> <code>[██████████]</code> <b>100% (KRITIK XAVF)</b>\n\n"
+        f"ℹ️ <b>Fayl parametrlari:</b>\n"
+        f"• <b>Hajmi:</b> <code>{info['size_kb']} KB</code>\n"
+        f"• <b>MD5 Hash:</b> <code>{info['md5']}</code>\n"
+        f"• <b>SHA256 Hash:</b> <code>{info['sha256']}</code>\n\n"
+        f"⚠️ <b>JIDDIY OGOHLANTIRISH:</b>\n"
+        f"• Telegram orqali yuborilgan dastur, skript yoki o‘rnatuvchi fayllarni (.EXE, .BAT, .SH, .VBS, .JS) "
+        f"kompyuter yoki qurilmangizda <b>ASLO ISHGA TUSHIRMANG!</b>\n"
+        f"• Bu kabi fayllar orqali kompyuterdagi barcha parollar o‘g‘irlanadi yoki fayllar Ransomware virusi bilan shifrlab qo‘yiladi.\n\n"
+        f"🛡️ <b>Tavsiya:</b> Faylni zudlik bilan o‘chirib tashlang va yuborgan shaxsning akkaunti buzilganligini tekshiring!"
+    )
+    await msg.reply_text(bin_msg, parse_mode="HTML")
+
+async def handle_generic_file_analysis(msg, file_bytes: bytes, file_name: str):
+    """Fallback analyzer for any other file extension using ExifTool and file hashing."""
+    info = parse_binary_or_script_metadata(file_bytes, file_name)
+    ext = os.path.splitext(file_name)[1].lower() or ".bin"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+        tf.write(file_bytes)
+        tf_path = tf.name
+    details = []
+    try:
+        cmd = ["exiftool", "-json", tf_path]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=10)
+        if res.returncode == 0 and res.stdout.strip():
+            data = json.loads(res.stdout)[0]
+            ftype = data.get("FileType")
+            mime = data.get("MIMEType")
+            if ftype:
+                details.append(f"📦 <b>Fayl turi:</b> <code>{html.escape(str(ftype))}</code>")
+            if mime:
+                details.append(f"🌐 <b>MIME-Type:</b> <code>{html.escape(str(mime))}</code>")
+    except Exception:
+        pass
+    finally:
+        if os.path.exists(tf_path):
+            try:
+                os.remove(tf_path)
+            except Exception:
+                pass
+
+    report = (
+        f"📁 <b>FAYL TEXNIK TAHLILI ({html.escape(file_name)}):</b>\n\n"
+        f"• <b>Hajmi:</b> <code>{info['size_kb']} KB</code>\n"
+        f"• <b>SHA256 Hash:</b> <code>{info['sha256']}</code>\n"
+    )
+    for d in details:
+        report += f"• {d}\n"
+    report += (
+        f"\n{p('SHIELD', '🛡️')} <b>Xavfsizlik eslatmasi:</b> Noma’lum manbalardan kelgan fayllarni ochishdan oldin "
+        f"har doim uning formati va xavfsizligini tekshirib oling."
+    )
+    await msg.reply_text(report, parse_mode="HTML")
 
 URL_REGEX = re.compile(
     r'(https?://[^\s]+|(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(?:/[^\s]*)?)',
@@ -1715,73 +2318,109 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     await msg.reply_chat_action("typing")
     
     is_doc = bool(msg.document)
-    is_video = bool(msg.video)
+    is_video = bool(msg.video) or bool(msg.video_note)
+    is_audio = bool(msg.audio) or bool(msg.voice)
     file_bytes = None
     file_name = "fayl"
     
-    video_exts = (".mp4", ".mov", ".avi", ".mkv", ".3gp", ".webm", ".m4v")
-    img_exts = (".jpg", ".jpeg", ".png", ".tiff", ".heic", ".heif", ".webp")
-    doc_exts = (".pdf", ".docx", ".doc", ".pptx", ".xlsx")
-    
-    if is_doc:
-        doc = msg.document
-        file_name = doc.file_name or "hujjat"
-        mime = (doc.mime_type or "").lower()
-        valid_exts = img_exts + video_exts + doc_exts + (".zip",)
-        if not (mime.startswith("image/") or mime.startswith("video/") or "zip" in mime or any(file_name.lower().endswith(ext) for ext in valid_exts)):
+    raw_exts = (".dng", ".cr2", ".cr3", ".nef", ".arw", ".rw2", ".orf", ".pef", ".raf", ".sr2", ".srf")
+    apk_exts = (".apk", ".xapk", ".apks")
+    video_exts = (".mp4", ".mov", ".avi", ".mkv", ".3gp", ".webm", ".m4v", ".flv", ".wmv", ".ts", ".mts")
+    img_exts = (".jpg", ".jpeg", ".png", ".tiff", ".tif", ".heic", ".heif", ".webp", ".bmp", ".gif", ".svg")
+    doc_exts = (".pdf", ".docx", ".doc", ".docm", ".pptx", ".ppt", ".pptm", ".xlsx", ".xls", ".xlsm", ".odt", ".ods", ".odp", ".txt", ".csv", ".rtf")
+    audio_exts = (".mp3", ".ogg", ".m4a", ".wav", ".aac", ".flac", ".wma", ".opus")
+    archive_exts = (".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz")
+    exec_exts = (".exe", ".msi", ".bat", ".cmd", ".ps1", ".sh", ".vbs", ".js", ".jar", ".py", ".elf", ".bin")
+
+    try:
+        if msg.photo:
+            tg_file = await msg.photo[-1].get_file()
+            file_bytes = await tg_file.download_as_bytearray()
+            file_name = "surat.jpg"
+        elif msg.video:
+            video = msg.video
+            file_name = video.file_name or f"video_{video.file_id[:8]}.mp4"
+            tg_file = await video.get_file()
+            file_bytes = await tg_file.download_as_bytearray()
+            is_video = True
+        elif msg.video_note:
+            vn = msg.video_note
+            file_name = f"videonote_{vn.file_id[:8]}.mp4"
+            tg_file = await vn.get_file()
+            file_bytes = await tg_file.download_as_bytearray()
+            is_video = True
+        elif msg.audio:
+            audio = msg.audio
+            file_name = audio.file_name or f"audio_{audio.file_id[:8]}.mp3"
+            tg_file = await audio.get_file()
+            file_bytes = await tg_file.download_as_bytearray()
+            is_audio = True
+        elif msg.voice:
+            voice = msg.voice
+            file_name = f"voice_{voice.file_id[:8]}.ogg"
+            tg_file = await voice.get_file()
+            file_bytes = await tg_file.download_as_bytearray()
+            is_audio = True
+        elif msg.document:
+            doc = msg.document
+            file_name = doc.file_name or "hujjat"
+            tg_file = await doc.get_file()
+            file_bytes = await tg_file.download_as_bytearray()
+    except Exception as down_err:
+        if "too big" in str(down_err).lower() or "file is too big" in str(down_err).lower():
             await msg.reply_text(
-                f"{p('WARNING', '⚠️')} Iltimos, tahlil qilish uchun <b>fotosurat</b> (JPG, PNG, HEIC), <b>video</b> (MP4, MOV), <b>hujjat</b> (PDF, DOCX) yoki <b>ZIP arxiv</b> yuboring.",
+                f"{p('WARNING', '⚠️')} <b>Fayl hajmi juda katta!</b>\n\n"
+                f"Telegram boti uchun maksimal qabul qilish hajmi <b>20 MB</b> etib belgilangan. "
+                f"Iltimos, hajmi 20 MB dan kichikroq fayl yuboring.",
                 parse_mode="HTML"
             )
             return
-            
-        tg_file = await doc.get_file()
-        file_bytes = await tg_file.download_as_bytearray()
-        if any(file_name.lower().endswith(ext) for ext in video_exts) or mime.startswith("video/"):
-            is_video = True
-    elif msg.photo:
-        tg_file = await msg.photo[-1].get_file()
-        file_bytes = await tg_file.download_as_bytearray()
-        file_name = "surat.jpg"
-    elif msg.video:
-        video = msg.video
-        file_name = video.file_name or f"video_{video.file_id[:8]}.mp4"
-        tg_file = await video.get_file()
-        file_bytes = await tg_file.download_as_bytearray()
-        is_video = True
-        
+        else:
+            logging.error(f"Download error: {down_err}")
+            await msg.reply_text(
+                f"{p('WARNING', '⚠️')} Faylni yuklab olishda xatolik yuz berdi: {html.escape(str(down_err))}",
+                parse_mode="HTML"
+            )
+            return
+
     if not file_bytes:
         return
 
-    # Check if ZIP archive
-    if is_doc and (file_name.lower().endswith(".zip") or "zip" in (msg.document.mime_type or "").lower()):
+    ext = os.path.splitext(file_name)[1].lower()
+    mime = (msg.document.mime_type if msg.document else "").lower() if is_doc else ""
+
+    # 1. Android APK
+    if ext in apk_exts or "android.package-archive" in mime:
+        await handle_apk_analysis(msg, file_bytes, file_name)
+        return
+
+    # 2. RAW Image (.dng, .cr2, .nef, .arw, etc.)
+    if ext in raw_exts or "dng" in mime or "x-adobe-dng" in mime or "raw" in mime:
+        await handle_raw_image_analysis(msg, file_bytes, file_name)
+        return
+
+    # 3. Audio & Voice
+    if is_audio or ext in audio_exts or mime.startswith("audio/"):
+        await handle_audio_analysis(msg, file_bytes, file_name)
+        return
+
+    # 4. Document / Office (PDF, Word, Excel, PowerPoint)
+    if ext in doc_exts or mime.startswith("application/pdf") or "word" in mime or "excel" in mime or "presentation" in mime:
+        await handle_document_analysis(msg, file_bytes, file_name)
+        return
+
+    # 5. Archive (.zip, .rar, .7z, etc.)
+    if ext in archive_exts or "zip" in mime or "tar" in mime:
         await handle_zip_archive(msg, file_bytes, file_name)
         return
 
-    # Check if Document (PDF, DOCX)
-    if is_doc and any(file_name.lower().endswith(ext) for ext in doc_exts):
-        doc_details = parse_document_metadata(file_bytes, file_name)
-        doc_msg = (
-            f"{p('SEARCH', '📄')} <b>HUJJAT OSINT TAHLILI ({html.escape(file_name)}):</b>\n\n"
-            f"ℹ️ <i>Hujjatlar (PDF, Word) ichida muallif shaxsi, kompyuter nomi va tahrir sanalari saqlanadi:</i>\n\n"
-        )
-        if doc_details:
-            doc_msg += f"{p('WARNING', '⚠️')} <b>ANIQLANGAN YASHIRIN METAMA’LUMOTLAR:</b>\n"
-            for dd in doc_details:
-                doc_msg += f"• {dd}\n"
-            doc_msg += (
-                f"\n{p('SHIELD', '🛡️')} <b>Xavfsizlik eslatmasi:</b> Darslik, taqdimot yoki hujjatlarni tarmoqqa yuklashdan avval "
-                f"«Inspect Document» orqali shaxsiy ism va kompyuter nomini tozalab qo‘ying!"
-            )
-        else:
-            doc_msg += f"{p('CHECK', '✅')} <i>Ushbu hujjatda shaxsiy mualliflik metama’lumotlari topilmadi (tozalangan).</i>"
-        await msg.reply_text(doc_msg, parse_mode="HTML")
+    # 6. Executable / Script (.exe, .bat, .sh, .vbs, etc.)
+    if ext in exec_exts or "application/x-dosexec" in mime or "application/x-executable" in mime:
+        await handle_binary_or_script_analysis(msg, file_bytes, file_name)
         return
 
-    # ==========================
-    # VIDEO ANALYSIS
-    # ==========================
-    if is_video:
+    # 7. Video (MP4, MOV, etc.)
+    if is_video or ext in video_exts or mime.startswith("video/"):
         details, coords, err = parse_video_metadata(file_bytes, file_name)
         if err:
             await msg.reply_text(
@@ -1830,10 +2469,8 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     details, coords, err = parse_single_image_exif(file_bytes, file_name)
     
     if err:
-        await msg.reply_text(
-            f"{p('WARNING', '⚠️')} Rasmni ochishda xatolik yuz berdi ({html.escape(err)}). Iltimos, boshqa surat yuboring.",
-            parse_mode="HTML"
-        )
+        # If PIL fails to open it as an image, fallback to universal generic file analyzer
+        await handle_generic_file_analysis(msg, file_bytes, file_name)
         return
 
     # Reverse Geocoding to Human Address
@@ -1947,61 +2584,75 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg.reply_location(latitude=lat_val, longitude=lon_val)
 
 async def handle_zip_archive(msg, file_bytes, file_name):
-    """Unpacks a zip archive and performs OSINT analysis on all contained images."""
+    """Unpacks a zip archive, audits for malicious executables/APKs, and performs OSINT on images."""
     try:
         with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as z:
             namelist = [n for n in z.namelist() if not n.endswith("/")]
-            valid_exts = (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tiff")
-            image_names = [n for n in namelist if any(n.lower().endswith(ext) for ext in valid_exts)]
             
-            if not image_names:
-                await msg.reply_text(
-                    f"{p('WARNING', '⚠️')} <b>{html.escape(file_name)}</b> arxivi ichida fotosuratlar (JPG, PNG, HEIC) topilmadi.",
-                    parse_mode="HTML"
-                )
-                return
-                
+            # Check for hidden dangerous files (APKs, executables, scripts)
+            dang_exts = (".apk", ".exe", ".bat", ".cmd", ".vbs", ".ps1", ".sh", ".scr", ".jar")
+            malicious_files = [n for n in namelist if any(n.lower().endswith(ext) for ext in dang_exts)]
+            
+            valid_img_exts = (".jpg", ".jpeg", ".png", ".heic", ".heif", ".webp", ".tiff", ".dng")
+            image_names = [n for n in namelist if any(n.lower().endswith(ext) for ext in valid_img_exts)]
+            
             report = (
-                f"📦 <b>ZIP ARXIVI OCHILDI: {html.escape(file_name)}</b>\n"
-                f"Aniqlangan fotosuratlar soni: <b>{len(image_names)} ta</b>\n"
-                f"<i>Quyida arxivdagi rasmlarning OSINT tahlili:</i>\n\n"
+                f"📦 <b>ZIP ARXIVI TAHLILI: {html.escape(file_name)}</b>\n"
+                f"Arxivdagi jami fayllar soni: <b>{len(namelist)} ta</b>\n\n"
             )
             
+            # Critical warning if hidden malware/droppers found
+            if malicious_files:
+                report += (
+                    f"{p('SOS', '🚨')} <b>KRITIK OGOHLANTIRISH: ARXIV ICHIDA ZARARLI ILOVA YOKI SKRIPT ANIQLANDI!</b>\n"
+                    f"Arxiv ichiga xavfli fayllar yashirilgan:\n"
+                )
+                for mf in malicious_files[:5]:
+                    report += f"• ⚠️ <code>{html.escape(mf)}</code>\n"
+                if len(malicious_files) > 5:
+                    report += f"• <i>...va yana {len(malicious_files)-5} ta shubhali fayl</i>\n"
+                report += (
+                    f"\n<i>Kiberjinoyatchilar ko‘pincha virus va troyanlarni ZIP arxiv ichiga yashirib tarqatadi. "
+                    f"Ushbu fayllarni aslo ochmang!</i>\n\n"
+                )
+                
+            if not image_names and not malicious_files:
+                report += f"{p('INFO', 'ℹ️')} Arxiv ichida fotosuratlar yoki shubhali fayllar topilmadi.\n"
+                await msg.reply_text(report, parse_mode="HTML")
+                return
+
             first_gps_coords = None
-            # Analyze up to 5 images to keep Telegram message clean
-            for idx, img_name in enumerate(image_names[:5], 1):
-                img_bytes = z.read(img_name)
-                details, coords, err = parse_single_image_exif(img_bytes, img_name)
-                clean_name = os.path.basename(img_name)
-                
-                report += f"━━━━━━━━━━━━━━━━━━━━\n"
-                report += f"🖼 <b>{idx}. {html.escape(clean_name)}</b>:\n"
-                
-                if err:
-                    report += f"  ⚠️ Xatolik: {html.escape(err)}\n"
-                elif details:
-                    for d in details:
-                        report += f"  {d}\n"
-                    if coords and not first_gps_coords:
-                        first_gps_coords = coords
-                else:
-                    report += f"  {p('CHECK', '✅')} EXIF tozalanib yuborilgan (GPS xavfi yo‘q).\n"
-                    
-            if len(image_names) > 5:
-                report += f"\n<i>...va yana {len(image_names)-5} ta rasm mavjud.</i>\n"
-                
+            if image_names:
+                report += (
+                    f"🖼 <b>ARXIVDAGI FOTOSURATLAR OSINT TAHLILI ({len(image_names)} ta):</b>\n"
+                )
+                for idx, img_name in enumerate(image_names[:5], 1):
+                    img_bytes = z.read(img_name)
+                    details, coords, err = parse_single_image_exif(img_bytes, img_name)
+                    clean_name = os.path.basename(img_name)
+                    report += f"━━━━━━━━━━━━━━━━━━━━\n"
+                    report += f"🖼 <b>{idx}. {html.escape(clean_name)}</b>:\n"
+                    if err:
+                        report += f"  ⚠️ Xatolik: {html.escape(err)}\n"
+                    elif details:
+                        for d in details:
+                            report += f"  {d}\n"
+                        if coords and not first_gps_coords:
+                            first_gps_coords = coords
+                    else:
+                        report += f"  {p('CHECK', '✅')} EXIF tozalangan (GPS xavfi yo‘q).\n"
+                if len(image_names) > 5:
+                    report += f"\n<i>...va yana {len(image_names)-5} ta rasm mavjud.</i>\n"
+
             report += (
-                f"\n{p('SHIELD', '🛡️')} <b>Xulosa:</b> Arxivlangan suratlarni begonalarga yuborishdan avval "
-                f"ularning metama’lumotlarini tozalash zarur!"
+                f"\n{p('SHIELD', '🛡️')} <b>Xulosa:</b> Arxivlangan fayllarni begonalarga yuborishdan yoki "
+                f"ochishdan oldin ularning xavfsizligini tekshirish zarur!"
             )
-            
             await msg.reply_text(report, parse_mode="HTML", disable_web_page_preview=True)
-            
-            # Send Telegram Location Pin if any image had GPS
             if first_gps_coords:
                 lat, lon = first_gps_coords
                 await msg.reply_location(latitude=lat, longitude=lon)
-                
+
     except zipfile.BadZipFile:
         await msg.reply_text(
             f"{p('WARNING', '⚠️')} ZIP fayli buzilgan yoki noto‘g‘ri formatda.",
@@ -2096,10 +2747,16 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=chat_id,
             text=(
-                f"{p('EXIF_PHOTO', '🖼️')} Iltimos, tahlil qilish uchun botga <b>fotosurat</b> yuboring:\n"
-                f"• <b>Apple iPhone (.HEIC)</b> fotosuratlari;\n"
-                f"• <b>.ZIP arxivdagi fotosuratlar</b>!\n\n"
-                f"💡 <i>Sinov uchun GPS-li tayyor namuna surat olish: /sample buyrug‘ini bosing!</i>"
+                f"{p('SEARCH', '🔍')} <b>UNIVERSAL FAYL VA OSINT TAHLILI:</b>\n\n"
+                f"Bot deyarli barcha formatdagi fayllarni chuqur tahlil qiladi:\n"
+                f"• 📸 <b>Suratlar:</b> JPG, PNG, HEIC, WEBP, <b>.DNG</b>, RAW (CR2, NEF, ARW);\n"
+                f"• 📱 <b>Android ilovalar:</b> <b>.APK</b>, .XAPK (Troyan, fishing va xavfli ruxsatlar auditi);\n"
+                f"• 🎬 <b>Videolar:</b> MP4, MOV, AVI, MKV (Kamera, GPS va audio yo‘lak);\n"
+                f"• 📄 <b>Hujjatlar:</b> PDF, DOCX, XLSX, PPTX (Muallif va makros tahlili);\n"
+                f"• 🎵 <b>Audio:</b> MP3, M4A, OGG, ovozli xabarlar (Teglar va qurilma);\n"
+                f"• 📦 <b>Arxivlar:</b> .ZIP, .RAR (Yashirin fayllar va rasmlar).\n\n"
+                f"👉 <i>Tekshirmoqchi bo‘lgan faylni to‘g‘ridan-to‘g‘ri yuboring!</i>\n"
+                f"💡 <i>Namuna fayl olish uchun: /sample</i>"
             ),
             parse_mode="HTML"
         )
@@ -2303,7 +2960,17 @@ def main():
     app.add_handler(CommandHandler("ask", ai_command))
     
     app.add_handler(CallbackQueryHandler(quiz_callback))
-    app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.Document.ALL, photo_or_doc_handler))
+    app.add_handler(
+        MessageHandler(
+            filters.PHOTO
+            | filters.VIDEO
+            | filters.AUDIO
+            | filters.VOICE
+            | filters.VIDEO_NOTE
+            | filters.Document.ALL,
+            photo_or_doc_handler
+        )
+    )
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     app.add_error_handler(error_handler)
     
