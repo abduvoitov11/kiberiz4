@@ -269,7 +269,70 @@ def auto_premium(text: str) -> str:
 def strip_html_tags(s: str) -> str:
     return re.sub(r'<[^>]+>', '', s)
 
-# Auto-inject premium animated emojis across all Telegram messaging methods with robust HTML fallback
+# ==========================================
+# CHAT AUTO-CLEANUP & MESSAGE MANAGEMENT
+# ==========================================
+PREV_BOT_MSGS = {}  # {chat_id: set_of_message_ids}
+
+async def cleanup_chat(chat_id: int, bot_instance, keep_ids=None):
+    """Deletes previous bot messages in this chat so that the screen stays clean."""
+    if not chat_id:
+        return
+    if chat_id in PREV_BOT_MSGS:
+        to_del = list(PREV_BOT_MSGS[chat_id])
+        PREV_BOT_MSGS[chat_id] = set()
+        for mid in to_del:
+            if keep_ids and mid in keep_ids:
+                continue
+            try:
+                await bot_instance.delete_message(chat_id=chat_id, message_id=mid)
+            except Exception:
+                pass
+
+def record_bot_msg(chat_id, msg):
+    """Registers sent bot message(s) for future cleanup."""
+    if not chat_id or not msg:
+        return
+    if chat_id not in PREV_BOT_MSGS:
+        PREV_BOT_MSGS[chat_id] = set()
+    if isinstance(msg, (list, tuple, set)):
+        for m in msg:
+            if hasattr(m, "message_id"):
+                PREV_BOT_MSGS[chat_id].add(m.message_id)
+            elif isinstance(m, int):
+                PREV_BOT_MSGS[chat_id].add(m)
+    elif hasattr(msg, "message_id"):
+        PREV_BOT_MSGS[chat_id].add(msg.message_id)
+    elif isinstance(msg, int):
+        PREV_BOT_MSGS[chat_id].add(msg)
+
+MENU_BUTTON_TEXTS = {
+    "Suratni tekshirish (OSINT)",
+    "5 daqiqalik Chek-list",
+    "Nikneym & Havola auditi",
+    "Real keyslar: 3 ta xavf",
+    "\"Raqamli Iz\" Testi",
+    "Kiber-Portal (Web App)",
+    "AI Kiber-Maslahatchi",
+    "Anonim SOS / Yordam",
+    "🌐 Kiber-Portal (Web App)",
+    "🤖 AI Kiber-Maslahatchi"
+}
+
+async def prepare_clean_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Cleans up previous bot messages and deletes command/menu trigger text if applicable."""
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    if chat_id:
+        await cleanup_chat(chat_id, context.bot)
+    if update.message:
+        text = update.message.text or ""
+        if text.startswith("/") or text in MENU_BUTTON_TEXTS:
+            try:
+                await update.message.delete()
+            except Exception:
+                pass
+
+# Auto-inject premium animated emojis across all Telegram messaging methods with robust HTML fallback & auto-tracking
 _orig_reply_text = Message.reply_text
 async def _custom_reply_text(self, text, *args, **kwargs):
     if text and isinstance(text, str):
@@ -277,14 +340,18 @@ async def _custom_reply_text(self, text, *args, **kwargs):
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
     try:
-        return await _orig_reply_text(self, text, *args, **kwargs)
+        res = await _orig_reply_text(self, text, *args, **kwargs)
+        record_bot_msg(self.chat_id, res)
+        return res
     except Exception as e:
         err_str = str(e).lower()
         if "parse" in err_str or "bad request" in err_str:
             logging.warning(f"reply_text HTML error: {e}. Retrying without HTML.")
             kw = dict(kwargs)
             kw.pop("parse_mode", None)
-            return await _orig_reply_text(self, strip_html_tags(text), *args, **kw)
+            res = await _orig_reply_text(self, strip_html_tags(text), *args, **kw)
+            record_bot_msg(self.chat_id, res)
+            return res
         raise e
 Message.reply_text = _custom_reply_text
 
@@ -295,13 +362,17 @@ async def _custom_edit_text(self, text, *args, **kwargs):
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
     try:
-        return await _orig_edit_text(self, text, *args, **kwargs)
+        res = await _orig_edit_text(self, text, *args, **kwargs)
+        record_bot_msg(self.chat_id, res)
+        return res
     except Exception as e:
         err_str = str(e).lower()
         if "parse" in err_str or "bad request" in err_str:
             kw = dict(kwargs)
             kw.pop("parse_mode", None)
-            return await _orig_edit_text(self, strip_html_tags(text), *args, **kw)
+            res = await _orig_edit_text(self, strip_html_tags(text), *args, **kw)
+            record_bot_msg(self.chat_id, res)
+            return res
         raise e
 Message.edit_text = _custom_edit_text
 
@@ -312,13 +383,19 @@ async def _custom_edit_message_text(self, text, *args, **kwargs):
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
     try:
-        return await _orig_edit_message_text(self, text, *args, **kwargs)
+        res = await _orig_edit_message_text(self, text, *args, **kwargs)
+        if hasattr(self, 'message') and self.message:
+            record_bot_msg(self.message.chat_id, res)
+        return res
     except Exception as e:
         err_str = str(e).lower()
         if "parse" in err_str or "bad request" in err_str:
             kw = dict(kwargs)
             kw.pop("parse_mode", None)
-            return await _orig_edit_message_text(self, strip_html_tags(text), *args, **kw)
+            res = await _orig_edit_message_text(self, strip_html_tags(text), *args, **kw)
+            if hasattr(self, 'message') and self.message:
+                record_bot_msg(self.message.chat_id, res)
+            return res
         raise e
 CallbackQuery.edit_message_text = _custom_edit_message_text
 
@@ -329,7 +406,9 @@ async def _custom_reply_document(self, *args, **kwargs):
         if "parse_mode" not in kwargs:
             kwargs["parse_mode"] = "HTML"
     try:
-        return await _orig_reply_document(self, *args, **kwargs)
+        res = await _orig_reply_document(self, *args, **kwargs)
+        record_bot_msg(self.chat_id, res)
+        return res
     except Exception as e:
         err_str = str(e).lower()
         if "parse" in err_str or "bad request" in err_str:
@@ -337,7 +416,9 @@ async def _custom_reply_document(self, *args, **kwargs):
             kw.pop("parse_mode", None)
             if "caption" in kw and isinstance(kw["caption"], str):
                 kw["caption"] = strip_html_tags(kw["caption"])
-            return await _orig_reply_document(self, *args, **kw)
+            res = await _orig_reply_document(self, *args, **kw)
+            record_bot_msg(self.chat_id, res)
+            return res
         raise e
 Message.reply_document = _custom_reply_document
 
@@ -348,7 +429,9 @@ async def _custom_reply_photo(self, *args, **kwargs):
         if "parse_mode" not in kwargs:
             kwargs["parse_mode"] = "HTML"
     try:
-        return await _orig_reply_photo(self, *args, **kwargs)
+        res = await _orig_reply_photo(self, *args, **kwargs)
+        record_bot_msg(self.chat_id, res)
+        return res
     except Exception as e:
         err_str = str(e).lower()
         if "parse" in err_str or "bad request" in err_str:
@@ -356,9 +439,18 @@ async def _custom_reply_photo(self, *args, **kwargs):
             kw.pop("parse_mode", None)
             if "caption" in kw and isinstance(kw["caption"], str):
                 kw["caption"] = strip_html_tags(kw["caption"])
-            return await _orig_reply_photo(self, *args, **kw)
+            res = await _orig_reply_photo(self, *args, **kw)
+            record_bot_msg(self.chat_id, res)
+            return res
         raise e
 Message.reply_photo = _custom_reply_photo
+
+_orig_reply_location = Message.reply_location
+async def _custom_reply_location(self, *args, **kwargs):
+    res = await _orig_reply_location(self, *args, **kwargs)
+    record_bot_msg(self.chat_id, res)
+    return res
+Message.reply_location = _custom_reply_location
 
 _orig_send_message = Bot.send_message
 async def _custom_send_message(self, chat_id, text, *args, **kwargs):
@@ -367,15 +459,65 @@ async def _custom_send_message(self, chat_id, text, *args, **kwargs):
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
     try:
-        return await _orig_send_message(self, chat_id, text, *args, **kwargs)
+        res = await _orig_send_message(self, chat_id, text, *args, **kwargs)
+        record_bot_msg(chat_id, res)
+        return res
     except Exception as e:
         err_str = str(e).lower()
         if "parse" in err_str or "bad request" in err_str:
             kw = dict(kwargs)
             kw.pop("parse_mode", None)
-            return await _orig_send_message(self, chat_id, strip_html_tags(text), *args, **kw)
+            res = await _orig_send_message(self, chat_id, strip_html_tags(text), *args, **kw)
+            record_bot_msg(chat_id, res)
+            return res
         raise e
 Bot.send_message = _custom_send_message
+
+_orig_send_photo = Bot.send_photo
+async def _custom_send_photo(self, chat_id, *args, **kwargs):
+    if "caption" in kwargs and isinstance(kwargs["caption"], str):
+        kwargs["caption"] = auto_premium(kwargs["caption"])
+        if "parse_mode" not in kwargs:
+            kwargs["parse_mode"] = "HTML"
+    try:
+        res = await _orig_send_photo(self, chat_id, *args, **kwargs)
+        record_bot_msg(chat_id, res)
+        return res
+    except Exception as e:
+        err_str = str(e).lower()
+        if "parse" in err_str or "bad request" in err_str:
+            kw = dict(kwargs)
+            kw.pop("parse_mode", None)
+            if "caption" in kw and isinstance(kw["caption"], str):
+                kw["caption"] = strip_html_tags(kw["caption"])
+            res = await _orig_send_photo(self, chat_id, *args, **kw)
+            record_bot_msg(chat_id, res)
+            return res
+        raise e
+Bot.send_photo = _custom_send_photo
+
+_orig_send_document = Bot.send_document
+async def _custom_send_document(self, chat_id, *args, **kwargs):
+    if "caption" in kwargs and isinstance(kwargs["caption"], str):
+        kwargs["caption"] = auto_premium(kwargs["caption"])
+        if "parse_mode" not in kwargs:
+            kwargs["parse_mode"] = "HTML"
+    try:
+        res = await _orig_send_document(self, chat_id, *args, **kwargs)
+        record_bot_msg(chat_id, res)
+        return res
+    except Exception as e:
+        err_str = str(e).lower()
+        if "parse" in err_str or "bad request" in err_str:
+            kw = dict(kwargs)
+            kw.pop("parse_mode", None)
+            if "caption" in kw and isinstance(kw["caption"], str):
+                kw["caption"] = strip_html_tags(kw["caption"])
+            res = await _orig_send_document(self, chat_id, *args, **kw)
+            record_bot_msg(chat_id, res)
+            return res
+        raise e
+Bot.send_document = _custom_send_document
 
 # ==========================================
 # GEMINI AI CYBER-MENTOR ENGINE (Method 1)
@@ -501,6 +643,8 @@ async def ask_gemini_cyber_mentor(prompt: str, user_id: int = 0) -> str:
 
 async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Triggers the AI Cyber-Mentor interface."""
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
     context.user_data["waiting_for_ai"] = True
     ai_intro_text = (
         f"{p('LIGHT', '💡')} <b>AQLLI AI KIBER-MASLAHATCHI (4-MAKTAB)</b>\n\n"
@@ -521,7 +665,7 @@ async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Fishing havolani aniqlash", callback_data="ai_q_phishing", icon_custom_emoji_id=E["WARNING"])],
         [InlineKeyboardButton("Kuchli parol yaratish qoidasi", callback_data="ai_q_password", icon_custom_emoji_id=E["KEY"])]
     ])
-    await update.message.reply_text(ai_intro_text, parse_mode="HTML", reply_markup=keyboard)
+    await context.bot.send_message(chat_id=chat_id, text=ai_intro_text, parse_mode="HTML", reply_markup=keyboard)
 
 # Main persistent reply keyboard with Telegram Premium icon custom emojis
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
@@ -547,41 +691,54 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
 )
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
     user_name = update.effective_user.first_name or "O‘quvchi"
     
     welcome_text = (
         f"Assalomu alaykum, <b>{html.escape(user_name)}</b>! {p('WAVE', '👋')}\n\n"
-        f"{p('SHIELD', '🛡️')} <b>«KiberIz-4» — 4-sonli maktabning Raqamli Iz va Profil Xavfsizligi tizimiga xush kelibsiz!</b> {p('FLAG_UZ', '🇺🇿')}\n\n"
-        f"{p('EYES', '👀')} Siz ijtimoiy tarmoqqa yuklagan bitta oddiy fotosurat orqali firibgarlar nimalarni bilib olishi mumkinligini bilasizmi?\n"
+        f"{p('SHIELD', '🛡️')} <b>«KiberIz-4» — 4-maktab Raqamli Iz va Xavfsizlik tizimi!</b> {p('FLAG_UZ', '🇺🇿')}\n\n"
+        f"{p('EYES', '👀')} Oddiy fotosurat orqali firibgarlar nimalarni bilib olishi mumkin:\n"
         f"• {p('SCHOOL', '🏫')} <i>Qaysi maktab va sinfda o‘qishingizni;</i>\n"
         f"• {p('HOUSE', '🏠')} <i>Qaysi ko‘chada yashashingizni;</i>\n"
         f"• {p('BOMB', '💣')} <i>Qachon uyda yolg‘iz ekanligingizni!</i>\n\n"
-        f"{p('INFO', 'ℹ️')} Botga tahlil uchun fotosurat yuboring:\n"
-        f"• <b>Apple iPhone formatidagi (.HEIC) fotosuratlar</b>;\n"
-        f"• <b>.ZIP arxivdagi fotosuratlar to‘plami</b>!\n\n"
-        f"🧪 <i>Sinov uchun GPS-li tayyor rasm olish: /sample buyrug‘ini bosing.</i>"
+        f"{p('INFO', 'ℹ️')} Tahlil uchun botga fotosurat yuboring:\n"
+        f"• <b>Apple (.HEIC) fotosuratlari</b>;\n"
+        f"• <b>.ZIP arxivdagi rasmlar to‘plami</b>!\n\n"
+        f"{p('TEST', '🧪')} <i>Sinov uchun GPS-li rasm: /sample bosing.</i>"
     )
     
-    # 1. Avval rasmni yuborish
+    sent = False
     if os.path.exists(START_BANNER_PATH):
         try:
             with open(START_BANNER_PATH, "rb") as photo:
-                await update.message.reply_photo(photo=photo)
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption=welcome_text,
+                    parse_mode="HTML",
+                    reply_markup=MAIN_KEYBOARD
+                )
+                sent = True
         except Exception as e:
             logging.error(f"Error sending start banner photo: {e}")
             
-    # 2. Keyin esa to'liq tavsif va menyu tugmalarini yuborish
-    await update.message.reply_text(
-        welcome_text,
-        parse_mode="HTML",
-        reply_markup=MAIN_KEYBOARD
-    )
+    if not sent:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=welcome_text,
+            parse_mode="HTML",
+            reply_markup=MAIN_KEYBOARD
+        )
 
 async def sample_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Sends a sample image with real GPS EXIF metadata for testing OSINT."""
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
     if os.path.exists(SAMPLE_PATH):
         with open(SAMPLE_PATH, "rb") as doc:
-            await update.message.reply_document(
+            await context.bot.send_document(
+                chat_id=chat_id,
                 document=doc,
                 filename="sample_gps_school4.jpg",
                 caption=(
@@ -593,9 +750,11 @@ async def sample_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
     else:
-        await update.message.reply_text("Namuna fayl topilmadi.", parse_mode="HTML")
+        await context.bot.send_message(chat_id=chat_id, text="Namuna fayl topilmadi.", parse_mode="HTML")
 
 async def checklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
     checklist_text = (
         f"{p('SHIELD', '🛡️')} <b>5 DAQIQALIK «XAVFSIZ PROFIL» CHEK-LISTI</b>\n"
         f"<i>Profilingizni kiber-qalqon bilan yopish bo‘yicha qo‘llanma:</i>\n\n"
@@ -617,9 +776,11 @@ async def checklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Profil xavfsizligini tekshirish", callback_data="start_quiz", icon_custom_emoji_id=E["TEST"])]
     ])
     
-    await update.message.reply_text(checklist_text, parse_mode="HTML", reply_markup=keyboard)
+    await context.bot.send_message(chat_id=chat_id, text=checklist_text, parse_mode="HTML", reply_markup=keyboard)
 
 async def cases_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
     cases_text = (
         f"{p('SEARCH', '🔍')} <b>OSINT: BIRGINA SURATDAGI 3 TA KATTA XAVF</b>\n\n"
         f"{p('SCHOOL', '🏫')} <b>1-xavf: Maktabingiz fosh bo‘lishi</b>\n"
@@ -630,9 +791,15 @@ async def cases_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"«Ota-onam safarga ketishdi, men esa serial ko‘ryapman» qabilidagi post yoki storis. Bu — firibgarlar va o‘g‘rilar uchun ochiqdan-ochiq taklifnoma hisoblanadi!\n\n"
         f"{p('LIGHT', '💡')} <b>Muhim qoida:</b> Hech qachon ochiq tarmoqlarga uy kaliti, yo‘nalish chiptasi, pasport va dars jadvalingizni joylamang!"
     )
-    await update.message.reply_text(cases_text, parse_mode="HTML")
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Profil xavfsizligini tekshirish", callback_data="start_quiz", icon_custom_emoji_id=E["TEST"])],
+        [InlineKeyboardButton("5 daqiqalik Chek-list", callback_data="show_checklist", icon_custom_emoji_id=E["SHIELD"])]
+    ])
+    await context.bot.send_message(chat_id=chat_id, text=cases_text, parse_mode="HTML", reply_markup=keyboard)
 
 async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
     sos_text = (
         f"{p('SOS', '🚨')} <b>4-MAKTAB ANONIM ISHONCH VA SOS MARKAZI</b>\n\n"
         f"Agar siz ijtimoiy tarmoqda yoki maktabda:\n"
@@ -652,9 +819,11 @@ async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Anonim Murojaat Qoldirish", callback_data="start_anon_sos", icon_custom_emoji_id=E["CHAT"])],
         [InlineKeyboardButton("Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])]
     ])
-    await update.message.reply_text(sos_text, parse_mode="HTML", reply_markup=keyboard)
+    await context.bot.send_message(chat_id=chat_id, text=sos_text, parse_mode="HTML", reply_markup=keyboard)
 
 async def web_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
     web_text = (
         f"{p('GLOBE', '🌐')} <b>«KIBERIZ-4» INTERAKTIV VEB-PLATFORMASI & KIBER-RADAR</b>\n\n"
         f"Loyihaning to‘liq interaktiv veb-platformasida siz:\n"
@@ -668,7 +837,7 @@ async def web_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Kiber-Portalni ochish (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["ROCKET"])],
         [InlineKeyboardButton("Brauzerda ochish (Tashqi havola)", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["GLOBE"])]
     ])
-    await update.message.reply_text(web_text, parse_mode="HTML", reply_markup=keyboard)
+    await context.bot.send_message(chat_id=chat_id, text=web_text, parse_mode="HTML", reply_markup=keyboard)
 
 # ==========================================
 # QUIZ / CALCULATOR HANDLER
@@ -713,12 +882,15 @@ QUIZ_QUESTIONS = [
 ]
 
 async def start_quiz(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message:
+        await prepare_clean_chat(update, context)
     context.user_data["quiz_step"] = 0
     context.user_data["quiz_score"] = 0
     await send_quiz_question(update, context)
 
 async def send_quiz_question(update: Update, context: ContextTypes.DEFAULT_TYPE):
     step = context.user_data.get("quiz_step", 0)
+    chat_id = update.effective_chat.id
     if step < len(QUIZ_QUESTIONS):
         q_data = QUIZ_QUESTIONS[step]
         buttons = []
@@ -735,7 +907,7 @@ async def send_quiz_question(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if update.callback_query:
             await update.callback_query.edit_message_text(msg_text, parse_mode="HTML", reply_markup=keyboard)
         else:
-            await update.message.reply_text(msg_text, parse_mode="HTML", reply_markup=keyboard)
+            await context.bot.send_message(chat_id=chat_id, text=msg_text, parse_mode="HTML", reply_markup=keyboard)
     else:
         # Final result
         total = context.user_data.get("quiz_score", 0)
@@ -763,12 +935,13 @@ async def send_quiz_question(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if update.callback_query:
             await update.callback_query.edit_message_text(result_text, parse_mode="HTML", reply_markup=keyboard)
         else:
-            await update.message.reply_text(result_text, parse_mode="HTML", reply_markup=keyboard)
+            await context.bot.send_message(chat_id=chat_id, text=result_text, parse_mode="HTML", reply_markup=keyboard)
 
 async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     data = query.data
+    chat_id = update.effective_chat.id
     
     if data == "start_quiz":
         context.user_data["quiz_step"] = 0
@@ -789,7 +962,11 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"4. {p('LAPTOP', '💻')} Begona sessiyalarni (qurilmalarni) yakunlang.\n"
             f"5. {p('LOCK', '🔒')} Guruhlarga faqat kontaktlar qo‘shishiga ruxsat bering."
         )
-        await query.message.reply_text(checklist_text, parse_mode="HTML")
+        back_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Qaytadan topshirish", callback_data="start_quiz", icon_custom_emoji_id=E["REFRESH"])],
+            [InlineKeyboardButton("2FA qo‘llanmasi", callback_data="guide_2fa", icon_custom_emoji_id=E["KEY_LOCK"])]
+        ])
+        await query.edit_message_text(checklist_text, parse_mode="HTML", reply_markup=back_kb)
     elif data == "guide_2fa":
         guide_text = (
             f"{p('KEY_LOCK', '🔐')} <b>IKKI BOSQICHLI TEKSHIRUV (2FA) YOQISH QO‘LLANMASI:</b>\n\n"
@@ -800,11 +977,15 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"5. {p('CHECK', '✅')} E-mail manzilingizni tasdiqlang.\n\n"
             f"{p('CHECK', '✅')} <i>Endi yangi qurilmadan kirilganda SMS koddan tashqari shu maxfiy parol ham so‘raladi!</i>"
         )
-        await query.message.reply_text(guide_text, parse_mode="HTML")
+        back_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Profil xavfsizligini tekshirish", callback_data="start_quiz", icon_custom_emoji_id=E["TEST"])],
+            [InlineKeyboardButton("5 daqiqalik Chek-list", callback_data="show_checklist", icon_custom_emoji_id=E["SHIELD"])]
+        ])
+        await query.edit_message_text(guide_text, parse_mode="HTML", reply_markup=back_kb)
     elif data == "sanitize":
         last_photo = context.user_data.get("last_photo")
         if not last_photo:
-            await query.message.reply_text(
+            await query.edit_message_text(
                 f"{p('WARNING', '⚠️')} Tozalash uchun yangi surat topilmadi. Iltimos, avval rasm yuboring.",
                 parse_mode="HTML"
             )
@@ -827,19 +1008,19 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
         except Exception as e:
-            await query.message.reply_text(f"Tozalashda xatolik: {e}")
+            await query.edit_message_text(f"Tozalashda xatolik: {e}")
     elif data == "start_anon_sos":
         context.user_data["waiting_for_sos"] = True
         prompt = (
             f"{p('CHAT', '✍️')} <b>ANONIM MUROJAAT YOZISH MAYDONI:</b>\n\n"
             f"Iltimos, sizni bezovta qilayotgan muammo yoki hodisani batafsil yozib yuboring "
             f"(xohlasangiz dalil sifatida fotosurat yoki skrinshot ham yuborishingiz mumkin).\n\n"
-            f"🔒 <b>KiberIz-4 Xavfsizlik Kafolati:</b>\n"
+            f"{p('LOCK', '🔒')} <b>KiberIz-4 Xavfsizlik Kafolati:</b>\n"
             f"Sizning Telegram ID, Ismingiz yoki @username'ingiz HECH KIMGA ko‘rsatilmaydi! "
             f"Xabar tizimga faqat maxsus kod (masalan: <code>#SOS-4M-8291</code>) bilan qayd etiladi.\n\n"
             f"<i>Bekor qilish uchun: /cancel deb yozing.</i>"
         )
-        await query.message.reply_text(prompt, parse_mode="HTML")
+        await query.edit_message_text(prompt, parse_mode="HTML")
     elif data == "confirm_quick_sos":
         pending_text = context.user_data.get("pending_sos_text", "Anonim xabar")
         import random, datetime
@@ -888,7 +1069,7 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"• {p('SHIELD', '🛡️')} Kiberxavfsizlik hodisalari bo‘yicha: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
             f"• {p('SHIELD', '⚖️')} Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
         )
-        await query.message.reply_text(success_msg, parse_mode="HTML")
+        await query.edit_message_text(success_msg, parse_mode="HTML")
     elif data.startswith("ai_q_"):
         query_map = {
             "ai_q_groups": "Telegramda meni begona va shubhali guruhlarga qo‘shib qo‘yishmasligi uchun qanday sozlamalarni yoqishim kerak?",
@@ -906,17 +1087,21 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("O‘z savolimni berish", callback_data="ask_custom_ai", icon_custom_emoji_id=E["CHAT"])],
             [InlineKeyboardButton("Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])]
         ])
-        await query.message.reply_text(
+        await query.edit_message_text(
             f"{p('LIGHT', '💡')} <b>AI KIBER-MASLAHATCHI JAVOBI:</b>\n\n{answer}",
             parse_mode="HTML",
             reply_markup=reply_markup
         )
     elif data == "ask_custom_ai":
         context.user_data["waiting_for_ai"] = True
-        await query.message.reply_text(
+        back_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])]
+        ])
+        await query.edit_message_text(
             f"{p('CHAT', '✍️')} <b>Marhamat, o‘zingizni qiziqtirgan savolni yozib yuboring:</b>\n\n"
             f"<i>Masalan: «Do‘stimning akkaunti buzilibdi, qanday yordam bersam bo‘ladi?»</i>",
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=back_kb
         )
 
 # ==========================================
@@ -1542,6 +1727,10 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     if not msg:
         return
         
+    chat_id = update.effective_chat.id if update.effective_chat else None
+    if chat_id:
+        await cleanup_chat(chat_id, context.bot)
+        
     # Check if this photo/doc is an anonymous SOS evidence submission
     if context.user_data.get("waiting_for_sos"):
         context.user_data["waiting_for_sos"] = False
@@ -1905,17 +2094,24 @@ async def handle_zip_archive(msg, file_bytes, file_name):
         )
 
 async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (update.message.text or "").strip()
+    msg = update.message
+    if not msg:
+        return
+    text = (msg.text or "").strip()
     if not text:
         return
+
+    chat_id = update.effective_chat.id
+    await prepare_clean_chat(update, context)
 
     # 0. Cancel active modes
     if text.lower() in ["/cancel", "bekor qilish", "bekor"]:
         context.user_data["waiting_for_sos"] = False
         context.user_data["waiting_for_audit"] = False
         context.user_data["waiting_for_ai"] = False
-        await update.message.reply_text(
-            f"{p('CHECK', '✅')} Barcha amallar bekor qilindi.",
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"{p('CHECK', '✅')} Barcha amallar bekor qilindi.",
             parse_mode="HTML",
             reply_markup=MAIN_KEYBOARD
         )
@@ -1950,11 +2146,11 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if ADMIN_ID:
             try:
                 alert_text = (
-                    f"🚨 <b>YANGI ANONIM SOS MUROJAAT (4-MAKTAB)</b>\n\n"
-                    f"🆔 <b>Kodi:</b> <code>#{report_code}</code>\n"
-                    f"📅 <b>Vaqti:</b> {timestamp}\n\n"
-                    f"📝 <b>Murojaat matni:</b>\n<i>«{html.escape(text)}»</i>\n\n"
-                    f"🔒 <i>Foydalanuvchi ma’lumotlari to‘liq anonimlashtirilgan.</i>"
+                    f"{p('SOS', '🚨')} <b>YANGI ANONIM SOS MUROJAAT (4-MAKTAB)</b>\n\n"
+                    f"{p('INFO', '🆔')} <b>Kodi:</b> <code>#{report_code}</code>\n"
+                    f"{p('TIMER', '📅')} <b>Vaqti:</b> {timestamp}\n\n"
+                    f"{p('INFO', '📝')} <b>Murojaat matni:</b>\n<i>«{html.escape(text)}»</i>\n\n"
+                    f"{p('LOCK', '🔒')} <i>Foydalanuvchi ma’lumotlari to‘liq anonimlashtirilgan.</i>"
                 )
                 await context.bot.send_message(chat_id=int(ADMIN_ID), text=alert_text, parse_mode="HTML")
             except Exception as e:
@@ -1962,24 +2158,27 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         success_msg = (
             f"{p('CHECK', '✅')} <b>ANONIM MUROJAATINGIZ QABUL QILINDI!</b>\n\n"
-            f"🆔 <b>Murojaat kodi:</b> <code>#{report_code}</code>\n"
-            f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
-            f"🛡️ <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
+            f"{p('INFO', '🆔')} <b>Murojaat kodi:</b> <code>#{report_code}</code>\n"
+            f"{p('TIMER', '📅')} <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
+            f"{p('SHIELD', '🛡️')} <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
             f"Muammoingiz 4-maktab profilaktika inspektori va psixologiga ko‘rib chiqish uchun uzatildi.\n\n"
             f"{p('CALL', '📞')} <b>Rasmiy aloqa raqamlari:</b>\n"
-            f"• 🛡️ Kiberxavfsizlik hodisalari bo‘yicha: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
-            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
+            f"• {p('SHIELD', '🛡️')} Kiberxavfsizlik hodisalari bo‘yicha: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+            f"• {p('SHIELD', '⚖️')} Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
         )
-        await update.message.reply_text(success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
+        await context.bot.send_message(chat_id=chat_id, text=success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
         return
 
     # 2. Main Menu Actions
     if "Suratni tekshirish" in text or "OSINT" in text:
-        await update.message.reply_text(
-            f"{p('EXIF_PHOTO', '🖼️')} Iltimos, tahlil qilish uchun botga <b>fotosurat</b> yuboring:\n"
-            f"• <b>Apple iPhone (.HEIC)</b> fotosuratlari;\n"
-            f"• <b>.ZIP arxivdagi fotosuratlar</b>!\n\n"
-            f"💡 <i>Sinov uchun GPS-li tayyor namuna surat olish: /sample buyrug‘ini bosing!</i>",
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"{p('EXIF_PHOTO', '🖼️')} Iltimos, tahlil qilish uchun botga <b>fotosurat</b> yuboring:\n"
+                f"• <b>Apple iPhone (.HEIC)</b> fotosuratlari;\n"
+                f"• <b>.ZIP arxivdagi fotosuratlar</b>!\n\n"
+                f"💡 <i>Sinov uchun GPS-li tayyor namuna surat olish: /sample buyrug‘ini bosing!</i>"
+            ),
             parse_mode="HTML"
         )
     elif "Chek-list" in text:
@@ -1994,15 +2193,18 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await ai_command(update, context)
     elif "Nikneym" in text or "Havola" in text:
         context.user_data["waiting_for_audit"] = True
-        await update.message.reply_text(
-            f"{p('HACKER', '🕵️‍♂️')} <b>NIKNEYM VA HAVOLA OSINT AUDITI:</b>\n\n"
-            f"1. <b>Nikneym (Username) tekshirish:</b>\n"
-            f"   Botga o‘zingizning yoki do‘stingizning nikneymini yuboring (masalan: <code>@sarvar_2008</code> yoki <code>@malika_07</code>).\n"
-            f"   └ <i>Bot nikneym orqali yosh, maktab va boshqa tarmoqlardagi izlarni tahlil qilib beradi!</i>\n\n"
-            f"2. <b>Shubhali havola (Sayt) tekshirish:</b>\n"
-            f"   Sizga yuborilgan har qanday shubhali sayt havolasini yuboring (masalan: <code>http://click-sovrin.xyz</code> yoki <code>kun.uz</code>).\n"
-            f"   └ <i>Bot uning firibgarlik (fishing) ekanligini bir zumda fosh qiladi!</i>\n\n"
-            f"👉 <i>Tekshirmoqchi bo‘lgan sayt havolasi yoki @nikneymni shu yerga yozib yuboring:</i>",
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"{p('HACKER', '🕵️‍♂️')} <b>NIKNEYM VA HAVOLA OSINT AUDITI:</b>\n\n"
+                f"1. <b>Nikneym (Username) tekshirish:</b>\n"
+                f"   Botga o‘zingizning yoki do‘stingizning nikneymini yuboring (masalan: <code>@sarvar_2008</code> yoki <code>@malika_07</code>).\n"
+                f"   └ <i>Bot nikneym orqali yosh, maktab va boshqa tarmoqlardagi izlarni tahlil qilib beradi!</i>\n\n"
+                f"2. <b>Shubhali havola (Sayt) tekshirish:</b>\n"
+                f"   Sizga yuborilgan har qanday shubhali sayt havolasini yuboring (masalan: <code>http://click-sovrin.xyz</code> yoki <code>kun.uz</code>).\n"
+                f"   └ <i>Bot uning firibgarlik (fishing) ekanligini bir zumda fosh qiladi!</i>\n\n"
+                f"👉 <i>Tekshirmoqchi bo‘lgan sayt havolasi yoki @nikneymni shu yerga yozib yuboring:</i>"
+            ),
             parse_mode="HTML"
         )
     elif "Veb-Platforma" in text or "Kiber-Portal" in text or "Web App" in text:
