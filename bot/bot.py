@@ -339,6 +339,8 @@ _orig_reply_text = Message.reply_text
 async def _custom_reply_text(self, text, *args, **kwargs):
     if text and isinstance(text, str):
         text = auto_premium(text)
+        if len(text) > 4000:
+            text = text[:3900] + "\n\n<i>[Qisqartirildi...]</i>"
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
     try:
@@ -361,6 +363,8 @@ _orig_edit_text = Message.edit_text
 async def _custom_edit_text(self, text, *args, **kwargs):
     if text and isinstance(text, str):
         text = auto_premium(text)
+        if len(text) > 4000:
+            text = text[:3900] + "\n\n<i>[Qisqartirildi...]</i>"
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
     try:
@@ -382,6 +386,8 @@ _orig_edit_message_text = CallbackQuery.edit_message_text
 async def _custom_edit_message_text(self, text, *args, **kwargs):
     if text and isinstance(text, str):
         text = auto_premium(text)
+        if len(text) > 4000:
+            text = text[:3900] + "\n\n<i>[Qisqartirildi...]</i>"
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
     try:
@@ -458,6 +464,8 @@ _orig_send_message = Bot.send_message
 async def _custom_send_message(self, chat_id, text, *args, **kwargs):
     if text and isinstance(text, str):
         text = auto_premium(text)
+        if len(text) > 4000:
+            text = text[:3900] + "\n\n<i>[Qisqartirildi...]</i>"
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
     try:
@@ -551,9 +559,11 @@ def format_ai_to_tg_html(raw_text: str) -> str:
     if not raw_text:
         return ""
     import html, re
-    # Strip markdown codeblock wrapper if present
-    raw_text = re.sub(r'^```(?:html)?\s*', '', raw_text.strip(), flags=re.IGNORECASE)
-    raw_text = re.sub(r'```$', '', raw_text.strip())
+    # Strip outer markdown wrapper if the entire response is wrapped in ```html ... ```
+    s_text = raw_text.strip()
+    if re.match(r'^```(?:html)?\n.*?\n```$', s_text, flags=re.DOTALL | re.IGNORECASE) and s_text.count("```") == 2:
+        raw_text = re.sub(r'^```(?:html)?\s*\n?', '', s_text, flags=re.IGNORECASE)
+        raw_text = re.sub(r'\n?```$', '', raw_text)
     # Convert strong, em, headers, p
     raw_text = re.sub(r'<h[1-6][^>]*>(.*?)</h[1-6]>', r'<b>\1</b>\n', raw_text, flags=re.IGNORECASE)
     raw_text = re.sub(r'<p[^>]*>(.*?)</p>', r'\1\n\n', raw_text, flags=re.IGNORECASE)
@@ -564,7 +574,7 @@ def format_ai_to_tg_html(raw_text: str) -> str:
     t = html.escape(raw_text, quote=False)
     # Restore valid Telegram tags
     t = re.sub(r'&lt;(\/?(?:b|i|u|s|code|pre|blockquote|a|tg-emoji)(?:\s+[^&>]*)?)&gt;', r'<\1>', t, flags=re.IGNORECASE)
-    t = re.sub(r'```(?:[a-zA-Z0-9_\-]+)?\n?(.*?)```', r'<pre>\1</pre>', t, flags=re.DOTALL)
+    t = re.sub(r'```(?:[a-zA-Z0-9_\-]+)?\n?(.*?)```', lambda m: f'<pre>{m.group(1).strip()}</pre>', t, flags=re.DOTALL)
     t = re.sub(r'`([^`\n]+)`', r'<code>\1</code>', t)
     t = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', t)
     t = re.sub(r'(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])', r'<i>\1</i>', t)
@@ -848,15 +858,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         f"Assalomu alaykum, <b>{html.escape(user_name)}</b>! {p('WAVE', '👋')}\n\n"
-        f"{p('SHIELD', '🛡️')} <b>«KiberIz-4» — 4-maktab Raqamli Iz va Xavfsizlik tizimi!</b> {p('FLAG_UZ', '🇺🇿')}\n\n"
-        f"{p('EYES', '👀')} Oddiy fotosurat orqali firibgarlar nimalarni bilib olishi mumkin:\n"
-        f"• {p('SCHOOL', '🏫')} <i>Qaysi maktab va sinfda o‘qishingizni;</i>\n"
-        f"• {p('HOUSE', '🏠')} <i>Qaysi ko‘chada yashashingizni;</i>\n"
-        f"• {p('BOMB', '💣')} <i>Qachon uyda yolg‘iz ekanligingizni!</i>\n\n"
-        f"{p('INFO', 'ℹ️')} Tahlil uchun botga fotosurat yuboring:\n"
-        f"• <b>Apple (.HEIC) fotosuratlari</b>;\n"
-        f"• <b>.ZIP arxivdagi rasmlar to‘plami</b>!\n\n"
-        f"{p('TEST', '🧪')} <i>Sinov uchun GPS-li rasm: /sample bosing.</i>"
+        f"{p('SHIELD', '🛡️')} <b>«KiberIz-4» — 4-maktab Raqamli Iz va Kiberxavfsizlik tizimi!</b> {p('FLAG_UZ', '🇺🇿')}\n\n"
+        f"{p('SEARCH', '🔍')} <b>Bot imkoniyatlari (Universal Tahlil):</b>\n"
+        f"• 📸 <b>Suratlar (JPG, PNG, HEIC, DNG, RAW):</b> Yashirin GPS lokatsiya va AI Vision tahlili;\n"
+        f"• 📱 <b>Android ilovalar (.APK):</b> Troyan, fishing va SMS o‘g‘irlovchi viruslar auditi;\n"
+        f"• 🎬 <b>Videolar (MP4, MOV):</b> Qurilma parametrlari va GPS aniqlash;\n"
+        f"• 📄 <b>Hujjatlar (PDF, Word, Excel):</b> Muallif shaxsi va xavfli makroslar tekshiruvi;\n"
+        f"• 🎵 <b>Audio & Ovozli xabarlar:</b> Yozib olingan dastur va qurilma teglari;\n"
+        f"• 🤖 <b>AI Kiber-Maslahatchi:</b> Har qanday savolingizga 24/7 aqlli yordam!\n\n"
+        f"{p('LIGHT', '👉')} <i>Tahlil qilish uchun istalgan fayl, havola yoki savolingizni to‘g‘ridan-to‘g‘ri yuboring!</i>\n"
+        f"{p('TEST', '🧪')} <i>GPS-li sinov rasmini olish uchun: /sample</i>"
     )
     
     sent = False
@@ -1046,8 +1057,7 @@ async def send_quiz_question(update: Update, context: ContextTypes.DEFAULT_TYPE)
         q_data = QUIZ_QUESTIONS[step]
         buttons = []
         for opt_text, score in q_data["options"]:
-            icon = E["CHECK"] if score > 0 else E["CROSS"]
-            buttons.append([InlineKeyboardButton(opt_text, callback_data=f"q_{step}_{score}", icon_custom_emoji_id=icon)])
+            buttons.append([InlineKeyboardButton(opt_text, callback_data=f"q_{step}_{score}", icon_custom_emoji_id=E["STAR"])])
         keyboard = InlineKeyboardMarkup(buttons)
         
         msg_text = (
@@ -1136,10 +1146,7 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "sanitize":
         last_photo = context.user_data.get("last_photo")
         if not last_photo:
-            await query.edit_message_text(
-                f"{p('WARNING', '⚠️')} Tozalash uchun yangi surat topilmadi. Iltimos, avval rasm yuboring.",
-                parse_mode="HTML"
-            )
+            await query.answer("Tozalash uchun yangi surat topilmadi. Iltimos, avval rasm yuboring.", show_alert=True)
             return
         try:
             im = Image.open(io.BytesIO(last_photo)).convert("RGB")
@@ -1159,7 +1166,7 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode="HTML"
             )
         except Exception as e:
-            await query.edit_message_text(f"Tozalashda xatolik: {e}")
+            await query.answer(f"Tozalashda xatolik yuz berdi: {e}", show_alert=True)
     elif data == "start_anon_sos":
         context.user_data["waiting_for_sos"] = True
         prompt = (
@@ -3070,10 +3077,15 @@ def main():
     app = ApplicationBuilder().token(BOT_TOKEN).request(request_cfg).build()
     
     app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("help", start_command))
     app.add_handler(CommandHandler("sample", sample_command))
     app.add_handler(CommandHandler("checklist", checklist_command))
     app.add_handler(CommandHandler("test", start_quiz))
+    app.add_handler(CommandHandler("quiz", start_quiz))
+    app.add_handler(CommandHandler("cases", cases_command))
     app.add_handler(CommandHandler("sos", sos_command))
+    app.add_handler(CommandHandler("web", web_command))
+    app.add_handler(CommandHandler("portal", web_command))
     app.add_handler(CommandHandler("ai", ai_command))
     app.add_handler(CommandHandler("ask", ai_command))
     
