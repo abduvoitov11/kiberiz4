@@ -87,6 +87,8 @@ for ef in env_candidates:
         except Exception as env_err:
             logging.warning(f"Error reading {ef}: {env_err}")
 
+GEMINI_API_KEYS = [k.strip() for k in GEMINI_API_KEY.split(",") if k.strip()] if GEMINI_API_KEY else []
+
 def resolve_path(candidates):
     for c in candidates:
         if os.path.exists(c):
@@ -523,10 +525,11 @@ Bot.send_document = _custom_send_document
 # GEMINI AI CYBER-MENTOR ENGINE (Method 1)
 # ==========================================
 GEMINI_MODELS = [
+    "gemini-2.5-flash",
     "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
-    "gemini-3.8-flash",
-    "gemini-flash-latest"
+    "gemini-flash-latest",
+    "gemini-3.8-flash"
 ]
 
 AI_SYSTEM_INSTRUCTION = """Siz «KiberIz-4» — 4-sonli umumiy o'rta ta'lim maktabining Raqamli Xavfsizlik va Kiber-Gigiyena bo'yicha sun'iy intellektga asoslangan virtual murabbiyisiz (Cyber-Mentor).
@@ -544,66 +547,214 @@ AI_RESPONSE_CACHE = {}  # {hash: (timestamp, formatted_text)}
 AI_USER_COOLDOWN = {}   # {user_id: timestamp}
 
 def format_ai_to_tg_html(raw_text: str) -> str:
-    """Escapes HTML and translates Gemini markdown into Telegram HTML."""
+    """Escapes HTML and translates Gemini markdown / HTML into valid Telegram HTML."""
     if not raw_text:
         return ""
+    import html, re
+    # Strip markdown codeblock wrapper if present
+    raw_text = re.sub(r'^```(?:html)?\s*', '', raw_text.strip(), flags=re.IGNORECASE)
+    raw_text = re.sub(r'```$', '', raw_text.strip())
+    # Convert strong, em, headers, p
+    raw_text = re.sub(r'<h[1-6][^>]*>(.*?)</h[1-6]>', r'<b>\1</b>\n', raw_text, flags=re.IGNORECASE)
+    raw_text = re.sub(r'<p[^>]*>(.*?)</p>', r'\1\n\n', raw_text, flags=re.IGNORECASE)
+    raw_text = re.sub(r'<strong[^>]*>(.*?)</strong>', r'<b>\1</b>', raw_text, flags=re.IGNORECASE)
+    raw_text = re.sub(r'<em[^>]*>(.*?)</em>', r'<i>\1</i>', raw_text, flags=re.IGNORECASE)
+    raw_text = re.sub(r'</?(?:div|span|header|footer|section|article)[^>]*>', '', raw_text, flags=re.IGNORECASE)
+    
     t = html.escape(raw_text, quote=False)
+    # Restore valid Telegram tags
+    t = re.sub(r'&lt;(\/?(?:b|i|u|s|code|pre|blockquote|a|tg-emoji)(?:\s+[^&>]*)?)&gt;', r'<\1>', t, flags=re.IGNORECASE)
     t = re.sub(r'```(?:[a-zA-Z0-9_\-]+)?\n?(.*?)```', r'<pre>\1</pre>', t, flags=re.DOTALL)
     t = re.sub(r'`([^`\n]+)`', r'<code>\1</code>', t)
     t = re.sub(r'\*\*([^*]+)\*\*', r'<b>\1</b>', t)
     t = re.sub(r'(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])', r'<i>\1</i>', t)
     t = re.sub(r'(?<![a-zA-Z0-9\*])\*([^*\n]+)\*(?![a-zA-Z0-9\*])', r'<i>\1</i>', t)
-    return t
+    return t.strip()
 
-def _query_gemini_api_sync(prompt: str) -> str:
-    """Synchronous worker calling Google Gemini API with fallback models."""
-    if not GEMINI_API_KEY:
+def _query_gemini_api_sync(prompt: str, image_bytes: bytes = None, mime_type: str = "image/jpeg", system_instruction: str = None) -> str:
+    """Synchronous worker calling Google Gemini API with fallback models and multi-key rotation."""
+    import base64
+    if not GEMINI_API_KEYS:
         return (
             "⚠️ <b>Gemini API kaliti topilmadi.</b>\n"
             "Iltimos, bot ma'muri <code>.env</code> fayliga <code>GEMINI_API_KEY</code> ni kiritganligini tekshiring."
         )
 
+    parts = [{"text": prompt}]
+    if image_bytes:
+        b64_data = base64.b64encode(image_bytes).decode("utf-8")
+        parts.append({
+            "inline_data": {
+                "mime_type": mime_type,
+                "data": b64_data
+            }
+        })
+
     payload = {
         "contents": [
-            {"role": "user", "parts": [{"text": prompt}]}
+            {"role": "user", "parts": parts}
         ],
-        "systemInstruction": {
-            "parts": [{"text": AI_SYSTEM_INSTRUCTION}]
-        },
         "generationConfig": {
-            "temperature": 0.4,
-            "maxOutputTokens": 850
+            "temperature": 0.35,
+            "maxOutputTokens": 950
         }
     }
+    if system_instruction:
+        payload["systemInstruction"] = {
+            "parts": [{"text": system_instruction}]
+        }
+    elif not image_bytes:
+        payload["systemInstruction"] = {
+            "parts": [{"text": AI_SYSTEM_INSTRUCTION}]
+        }
+
     body = json.dumps(payload).encode("utf-8")
 
     last_err = None
-    for model in GEMINI_MODELS:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_API_KEY}"
-        req = urllib.request.Request(
-            url,
-            data=body,
-            headers={"Content-Type": "application/json"},
-            method="POST"
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=12) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-                candidates = data.get("candidates", [])
-                if candidates:
-                    parts = candidates[0].get("content", {}).get("parts", [])
-                    if parts and parts[0].get("text"):
-                        return parts[0].get("text").strip()
-        except Exception as e:
-            last_err = e
-            logging.warning(f"Gemini model {model} failed: {e}")
-            continue
+    for key in GEMINI_API_KEYS:
+        for model in GEMINI_MODELS:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+            req = urllib.request.Request(
+                url,
+                data=body,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=14) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    candidates = data.get("candidates", [])
+                    if candidates:
+                        content_parts = candidates[0].get("content", {}).get("parts", [])
+                        if content_parts and content_parts[0].get("text"):
+                            return content_parts[0].get("text").strip()
+            except urllib.error.HTTPError as he:
+                last_err = he
+                if he.code in (429, 403):
+                    logging.warning(f"Gemini key rate limit ({he.code}) on model {model}. Rotating key...")
+                    break
+                elif he.code == 404:
+                    continue
+                else:
+                    logging.warning(f"Gemini model {model} HTTP error {he.code}: {he}")
+                    continue
+            except Exception as e:
+                last_err = e
+                logging.warning(f"Gemini model {model} failed: {e}")
+                continue
 
-    logging.error(f"All Gemini models exhausted. Last error: {last_err}")
+    logging.error(f"All Gemini models and keys exhausted. Last error: {last_err}")
     return (
         "Uzr, hozirda sun'iy intellekt serverida yuklama yuqori bo'lganligi sababli javob bera olmadim. "
-        "Iltimos, birozdan so'ng savolingizni qayta yuboring yoki quyidagi tayyor bo'limlardan foydalaning."
+        "Iltimos, birozdan so'ng qayta urinib ko'ring."
     )
+
+async def analyze_image_with_gemini_vision(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
+    """Uses Gemini Vision API (gemini-2.5-flash / flash models) to detect visual privacy leaks, surroundings, and student cyber-risks."""
+    prompt = (
+        "Siz maktab o'quvchilari uchun kiberxavfsizlik va vizual OSINT bo'yicha sun'iy intellektsiz.\n"
+        "Ushbu fotosuratni shaxsiy ma'lumotlar xavfsizligi va vizual izlar bo'yicha tahlil qiling:\n"
+        "1. 🏫 Joylashuv va Fon: Surat qayerda olingan bo'lishi mumkin (maktab, sinf, uy, ko'cha, arxitektura yoki yozuvlar);\n"
+        "2. ⚠️ Shaxsiy ma'lumotlar sizishi: Suratda hujjat, pasport, ID karta, kundalik, sinf raqami, ochiq kompyuter/telefon ekrani yoki shaxsiy buyumlar ko'rinyaptimi;\n"
+        "3. 🛡️ O'quvchi xavfsizligi bo'yicha xulosa: Ushbu suratni ijtimoiy tarmoqlarga ommaviy joylash xavfsizmi yoki qanday xavf tug'dirishi mumkin.\n"
+        "Javobni Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) 3 ta qisqa, lo'nda va amaliy punkt bilan yozing."
+    )
+    raw = await asyncio.to_thread(_query_gemini_api_sync, prompt, image_bytes, mime_type)
+    return format_ai_to_tg_html(raw)
+
+async def audit_username_with_ai(raw_username: str) -> tuple:
+    """Uses Gemini AI (gemini-2.5-flash / flash models) to perform deep OSINT profiling and anonymity scoring on a username."""
+    raw = raw_username.lstrip('@').strip()
+    
+    platforms = []
+    try:
+        tg_url = f"https://t.me/{raw}"
+        req = urllib.request.Request(tg_url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=3) as res:
+            page = res.read().decode("utf-8")
+            if "tgme_page_title" in page or "tgme_action_button_new" in page:
+                platforms.append("Telegram (profil mavjud)")
+    except Exception:
+        pass
+
+    try:
+        gh_url = f"https://api.github.com/users/{raw}"
+        req = urllib.request.Request(gh_url, headers={"User-Agent": "KiberIz4"})
+        with urllib.request.urlopen(req, timeout=3) as res:
+            if res.status == 200:
+                platforms.append("GitHub (profil mavjud)")
+    except Exception:
+        pass
+
+    platforms_str = ", ".join(platforms) if platforms else "Ochiq profil topilmadi"
+
+    prompt = (
+        f"Siz «KiberIz-4» maktab kiberxavfsizlik mutaxassisisiz.\n"
+        f"Foydalanuvchi quyidagi ijtimoiy tarmoq nikneymini (@username) xavfsizlik va raqamli iz jihatidan tekshirmoqchi:\n"
+        f"Nikneym: @{raw}\n"
+        f"Tarmoqlardagi izlar: {platforms_str}\n\n"
+        f"Ushbu nikneymni tahlil qiling va Telegram HTML formatida (b, i, code teglaridan foydalanib) qaytaring:\n"
+        f"👤 <b>NIKNEYM AUDITI:</b> @{html.escape(raw)}\n"
+        f"📊 <b>ANONIMLIK DARAJASI:</b> [0% dan 100% gacha foiz va xulosa, masalan: 20% (Juda past) yoki 85% (Yuqori)]\n"
+        f"🔍 <b>OSHIKOR BO‘LGAN SHAXSIY IZLAR:</b>\n"
+        f"• [Ism, taxminiy yosh yoki tug'ilgan yil, maktab, psixologik xarakteristika]\n"
+        f"⚠️ <b>KIBER-XAVF VA IJTIMOIY MUHANDISLIK:</b>\n"
+        f"• [Firibgarlar, shantajchilar yoki stalkerlar bu nikneym orqali nimalarni fosh qilishi mumkin]\n"
+        f"💡 <b>XAVFSIZ VA CHROYLI MUQOBIL NIKNEYMLAR:</b>\n"
+        f"• <code>[1-muqobil xavfsiz nikneym]</code>\n"
+        f"• <code>[2-muqobil xavfsiz nikneym]</code>\n"
+        f"• <code>[3-muqobil xavfsiz nikneym]</code>\n\n"
+        f"Qisqa, lo'nda va amaliy bo'lsin. div, span, p teglarini ishlatmang."
+    )
+    raw_resp = await asyncio.to_thread(_query_gemini_api_sync, prompt)
+    formatted = format_ai_to_tg_html(raw_resp)
+    return formatted, raw
+
+async def audit_link_with_ai(full_url: str) -> tuple:
+    """Uses Gemini AI (gemini-2.5-flash / flash models) to perform deep cyber-threat, phishing, and legality analysis on a URL."""
+    clean_url = full_url.strip().rstrip('.,;!?')
+    if not clean_url.startswith(('http://', 'https://')):
+        clean_url = 'https://' + clean_url
+        
+    parsed = urllib.parse.urlparse(clean_url)
+    domain = (parsed.netloc or parsed.path).lower().split(':')[0]
+    
+    site_title = ""
+    try:
+        req = urllib.request.Request(clean_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            ct = resp.headers.get("Content-Type", "")
+            if "text/html" in ct:
+                raw_html = resp.read(8192).decode("utf-8", errors="ignore")
+                tm = re.search(r'<title[^>]*>(.*?)</title>', raw_html, re.I | re.S)
+                if tm:
+                    site_title = html.unescape(tm.group(1)).strip()[:90]
+    except Exception:
+        pass
+
+    prompt = (
+        f"Siz «KiberIz-4» maktab kiberxavfsizlik va OSINT tahlilchisisiz.\n"
+        f"Foydalanuvchi quyidagi havolani/domenni xavfsizlikka tekshirmoqchi:\n"
+        f"Havola: {clean_url}\n"
+        f"Asosiy domen: {domain}\n"
+        f"Sayt sarlavhasi (Title): {site_title or 'Aniqlanmadi'}\n\n"
+        f"Ushbu havolani tahlil qiling. Sayt nima maqsadda yaratilgan (Darknet/Ahmia, Fishing/Soxta ovoz berish, "
+        f"Qimor/Bukmekerlik, 18+ axloqsiz, Firibgarlik/Piramida yoki Rasmiy/Xavfsiz portal) ekanligini aniqlang.\n\n"
+        f"Javobni Telegram HTML formatida (faqat <b>, <i>, <code> teglaridan foydalanib) qaytaring:\n"
+        f"🌐 <b>HAVOLA:</b> <code>{html.escape(domain)}</code>\n"
+        f"🏷️ <b>TURI:</b> [Manba turi va nima ekanligi]\n"
+        f"📊 <b>KIBER-XAVF INDEKSI:</b> [0% dan 100% gacha foiz va holat, masalan: 95% (KRITIK XAVF) yoki 0% (XAVFSIZ)]\n"
+        f"⚠️ <b>TAHLIL VA XAVFLI BELGILAR:</b>\n"
+        f"• [Saytning mohiyati, o'quvchi ma'lumotlari yoki puliga xavfi]\n"
+        f"• [Firibgarlik usuli yoki O'zbekiston qonunchiligiga zid tomoni]\n"
+        f"🛡️ <b>XAVFSIZLIK CHORALARI:</b>\n"
+        f"• [O'quvchiga amaliy xavfsizlik tavsiyasi, nima qilish kerakligi]\n"
+        f"• [Shaxsiy ma'lumotlar va parollarni himoyalash bo'yicha maslahat]\n\n"
+        f"Qisqa, lo'nda, aniq va bolalar tushunadigan tilda yozing. div, span, p teglarini ishlatmang."
+    )
+    raw = await asyncio.to_thread(_query_gemini_api_sync, prompt)
+    formatted = format_ai_to_tg_html(raw)
+    return formatted, domain
 
 async def ask_gemini_cyber_mentor(prompt: str, user_id: int = 0) -> str:
     """Async wrapper with per-user cooldown and FAQ caching."""
@@ -1202,248 +1353,15 @@ URL_REGEX = re.compile(
     re.IGNORECASE
 )
 
-# Taqiqlangan va qonunga zid saytlar, ijtimoiy tarmoq profillari bazasi (Oliy Sud, Qimor, 18+, Narkotik, Fishing)
-FORBIDDEN_RULES = [
-    {
-        "category": "⚠️ O‘zbekiston Oliy Sudi taqiqlagan diniy-ekstremistik va terroristik manbalar (Telegram, Instagram, YouTube, TikTok)",
-        "badge": "🚨 O‘ZBEKISTON RESPUBLIKASI OLIY SUDI TOMONIDAN QAT’IYAN TAQIQLANGAN (JK 244-1)!",
-        "law": "O‘zbekiston Respublikasi JK 244-1-moddasi (Jamoat xavfsizligiga tahdid soluvchi materiallarni tayyorlash, saqlash, tarqatish yoki namoyish etish) hamda JK 244-2-moddasi bo‘yicha 5 yildan 8 yilgacha ozodlikdan mahrum qilish jazosiga sabab bo‘ladi! Oliy sud va Din ishlari bo‘yicha qo‘mitaning rasmiy reyestriga kiritilgan (my.sud.uz).",
-        "patterns": [
-            r"abdulloh-?zufar", r"abdullah-?zufar", r"zufar-?darslari",
-            r"sodiq-?samarqandiy", r"sodiqsamarqandiy", r"shayx-?sodiq",
-            r"abu-?saloh", r"abusaloh", r"abu-?solih",
-            r"mahmud-?abdulm[ou]min", r"mahmudabdulm[ou]min", r"mahmud-?rajab",
-            r"rashod-?qori", r"rashodqori",
-            r"abu-?hurayra", r"abuhurayra",
-            r"hizb-?ut-?tahrir", r"hizbuttahrir",
-            r"katibat-?al-?tawhid", r"tavhid-?va-?jihod", r"tavhidvajihod",
-            r"jabhat-?al-?nusra", r"al-?nusra",
-            r"ishid", r"daesh", r"isis", r"al-?qoida", r"al-?qaeda",
-            r"jannat-?oshiqlari", r"muhojir-?tv", r"muhojirtv",
-            r"najot-?forum", r"najotforum", r"ansorulloh", r"ansorullah",
-            r"xuruj", r"halifalik", r"xalifalik", r"sodiqlar", r"diyor-?news"
-        ]
-    },
-    {
-        "category": "🎰 Qimor, Bukmekerlik va Tavakkalchilik o‘yinlari",
-        "badge": "🚨 QAT’IYAN TAQIQLANGAN (QIMOR / BUKMEKER)",
-        "law": "O‘zbekiston Respublikasi JK 278-moddasi (Qimor va tavakkalchilikka asoslangan o‘yinlarni tashkil etish hamda o‘tkazish) bo‘yicha qat’iyan jinoiy javobgarlikka sabab bo‘ladi!",
-        "patterns": [
-            r"1-?x-?bet", r"most-?bet", r"mel-?bet", r"line-?bet", r"1-?win", r"pin-?up",
-            r"pari-?match", r"vavada", r"leon-?bet", r"fon-?bet", r"bet-?and-?you",
-            r"bet365", r"joy-?casino", r"(^|[\.\-_/])casino([\.\-_/]|$)", r"bukmeker",
-            r"poker-?dom", r"(^|[\.\-_/])stavk[ai]", r"qimor", r"(^|[\.\-_/])slot[s]?([\.\-_/]|$)",
-            r"aviator-?(game|play)?", r"lucky-?jet", r"olimp-?bet", r"betwinner",
-            r"gg-?bet", r"marathonbet", r"winline", r"baltbet", r"liga-?stavok",
-            r"zenit-?bet", r"spin-?win", r"roulette", r"ruletka"
-        ]
-    },
-    {
-        "category": "🔞 18+ Axloqsiz va Pornografik Kontent",
-        "badge": "🚨 QAT’IYAN TAQIQLANGAN (18+ PORNOGRAFIK MAZMUN)",
-        "law": "O‘zbekiston Respublikasi JK 130-moddasi (Pornografik mahsulotlarni tarqatish, reklama qilish, namoyish etish) bo‘yicha qonun bilan qat’iyan taqiqlangan!",
-        "patterns": [
-            r"pornhub", r"xvideos", r"xnxx", r"redtube", r"xhamster", r"onlyfans",
-            r"chaturbate", r"brazzers", r"stripchat", r"erome", r"rule34",
-            r"(^|[\.\-_/])porn[o]?([\.\-_/]|$)", r"(^|[\.\-_/])sex([\.\-_/]|$)",
-            r"hentai", r"bongacams", r"livejasmin", r"fapello", r"fap-?house",
-            r"youporn", r"tube8", r"spankbang", r"eporner", r"beeg", r"camsoda",
-            r"cam4", r"hqporner", r"(^|[\.\-_/])xxx([\.\-_/]|$)", r"nsfw"
-        ]
-    },
-    {
-        "category": "☠️ Narkotik, Darknet (.onion) va Noqonuniy Qora Bozor",
-        "badge": "🚨 QAT’IYAN TAQIQLANGAN (DARKNET / .ONION / NARKOTIK)",
-        "law": "O‘zbekiston Respublikasi JK 273-moddasi va kiberxavfsizlik talablariga ko‘ra, Darknet (.onion) tarmog‘i hamda uning qidiruv tizimlari (Ahmia) orqali noqonuniy vositalar, taqiqlangan moddalar va kiberjinoyatlar tarqatilishi qat’iyan man etiladi!",
-        "patterns": [
-            r"ahmia(\.fi)?", r"\.onion($|[./:])", r"tor2web", r"darksearch",
-            r"kraken", r"hydra", r"blacksprut", r"solaris", r"mega-?dark",
-            r"omg-?omg", r"narkotik", r"psixotrop", r"zakladka", r"mefedron",
-            r"alfa-?pvp", r"spice", r"spays", r"apteka-?online", r"narko-?shop",
-            r"(^|[\.\-_/])darknet([\.\-_/]|$)"
-        ]
-    },
-    {
-        "category": "🎣 Fishing, Bank Tuzog‘i va Akkaunt O‘g‘riligi",
-        "badge": "🚨 O‘TA XAVFLI FIRIBGARLIK (FISHING / TUZOQ)",
-        "law": "O‘zbekiston Respublikasi JK 168-moddasi (Axborot texnologiyalaridan foydalangan holda sodir etilgan firibgarlik) bo‘yicha jinoiy javobgarlikka sabab bo‘ladi!",
-        "patterns": [
-            r"click-?sovrin", r"payme-?bonus", r"humo-?bonus", r"ovoz-?ber",
-            r"bepul-?ovoz", r"pul-?yutu[gq]", r"telegram-?free", r"bepul-?premium",
-            r"tg-?premium", r"tg-?bonus", r"soxta-?ovoz", r"openbudget-?(ovoz|bonus)",
-            r"click-?bonus", r"payme-?login", r"uzcard-?bonus", r"uzcard-?verify",
-            r"telegram-?gift", r"free-?nitro"
-        ]
-    },
-    {
-        "category": "💸 Soxta Investitsiya va Moliyaviy Piramida",
-        "badge": "🚨 FIRIBGARLIK TUZOG‘I (MOLIYAVIY PIRAMIDA)",
-        "law": "O‘zbekiston Respublikasi JK 188-1-moddasi (Noqonuniy moliyaviy piramida faoliyati) bo‘yicha qat’iyan taqiqlangan!",
-        "patterns": [
-            r"uzcard-?invest", r"humo-?invest", r"gazprom-?invest", r"daromad-?invest",
-            r"robot-?daromad", r"pul-?ishlash", r"bepul-?daromad", r"olymp-?trade",
-            r"binomo", r"iq-?option", r"finiko", r"express-?doxod", r"smart-?invest"
-        ]
-    }
-]
-
+# Barcha qat'iy qora ro'yxatlar (FORBIDDEN_RULES) o'chirildi va to'liq Gemini AI intellektiga o'tkazildi.
 def audit_username(u: str):
-    """Audits a social media username for exposed age, school, interest profiling, and live platform presence."""
+    """Legacy compatibility stub."""
     raw = u.lstrip('@').strip()
-    norm_raw = raw.lower().replace('_', '-').replace('.', '-')
-    warnings = []
-    insights = []
-    platforms_found = []
-    score = 95
-
-    # Check against Forbidden / Banned Social Media Profiles (Oliy Sud, Qimor, Narkotik)
-    for cat in FORBIDDEN_RULES:
-        for p in cat["patterns"]:
-            if re.search(p, norm_raw) or re.search(p, raw.lower()):
-                warnings.append(f"🛑 <b>Taqiqlangan profil/kanal:</b> {cat['category']} doirasidagi noqonuniy manba!")
-                warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {cat['law']}")
-                return 0, warnings, insights, platforms_found, raw, True, cat
-    
-    # 1. Year of birth detection
-    year_match = re.search(r'(19\d\d|20\d\d)$', raw)
-    if year_match:
-        y = int(year_match.group(1))
-        if 1990 <= y <= 2020:
-            age = 2026 - y
-            warnings.append(f"📅 <b>Tug‘ilgan yil fosh bo‘lgan:</b> <code>{y}</code>-yil (Taxminan <b>{age} yoshdasiz</b>).")
-            score -= 35
-    else:
-        short_year = re.search(r'[\._\-](\d{2})$', raw)
-        if short_year:
-            sy = int(short_year.group(1))
-            if 4 <= sy <= 20:
-                warnings.append(f"📅 <b>Yoshingiz fosh bo‘lgan bo‘lishi mumkin:</b> <code>20{sy:02d}</code>-yil (o‘quvchi yoshi).")
-                score -= 25
-
-    # 2. School or location pattern
-    loc_match = re.search(r'(maktab|m4|school|4maktab|toshkent|chilonzor|samarqand|namangan|andijon|buxoro)', raw, re.I)
-    if loc_match:
-        warnings.append(f"🏫 <b>Maktab yoki joylashuv kodi:</b> Nikneymda joylashuv belgisi mavjud (<i>«{loc_match.group(0)}»</i>).")
-        score -= 30
-        
-    # 3. Interests & Semantics profiling
-    interests = []
-    low = raw.lower()
-    if 'sport' in low: interests.append("⚽ Sport / Jismoniy faollik")
-    if 'lider' in low or 'leader' in low: interests.append("🏆 Yetakchilik / Faollik")
-    if 'game' in low or 'gamer' in low or 'pubg' in low: interests.append("🎮 Video o‘yinlar (Gaming)")
-    if 'coder' in low or 'dev' in low or 'hack' in low: interests.append("💻 Dasturlash / IT")
-    if 'music' in low or 'sound' in low: interests.append("🎵 Musiqa")
-    if 'auto' in low or 'car' in low: interests.append("🚗 Avto / Texnika")
-    if 'shop' in low or 'store' in low or 'savdo' in low: interests.append("🛒 Savdo / Biznes")
-    
-    if interests:
-        insights.append(f"🎯 <b>Qiziqish sohasi (Profiling):</b> " + ", ".join(interests))
-        
-    # 4. Real-time platform presence check
-    # Telegram check
-    try:
-        tg_url = f"https://t.me/{raw}"
-        req = urllib.request.Request(tg_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=4) as res:
-            page = res.read().decode("utf-8")
-            if "tgme_page_title" in page or "tgme_action_button_new" in page:
-                title = ""
-                if '<meta property="og:title" content="' in page:
-                    title = page.split('<meta property="og:title" content="')[1].split('"')[0]
-                platforms_found.append(f"✈️ <b>Telegram:</b> Faol profil / kanal mavjud" + (f" (<i>«{html.escape(title)}»</i>)" if title and title != "Telegram" else ""))
-    except Exception:
-        pass
-        
-    # GitHub check
-    try:
-        gh_url = f"https://api.github.com/users/{raw}"
-        req = urllib.request.Request(gh_url, headers={"User-Agent": "KiberIz4-Agent"})
-        with urllib.request.urlopen(req, timeout=4) as res:
-            if res.status == 200:
-                data = json.loads(res.read().decode())
-                platforms_found.append(f"🐙 <b>GitHub:</b> Dasturchi profili topildi (Repolar: {data.get('public_repos', 0)} ta)")
-    except Exception:
-        pass
-        
-    score = max(min(score, 100), 15)
-    return score, warnings, insights, platforms_found, raw, False, None
+    return 50, [], [], [], raw, False, None
 
 def audit_link(url_text: str):
-    """Audits a URL for forbidden illegal content, phishing, malicious TLDs, and scam keywords."""
-    full_url = url_text.strip().rstrip('.,;!?')
-    is_http_only = full_url.startswith('http://')
-    if not full_url.startswith(('http://', 'https://')):
-        full_url = 'https://' + full_url
-        
-    parsed = urllib.parse.urlparse(full_url)
-    domain = (parsed.netloc or parsed.path).lower().split(':')[0]
-    path = parsed.path.lower()
-    full_lower = full_url.lower()
-    norm_url = full_lower.replace('_', '-').replace('.', '-')
-    
-    warnings = []
-    features = []
-    risk = 10
-    
-    # 0. Darknet (.onion) va Ahmia qidiruv tizimlari
-    if domain.endswith('.onion') or '.onion.' in domain or '.onion/' in full_lower or full_lower.endswith('.onion') or 'ahmia' in domain or 'ahmia.fi' in full_lower:
-        darknet_cat = next((c for c in FORBIDDEN_RULES if "Darknet" in c["category"]), FORBIDDEN_RULES[0])
-        warnings.append("🛑 <b>Darknet / Yashirin tarmoq (.onion):</b> Ushbu havola Tor / Darknet tarmog‘iga yoki uning qidiruv tizimiga (Ahmia) tegishli!")
-        warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {darknet_cat['law']}")
-        return True, darknet_cat, 100, warnings, features, domain, ""
-
-    # Check against Forbidden / Illegal Patterns (Websites, Telegram, Instagram, YouTube, TikTok)
-    for cat in FORBIDDEN_RULES:
-        for p in cat["patterns"]:
-            if re.search(p, domain) or re.search(p, path) or re.search(p, full_lower) or re.search(p, norm_url):
-                warnings.append(f"🛑 <b>Taqiqlangan manba:</b> {cat['category']} doirasidagi noqonuniy sayt/profil!")
-                warnings.append(f"⚖️ <b>Qonuniy taqiq:</b> {cat['law']}")
-                return True, cat, 100, warnings, features, domain, ""
-
-    # 1. Suspicious TLD
-    suspicious_tlds = ('.xyz', '.top', '.buzz', '.tk', '.ml', '.ga', '.cf', '.gq', '.club', '.online', '.site', '.click', '.monster', '.icu', '.vip', '.rest')
-    if any(domain.endswith(tld) for tld in suspicious_tlds):
-        warnings.append("🚨 <b>Xavfli domen zonasi:</b> Firibgarlar ko‘p foydalanadigan bepul yoki xavfli domen kengaytmasi.")
-        risk += 35
-    elif any(domain.endswith(tld) for tld in ('.uz', '.edu.uz', '.gov.uz')):
-        features.append("🇺🇿 <b>O‘zbekiston milliy domen zonasi (.uz)</b> — rasmiy reyestr nazorati mavjud.")
-
-    # 2. Phishing keywords
-    phish_words = ['bonus', 'sovrin', 'yutuq', 'click', 'payme', 'humo', 'uzcard', 'login', 'parol', 'verify', 'telegram-free', 'ovoz', 'invest', 'daromad', 'pul-ishlash']
-    matched_words = [w for w in phish_words if w in domain or w in path]
-    if matched_words:
-        warnings.append(f"⚠️ <b>Shubhali kalit so‘zlar:</b> <i>«{', '.join(matched_words)}»</i> (Ovoz berish, pul yoki soxta bonus tuzog‘i).")
-        risk += 40
-
-    # 3. IP address host
-    if re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}', domain):
-        warnings.append("🚨 <b>To‘g‘ridan-to‘g‘ri IP manzil:</b> Domen nomi o‘rniga shubhali server IP manzili ko‘rsatilgan.")
-        risk += 45
-        
-    # 4. HTTP vs HTTPS warning
-    if is_http_only:
-        warnings.append("🔓 <b>Xavfsiz ulanish (SSL) yo‘q:</b> Sayt <code>http://</code> orqali ishlamoqda. Ma’lumotlar shifrlanmaydi!")
-        risk += 15
-    else:
-        features.append("🔒 <b>Shifrlangan HTTPS ulanish</b> mavjud.")
-        
-    # 5. Live Website Title
-    site_title = ""
-    try:
-        req = urllib.request.Request(full_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        with urllib.request.urlopen(req, timeout=3) as resp:
-            content_type = resp.headers.get("Content-Type", "")
-            if "text/html" in content_type:
-                html_raw = resp.read(8192).decode("utf-8", errors="ignore")
-                title_match = re.search(r'<title[^>]*>(.*?)</title>', html_raw, re.IGNORECASE | re.DOTALL)
-                if title_match:
-                    site_title = title_match.group(1).strip()
-    except Exception:
-        pass
-        
-    risk = min(risk, 98)
-    return False, None, risk, warnings, features, domain, site_title
+    """Legacy compatibility stub."""
+    return False, None, 10, [], [], "", ""
 
 def get_website_screenshot(url: str):
     """Captures a safe, isolated cloud sandbox screenshot of a website without placeholder/spinner errors."""
@@ -1934,6 +1852,13 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     # Real Visual OSINT Analysis (Chronolocation & OCR)
     visual_info = analyze_visual_osint(file_bytes)
     
+    # Real AI Vision OSINT & Privacy Analysis (Gemini Multimodal Vision)
+    ai_vision_text = ""
+    try:
+        ai_vision_text = await analyze_image_with_gemini_vision(file_bytes)
+    except Exception as ai_v_err:
+        logging.warning(f"AI Vision error: {ai_v_err}")
+    
     # Calculate composite Cyber Risk Score (0-100%)
     risk_score = 15
     if coords:
@@ -1947,11 +1872,6 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         
     if qr_data:
         risk_score += 25
-        risk_score += 25
-        
-    if visual_info:
-        risk_score += visual_info.get("chrono_risk", 10)
-        risk_score += visual_info.get("text_risk", 0)
         
     risk_score = min(risk_score, 100)
     filled = int(risk_score / 10)
@@ -1983,28 +1903,18 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             analysis_msg += f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi (tozalangan).</i>\n"
     analysis_msg += "\n"
     
-    # Chronolocation
-    analysis_msg += f"{p('TIMER', '☀️')} <b>2. XRONOLOKATSIYA (YORUG‘LIK VA VAQT):</b>\n"
-    if visual_info:
+    # 2. AI Vision OSINT Section
+    if ai_vision_text:
         analysis_msg += (
+            f"{p('LIGHT', '💡')} <b>2. AI VISION VIZUAL OSINT VA XAVFSIZLIK TAHLILI:</b>\n"
+            f"{ai_vision_text}\n\n"
+        )
+    elif visual_info:
+        analysis_msg += (
+            f"{p('TIMER', '☀️')} <b>2. XRONOLOKATSIYA VA VIZUAL TAHLIL:</b>\n"
             f"• <b>Holat:</b> {visual_info['chrono_text']}\n"
             f"• <b>Yorug‘lik ko‘rsatkichi:</b> <code>{visual_info['brightness']} lx</code>\n\n"
         )
-    else:
-        analysis_msg += f"• <i>Yorug‘lik tahlil qilindi.</i>\n\n"
-        
-    # OCR & Background
-    analysis_msg += f"{p('HACKER', '🕵️‍♂️')} <b>3. VIZUAL FON VA YOZUVLAR (OCR TAHLILI):</b>\n"
-    if visual_info and visual_info["ocr_found"]:
-        analysis_msg += f"{p('WARNING', '⚠️')} <b>Fonda xavfli belgilar aniqlandi:</b>\n"
-        for of in visual_info["ocr_found"]:
-            analysis_msg += f"• {of}\n"
-    elif visual_info and visual_info["ocr_text"]:
-        clean_snip = html.escape(visual_info["ocr_text"][:80].replace("\n", " "))
-        analysis_msg += f"• 📝 <b>O‘qilgan yozuvlar:</b> <i>«{clean_snip}...»</i>\n"
-    else:
-        analysis_msg += f"• {p('CHECK', '✅')} <i>Ochiq maktab yoki manzil yozuvlari fosh bo‘lmadi.</i>\n"
-    analysis_msg += "\n"
     
     # QR Code & Barcode Section
     if qr_data:
@@ -2016,7 +1926,7 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Reverse Search
     analysis_msg += (
-        f"{p('GLOBE', '🌐')} <b>4. TESKARI QIDIRUV (REVERSE SEARCH):</b>\n"
+        f"{p('GLOBE', '🌐')} <b>3. TESKARI QIDIRUV (REVERSE SEARCH):</b>\n"
         f"Surat bo‘yicha internetdagi ochiq ma’lumotlarni qidirish uchun quyidagi tugmalardan foydalanishingiz mumkin:\n"
     )
     
@@ -2274,86 +2184,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["waiting_for_audit"] = False
         m_url = URL_REGEX.search(text)
         matched_url = m_url.group(1).rstrip('.,;!?')
-        is_forbidden, forbidden_info, risk, warnings, features, domain, site_title = audit_link(matched_url)
-        
-        # 1. Taqiqlangan va qonunga zid manbalar (Qimor, 18+, Narkotik, Fishing)
-        if is_forbidden and forbidden_info:
-            resp = (
-                f"{p('BOMB', '🚨')} <b>QAT’IYAN TAQIQLANGAN VA NOQONUNIY MANBA!</b>\n\n"
-                f"🔗 <b>Kiritilgan havola:</b> <code>{html.escape(matched_url)}</code>\n"
-                f"🌐 <b>Asosiy Domen:</b> <code>{html.escape(domain)}</code>\n\n"
-                f"📊 <b>Kiber-Xavf Indeksi:</b> <code>[██████████]</code> <b>100% (KRITIK XAVF)</b>\n"
-                f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n\n"
-                f"⚠️ <b>ANIQLANGAN TAQIQLANGAN KATEGORIYA:</b>\n"
-                f"• <b>Turi:</b> {forbidden_info['category']}\n"
-                f"• ⚖️ <b>Qonuniy asos:</b> <i>{forbidden_info['law']}</i>\n\n"
-                f"🚫 <b>XAVFSIZLIK CHORALARI:</b>\n"
-                f"1. Ushbu havolaga <b>HECH QACHON kirmang</b> va uni boshqalarga ulashmang!\n"
-                f"2. Bunday saytlar fuqarolarning pullarini, shaxsiy hisoblarini o‘g‘irlash yoki axloqiy/ruhiy zarar yetkazish uchun mo‘ljallangan.\n"
-                f"3. Ushbu xabarni darhol o‘chirib tashlash tavsiya etiladi."
-            )
-            await update.message.reply_text(resp, parse_mode="HTML")
-
-            # Xavfsiz bulutli sendboks ekrani (Screenshot)
-            try:
-                loop = asyncio.get_running_loop()
-                ss_bytes = await loop.run_in_executor(None, get_website_screenshot, matched_url)
-                if ss_bytes:
-                    caption = (
-                        f"{p('CAMERA', '📸')} <b>«{html.escape(domain)}» saytining jonli ekrani (Sandbox):</b>\n\n"
-                        f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n"
-                        f"🛡️ <i>Xavfsiz bulutli sendboks (Chromium) orqali olindi. O‘zingiz shaxsiy brauzeringizda ochmasdan bexavotir ko‘rishingiz mumkin.</i>"
-                    )
-                    await update.message.reply_photo(
-                        photo=io.BytesIO(ss_bytes),
-                        caption=caption,
-                        parse_mode="HTML"
-                    )
-            except Exception as ss_e:
-                logging.warning(f"Screenshot error for forbidden url: {ss_e}")
-            return
-
-        # 2. Boshqa barcha havolalar tahlili (Xavfsiz yoki Shubhali)
-        filled = int(risk / 10)
-        bar = "█" * filled + "░" * (10 - filled)
-        if risk >= 60:
-            verdict = f"🚨 JIDDIY FISHING VA FIRIBGARLIK TUZOG‘I ({risk}%)"
-        elif risk >= 35:
-            verdict = f"⚠️ SHUBHALI / EHTIYOT BO‘LING ({risk}%)"
-        else:
-            verdict = f"✅ NISBATAN XAVFSIZ SAYT ({risk}%)"
-            
-        resp = (
-            f"{p('GLOBE', '🌐')} <b>HAVOLA (URL) OSINT VA FISHING TEKSHIRUVI:</b>\n\n"
-            f"🔗 <b>Kiritilgan manzil:</b> <code>{html.escape(matched_url)}</code>\n"
-            f"🌐 <b>Asosiy Domen:</b> <code>{html.escape(domain)}</code>\n"
-        )
-        if site_title:
-            resp += f"📑 <b>Sayt nomi / Title:</b> <i>«{html.escape(site_title[:90])}»</i>\n"
-            
-        resp += (
-            f"📊 <b>Xavf Ko‘rsatkichi:</b> <code>[{bar}]</code>\n"
-            f"<b>Xulosa:</b> {verdict}\n\n"
-        )
-        if warnings:
-            resp += f"{p('WARNING', '⚠️')} <b>Aniqlangan xavfli belgilar:</b>\n"
-            for w in warnings:
-                resp += f"• {w}\n"
-            resp += "\n"
-        else:
-            resp += f"{p('CHECK', '✅')} <i>Ochiq fishing yoki taqiqlangan manba belgilari topilmadi.</i>\n\n"
-            
-        if features:
-            resp += f"{p('SHIELD', '🛡️')} <b>Xavfsizlik parametrlari:</b>\n"
-            for ft in features:
-                resp += f"• {ft}\n"
-            resp += "\n"
-            
-        resp += (
-            f"{p('SHIELD', '🛡️')} <b>Kiber-Qoida:</b> «Ovoz bering», «Telegram Premium bepul», «Sovg‘a yutib oldingiz» "
-            f"mazmunidagi havolalarga HECH QACHON telefon raqam yoki SMS kod kiritmang!"
-        )
-        await update.message.reply_text(resp, parse_mode="HTML")
+        try:
+            await update.message.chat.send_action("typing")
+        except Exception:
+            pass
+        ai_resp, domain = await audit_link_with_ai(matched_url)
+        await update.message.reply_text(ai_resp, parse_mode="HTML")
 
         # Xavfsiz bulutli sendboks ekrani (Screenshot)
         try:
@@ -2362,8 +2198,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if ss_bytes:
                 caption = (
                     f"{p('CAMERA', '📸')} <b>«{html.escape(domain)}» saytining jonli ekrani (Sandbox):</b>\n\n"
-                    f"📊 <b>Kiber-Tahlil:</b> {verdict}\n"
-                    f"🛡️ <i>Xavfsiz bulutli sendboks (Chromium) orqali rasmga olindi.</i>"
+                    f"🛡️ <i>Xavfsiz bulutli sendboks (Chromium) orqali olindi.</i>"
                 )
                 await update.message.reply_photo(
                     photo=io.BytesIO(ss_bytes),
@@ -2377,98 +2212,14 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 5. Username OSINT Audit
     is_explicit_username = text.startswith("@") and len(words) == 1
     is_audit_username = is_audit_mode and len(words) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)
-    is_forbidden_username = False
-    
-    if not is_explicit_username and len(words) == 1 and 3 <= len(text) <= 30:
-        norm_t = text.lower().replace('_', '-').replace('.', '-')
-        for cat in FORBIDDEN_RULES:
-            for pat in cat["patterns"]:
-                if re.search(pat, norm_t) or re.search(pat, text.lower()):
-                    is_forbidden_username = True
-                    break
-            if is_forbidden_username:
-                break
 
-    if is_explicit_username or is_audit_username or is_forbidden_username:
+    if is_explicit_username or is_audit_username:
         context.user_data["waiting_for_audit"] = False
-        # Username OSINT Audit
-        score, warnings, insights, platforms_found, raw, is_forbidden, forbidden_info = audit_username(text)
-        
-        # 1. Taqiqlangan va qonunga zid profillar (Oliy Sud, Qimor, Narkotik)
-        if is_forbidden and forbidden_info:
-            resp = (
-                f"{p('BOMB', '🚨')} <b>QAT’IYAN TAQIQLANGAN VA NOQONUNIY PROFIL!</b>\n\n"
-                f"👤 <b>Kiritilgan profil / nikneym:</b> <code>@{html.escape(raw)}</code>\n\n"
-                f"📊 <b>Kiber-Xavf Indeksi:</b> <code>[██████████]</code> <b>100% (KRITIK JINOIY XAVF)</b>\n"
-                f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n\n"
-                f"⚠️ <b>ANIQLANGAN TAQIQLANGAN KATEGORIYA:</b>\n"
-                f"• <b>Turi:</b> {forbidden_info['category']}\n"
-                f"• ⚖️ <b>Qonuniy asos:</b> <i>{forbidden_info['law']}</i>\n\n"
-                f"🚫 <b>XAVFSIZLIK CHORALARI:</b>\n"
-                f"1. Ushbu profil, kanal yoki sahifaga <b>HECH QACHON a’zo bo‘lmang</b>, materiallarini saqlamang va boshqalarga ulashmang!\n"
-                f"2. Qonunchilikka ko‘ra (JK 244-1 va 278-moddalar), bunday manbalarni saqlash yoki tarqatish to‘g‘ridan-to‘g‘ri jinoiy javobgarlikka sabab bo‘ladi.\n"
-                f"3. Ushbu yozishmani darhol o‘chirib tashlash tavsiya etiladi."
-            )
-            await update.message.reply_text(resp, parse_mode="HTML")
-
-            # Xavfsiz kanal/profil sendboks ekrani (Screenshot)
-            try:
-                loop = asyncio.get_running_loop()
-                ss_bytes = await loop.run_in_executor(None, get_website_screenshot, f"https://t.me/s/{raw}")
-                if ss_bytes:
-                    caption = (
-                        f"{p('CAMERA', '📸')} <b>@{html.escape(raw)} kanalining jonli ko‘rinishi (Sandbox):</b>\n\n"
-                        f"🛑 <b>Holat:</b> {forbidden_info['badge']}\n"
-                        f"🛡️ <i>Xavfsiz bulutli sendboks orqali olindi. Kanalga a’zo bo‘lmasdan ko‘rishingiz mumkin.</i>"
-                    )
-                    await update.message.reply_photo(
-                        photo=io.BytesIO(ss_bytes),
-                        caption=caption,
-                        parse_mode="HTML"
-                    )
-            except Exception as ss_e:
-                logging.warning(f"Screenshot error for forbidden username: {ss_e}")
-            return
-
-        filled = int(score / 10)
-        bar = "█" * filled + "░" * (10 - filled)
-        
-        if score <= 50:
-            anon_label = f"🚨 JUDA PAST ANONIMLIK ({score}%) — Shaxsingiz osongina fosh bo‘ladi!"
-        elif score <= 75:
-            anon_label = f"⚠️ O‘RTA DARAJA ({score}%) — Ayrim shaxsiy belgilar mavjud"
-        else:
-            anon_label = f"✅ YUQORI ANONIMLIK ({score}%) — Xavfsiz nikneym"
-            
-        resp = (
-            f"{p('HACKER', '🕵️‍♂️')} <b>NIKNEYM RAQAMLI IZ AUDITI: @{html.escape(raw)}</b>\n\n"
-            f"📊 <b>Anonimlik darajasi:</b>\n"
-            f"<code>[{bar}]</code> <b>{anon_label}</b>\n\n"
-        )
-        if warnings:
-            resp += f"{p('WARNING', '⚠️')} <b>Oshkor bo‘lgan ma’lumotlar:</b>\n"
-            for w in warnings:
-                resp += f"• {w}\n"
-            resp += "\n"
-        else:
-            resp += f"{p('CHECK', '✅')} <i>Nikneymda yosh, maktab yoki tug‘ilgan yil belgilari topilmadi (toza).</i>\n\n"
-            
-        if insights:
-            for ins in insights:
-                resp += f"{ins}\n"
-            resp += "\n"
-            
-        if platforms_found:
-            resp += f"{p('SEARCH', '🌐')} <b>Jonli topilgan akkauntlar:</b>\n"
-            for pf in platforms_found:
-                resp += f"• {pf}\n"
-            resp += "\n"
-            
-        resp += (
-            f"{p('SEARCH', '🔎')} <b>Boshqa tarmoqlardagi raqamli izlarni tekshirish:</b>\n"
-            f"Ushbu nikneym orqali boshqa platformalardagi profillarni bir bosishda qidirishingiz mumkin:"
-        )
-        
+        try:
+            await update.message.chat.send_action("typing")
+        except Exception:
+            pass
+        ai_resp, raw = await audit_username_with_ai(text)
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("Telegram", url=f"https://t.me/{raw}", icon_custom_emoji_id=E["CALL"]),
@@ -2482,7 +2233,7 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("WhatsMyName (Global Qidiruv)", url="https://whatsmyname.app/", icon_custom_emoji_id=E["SEARCH"])
             ]
         ])
-        await update.message.reply_text(resp, parse_mode="HTML", reply_markup=keyboard)
+        await update.message.reply_text(ai_resp, parse_mode="HTML", reply_markup=keyboard)
         return
 
     # 6. General Questions / Sentences / Situations
