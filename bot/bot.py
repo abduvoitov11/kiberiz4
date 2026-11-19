@@ -2488,6 +2488,27 @@ def parse_video_metadata(file_bytes: bytes, file_name: str):
             except Exception:
                 pass
 
+def extract_video_frame(file_bytes: bytes, file_name: str = "video.mp4") -> bytes:
+    """Extracts a representative JPEG keyframe from video using ffmpeg for AI Vision & QR analysis."""
+    ext = os.path.splitext(file_name)[1].lower() or ".mp4"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf:
+        tf.write(file_bytes)
+        tf_path = tf.name
+    try:
+        cmd = ['ffmpeg', '-y', '-ss', '00:00:00.3', '-i', tf_path, '-vframes', '1', '-f', 'image2pipe', '-vcodec', 'mjpeg', '-']
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5)
+        if res.returncode == 0 and res.stdout and res.stdout.startswith(b'\xff\xd8\xff'):
+            return res.stdout
+    except Exception as e:
+        logging.debug(f"Video frame extraction error: {e}")
+    finally:
+        if os.path.exists(tf_path):
+            try:
+                os.remove(tf_path)
+            except Exception:
+                pass
+    return None
+
 async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg:
@@ -2663,14 +2684,79 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 parse_mode="HTML"
             )
             return
-            
-        analysis_msg = f"{p('RADAR', '🎬')} <b>VIDEO OSINT TAHLIL NATIJASI ({html.escape(file_name)}):</b>\n\n"
-        
+
+        # Reverse Geocoding to Human Address
         if coords:
-            analysis_msg += f"{p('SOS', '🚨')} <b>JIDDIY XAVF: VIDEODA YASHIRIN GEOLOKATSIYA TOPILDI!</b>\n"
+            lat_val, lon_val = coords
+            human_addr = get_human_address(lat_val, lon_val)
+            if human_addr:
+                details.append(
+                    f"{p('HOUSE', '🏢')} <b>Haqiqiy tuman / manzil:</b> <code>{html.escape(human_addr)}</code>\n"
+                    f"   └ 🚨 <i>Diqqat: Ushbu joy 5 metr aniqlikda oshkor bo‘ldi!</i>"
+                )
+
+        # Extract representative keyframe for QR & AI Vision
+        frame_bytes = extract_video_frame(file_bytes, file_name)
+        qr_data = None
+        qr_audit_text = ""
+        ai_vision_text = ""
+        if frame_bytes:
+            qr_data = scan_qr_code(frame_bytes)
+            if qr_data:
+                try:
+                    qr_audit_text = await audit_quishing_with_ai(qr_data)
+                except Exception as qr_e:
+                    logging.debug(f"Video QR audit error: {qr_e}")
+            try:
+                ai_vision_text = await analyze_image_with_gemini_vision(frame_bytes)
+            except Exception as ai_e:
+                logging.debug(f"Video AI vision error: {ai_e}")
+
+        # Calculate composite risk score
+        risk_score = 15
+        if coords:
+            risk_score += 50
         elif details:
-            analysis_msg += f"{p('WARNING', '⚠️')} <b>VIDEODA TEXNIK VA QURILMA METAMA’LUMOTLARI TOPILDI:</b>\n"
-            
+            risk_score += 25
+        if qr_data:
+            risk_score += 25
+            if qr_audit_text and "KRITIK" in qr_audit_text.upper():
+                risk_score = max(risk_score, 90)
+        if ai_vision_text and "KRITIK" in ai_vision_text.upper():
+            risk_score = max(risk_score, 90)
+
+        risk_score = min(risk_score, 100)
+        filled = int(risk_score / 10)
+        bar = "█" * filled + "░" * (10 - filled)
+        if risk_score >= 70:
+            risk_label = f"🚨 KRITIK JIDDIY XAVF ({risk_score}%)"
+        elif risk_score >= 40:
+            risk_label = f"⚠️ O‘RTA DARAJADAGI XAVF ({risk_score}%)"
+        else:
+            risk_label = f"✅ XAVFSIZROQ PROFIL ({risk_score}%)"
+
+        analysis_msg = (
+            f"{p('RADAR', '🎬')} <b>VIDEO OSINT & FORENSICS TAHLILI ({html.escape(file_name)}):</b>\n\n"
+            f"📊 <b>KIBER-XAVF INDEKSI:</b>\n"
+            f"<code>[{bar}]</code> <b>{risk_label}</b>\n\n"
+        )
+
+        if qr_data:
+            if qr_audit_text:
+                analysis_msg += f"{qr_audit_text}\n\n"
+            else:
+                analysis_msg += (
+                    f"🏁 <b>VIDEODA QR-KOD TOPILDI:</b>\n"
+                    f"• <b>QR Tarkibi:</b> <code>{html.escape(qr_data)}</code>\n\n"
+                )
+
+        if ai_vision_text:
+            analysis_msg += (
+                f"{p('LIGHT', '💡')} <b>AI VISION KADR TAHLILI (Video vizual foni):</b>\n"
+                f"{ai_vision_text}\n\n"
+            )
+
+        analysis_msg += f"{p('LOCK', '🔐')} <b>QURILMA VA METAMA’LUMOTLAR:</b>\n"
         if details:
             for d in details:
                 analysis_msg += f"• {d}\n"
@@ -2678,17 +2764,17 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         else:
             if not is_doc:
                 analysis_msg += (
-                    f"{p('INFO', 'ℹ️')} <i>Telegram orqali oddiy video tarzida yuborilgani uchun Telegram uni siqib, "
+                    f"• {p('INFO', 'ℹ️')} <i>Telegram orqali oddiy video tarzida yuborilgani uchun Telegram uni siqib, "
                     f"barcha EXIF va GPS parametrlarini avtomatik tozalab tashlagan.\n"
                     f"Original video metama’lumotlarini tekshirish uchun uni botga <b>'Hujjat' (Document / File)</b> qilib yuboring!</i>\n\n"
                 )
             else:
                 analysis_msg += (
-                    f"{p('CHECK', '✅')} <i>Ushbu video faylida GPS yoki kamera parametrlari topilmadi (tozalangan yoki kamera geolokatsiyasi o‘chiq bo‘lgan).</i>\n\n"
+                    f"• {p('CHECK', '✅')} <i>Ushbu video faylida GPS yoki kamera parametrlari topilmadi.</i>\n\n"
                 )
-                
+
         analysis_msg += (
-            f"{p('HACKER', '🕵️‍♂️')} <b>VIDEODAGI TEXNIK VA AUDIO TAHLIL:</b>\n"
+            f"{p('HACKER', '🕵️‍♂️')} <b>AUDIO VA TEXNIK KO‘RSATKICHLAR:</b>\n"
             f"• {p('CALL', '🔊')} <b>Ovoz yo‘lagi:</b> Fon shovqini va audio parametrlar tekshirildi.\n"
             f"• {p('TIMER', '⏱️')} <b>Texnik ko‘rsatkichlar:</b> Kadr chastotasi, o‘lcham va kodek parametrlari aniqlandi.\n"
         )
