@@ -179,6 +179,59 @@ async def test_ai_integration():
     assert l_resp and len(l_resp) > 30, f"Link audit response too short: {l_resp}"
     print("    [PASSED] Live Gemini AI Cyber-Mentor, Link Audit, and Username OSINT.")
 
+async def test_qr_and_quishing_suite():
+    print(">>> 10. Testing QR Code & Quishing Scanner...")
+    import qrcode, io
+    from bot import scan_qr_code, audit_quishing_with_ai
+
+    test_url = "https://payme-security-check.site/login"
+    qr = qrcode.QRCode()
+    qr.add_data(test_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_bytes = buf.getvalue()
+
+    # Step 1: scan QR
+    decoded = scan_qr_code(qr_bytes)
+    assert decoded == test_url, f"Decoded QR '{decoded}' != expected '{test_url}'"
+    print("    [PASSED] QR decoder accurately read synthetic QR code.")
+
+    await asyncio.sleep(2.0)
+
+    # Step 2: Quishing AI audit
+    quish_resp = await audit_quishing_with_ai(decoded)
+    print("    Quishing audit resp length:", len(quish_resp))
+    assert "QUISHING" in quish_resp.upper(), "Quishing report missing 'QUISHING' header"
+    assert "Kiber-Xavf" in quish_resp or "Indeksi" in quish_resp or "Xavf" in quish_resp, "Missing risk index in quishing report"
+    print("    [PASSED] Live Gemini Quishing AI Audit.")
+
+async def test_screenshot_vision_suite():
+    print(">>> 11. Testing AI Vision Screenshot & Phishing Detection...")
+    import io
+    from PIL import Image, ImageDraw
+    from bot import analyze_image_with_gemini_vision
+
+    # Create synthetic SMS / Telegram phishing screenshot
+    im = Image.new("RGB", (420, 160), color=(245, 245, 245))
+    d = ImageDraw.Draw(im)
+    d.text((15, 20), "CLICK: Akkauntingiz xavfsizlik uchun bloklandi!", fill=(220, 0, 0))
+    d.text((15, 55), "Hisobni tiklash uchun kiring: click-tasdiq.com", fill=(0, 0, 220))
+    d.text((15, 90), "Aks holda hisob 12 soatda butunlay o'chiriladi!", fill=(100, 100, 100))
+
+    buf = io.BytesIO()
+    im.save(buf, format="JPEG")
+    screenshot_bytes = buf.getvalue()
+
+    await asyncio.sleep(2.0)
+
+    # Analyze with Gemini Vision
+    res = await analyze_image_with_gemini_vision(screenshot_bytes)
+    print("    Vision audit resp length:", len(res))
+    assert ("SKRINSHOT" in res.upper() or "FISHING" in res.upper()), f"Vision didn't detect screenshot/phishing: {res[:120]}"
+    print("    [PASSED] Live Gemini AI Vision Screenshot & Phishing Audit.")
+
 def run_all():
     print("==================================================")
     print("STARTING KIBERIZ-4 COMPLETE RIGOROUS TEST SUITE")
@@ -192,6 +245,8 @@ def run_all():
     test_quiz_structure()
     test_keyboards_and_menu_matching()
     asyncio.run(test_ai_integration())
+    asyncio.run(test_qr_and_quishing_suite())
+    asyncio.run(test_screenshot_vision_suite())
     print("==================================================")
     print("ALL TESTS PASSED 100% WITH ZERO ERRORS!")
     print("==================================================")

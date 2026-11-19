@@ -38,6 +38,11 @@ try:
 except ImportError:
     pillow_heif = None
 
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
+except ImportError:
+    pyzbar_decode = None
+
 from telegram import (
     Update,
     Message,
@@ -310,6 +315,7 @@ def record_bot_msg(chat_id, msg):
 
 MENU_BUTTON_TEXTS = {
     "Suratni tekshirish (OSINT)",
+    "Surat & Skrinshot auditi",
     "5 daqiqalik Chek-list",
     "Nikneym & Havola auditi",
     "Real keyslar: 3 ta xavf",
@@ -660,14 +666,32 @@ def _query_gemini_api_sync(prompt: str, image_bytes: bytes = None, mime_type: st
     )
 
 async def analyze_image_with_gemini_vision(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
-    """Uses Gemini Vision API (gemini-2.5-flash / flash models) to detect visual privacy leaks, surroundings, and student cyber-risks."""
+    """Uses Gemini Vision API (gemini-2.5-flash / flash models) to detect:
+    1. Screenshots of SMS, Telegram, banking (Click/Payme), fake financial aid, phishing, and scam manipulation.
+    2. Visual privacy leaks, surroundings, documents, and student cyber-risks in regular photos.
+    """
     prompt = (
-        "Siz maktab o'quvchilari uchun kiberxavfsizlik va vizual OSINT bo'yicha sun'iy intellektsiz.\n"
-        "Ushbu fotosuratni shaxsiy ma'lumotlar xavfsizligi va vizual izlar bo'yicha tahlil qiling:\n"
-        "1. 🏫 Joylashuv va Fon: Surat qayerda olingan bo'lishi mumkin (maktab, sinf, uy, ko'cha, arxitektura yoki yozuvlar);\n"
-        "2. ⚠️ Shaxsiy ma'lumotlar sizishi: Suratda hujjat, pasport, ID karta, kundalik, sinf raqami, ochiq kompyuter/telefon ekrani yoki shaxsiy buyumlar ko'rinyaptimi;\n"
-        "3. 🛡️ O'quvchi xavfsizligi bo'yicha xulosa: Ushbu suratni ijtimoiy tarmoqlarga ommaviy joylash xavfsizmi yoki qanday xavf tug'dirishi mumkin.\n"
-        "Javobni Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) 3 ta qisqa, lo'nda va amaliy punkt bilan yozing."
+        "Siz «KiberIz-4» maktab kiberxavfsizlik, vizual OSINT va anti-fishing bo'yicha sun'iy intellektsiz.\n"
+        "Ushbu tasvirni diqqat bilan o'rganing va 2 ta toifadan biriga moslab tahlil qiling:\n\n"
+        "A) AGAR TASVIR SKRINSHOT BO'LSA (SMS xabarnoma, Telegram/WhatsApp/Instagram chati, Click/Payme/Uzum cheki yoki ilovasi, soxta pul/yordam/sovrin, akkount bloklanishi haqida ogohlantirish):\n"
+        "Javobni quyidagi tuzilmada Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) yozing:\n"
+        "📱 <b>SMART VISION: SKRINSHOT VA FISHING AUDITI</b>\n"
+        "• 📊 <b>Kiber-Xavf Indeksi:</b> [0% dan 100% gacha va holat: 🚨 KRITIK FISHING / ⚠️ SHUBHALI / ✅ XAVFSIZ]\n"
+        "• 💬 <b>Aniqlangan Matn va Mazmun:</b> [Skrinshotdagi asosiy xabar, va'da qilingan summa yoki da'vo qisqacha]\n"
+        "• 🎭 <b>Manipulyatsiya va Soxta Brend:</b> [Qaysi bank/tashkilot (Click, Payme, Davlat portali, Telegram) niqob qilib olingan va psixologik bosim (shoshiltirish, tekinga pul, qo'rqitish)]\n"
+        "• ⚠️ <b>Kiber-Tahdid:</b> [Karta raqami/SMS kod o'g'irlanishi, hisobni boy berish yoki virus yuklanishi]\n"
+        "• 🛡️ <b>Xavfsizlik Choralari:</b>\n"
+        "  1. <i>Havolaga aslo kirmang va hech narsa yuklab olmang!</i>\n"
+        "  2. <i>SMS orqali kelgan tasdiqlash kodini hech kimga bermang!</i>\n"
+        "  3. <i>Yuboruvchini bloklang va xabarni o'chirib tashlang.</i>\n"
+        "• ⚖️ <b>Qonuniy asos:</b> O‘zR JK 168-moddasi (Firibgarlik).\n\n"
+        "B) AGAR TASVIR ODDIY FOTOSURAT BO'LSA (Maktab, xona, ko'cha, odamlar, buyumlar, peyzaj):\n"
+        "Javobni quyidagi tuzilmada Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) yozing:\n"
+        "📸 <b>VIZUAL OSINT VA MAXFIYLIK TAHLILI:</b>\n"
+        "• 🏫 <b>Joylashuv va Fon:</b> [Surat qayerda olingan bo'lishi mumkin (maktab, sinf, uy, ko'cha, me'moriy belgilar)];\n"
+        "• ⚠️ <b>Shaxsiy ma'lumotlar sizishi:</b> [Hujjat, pasport, ID karta, kundalik, sinf raqami, ochiq kompyuter/telefon ekrani yoki shaxsiy buyumlar ko'rinyaptimi];\n"
+        "• 🛡️ <b>O'quvchi xavfsizligi bo'yicha xulosa:</b> [Ushbu suratni ijtimoiy tarmoqlarga ommaviy joylash xavfsizmi yoki qanday xavf tug'dirishi mumkin].\n\n"
+        "Javobni lo'nda, o'zbek tilida, aniq va ortiqcha so'zlarsiz taqdim eting."
     )
     raw = await asyncio.to_thread(_query_gemini_api_sync, prompt, image_bytes, mime_type)
     return format_ai_to_tg_html(raw)
@@ -766,6 +790,25 @@ async def audit_link_with_ai(full_url: str) -> tuple:
     formatted = format_ai_to_tg_html(raw)
     return formatted, domain
 
+async def audit_quishing_with_ai(qr_raw: str) -> str:
+    """Uses Gemini AI (gemini-2.5-flash / flash models) to perform deep Quishing (QR-code Phishing) and payload safety audit."""
+    clean_val = qr_raw.strip()
+    prompt = (
+        f"Siz «KiberIz-4» maktab kiberxavfsizlik va Quishing (QR-kod orqali phishing) bo'yicha ekspertizasisiz.\n"
+        f"Foydalanuvchi suratdagi QR-kodni skanerladi va quyidagi ma'lumot/havola aniqlandi:\n"
+        f"QR TARKIBI: {clean_val}\n\n"
+        f"Ushbu QR-kodni chuqur tahlil qiling va Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) qaytaring:\n"
+        f"🏁 <b>QUISHING & QR-KOD XAVFSIZLIK AUDITI:</b>\n"
+        f"• <b>Aniqlangan Manzil / Mazmun:</b> <code>{html.escape(clean_val[:120])}</code>\n"
+        f"• 📊 <b>Kiber-Xavf Indeksi:</b> [0% dan 100% gacha foiz va holat, masalan: 🚨 95% (KRITIK QUISHING FISHING) yoki ✅ 5% (XAVFSIZ)]\n"
+        f"• 🔍 <b>Turi va Maqsadi:</b> [Rasmiy sayt, Fishing kloni, Wi-Fi konfiguratsiyasi, Soxta to'lov havolasi yoki Shubhali qisqartirilgan link]\n"
+        f"• ⚠️ <b>Quishing (QR orqali aldov) tahlili:</b> [Kiberjinoyatchilar buni nega QR-kodga aylantirgan? Filtrlar va antiviruslarni aylanib o'tishmi, to'lovni o'g'irlashmi yoki fishingmi?]\n"
+        f"• 🛡️ <b>Xavfsizlik Choralari:</b> [Ushbu manzilga kirish xavflimi, nimalardan ehtiyot bo'lish zarur]\n"
+        f"• ⚖️ <b>Qonuniy asos:</b> O‘zR JK 168-moddasi (Firibgarlik)."
+    )
+    raw = await asyncio.to_thread(_query_gemini_api_sync, prompt)
+    return format_ai_to_tg_html(raw)
+
 async def ask_gemini_cyber_mentor(prompt: str, user_id: int = 0) -> str:
     """Async wrapper with per-user cooldown and FAQ caching."""
     clean_prompt = prompt.strip()
@@ -832,7 +875,7 @@ async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 MAIN_KEYBOARD = ReplyKeyboardMarkup(
     [
         [
-            KeyboardButton("Suratni tekshirish (OSINT)", icon_custom_emoji_id=E["SEARCH"]),
+            KeyboardButton("Surat & Skrinshot auditi", icon_custom_emoji_id=E["SEARCH"]),
             KeyboardButton("5 daqiqalik Chek-list", icon_custom_emoji_id=E["SHIELD"])
         ],
         [
@@ -860,13 +903,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Assalomu alaykum, <b>{html.escape(user_name)}</b>! {p('WAVE', '👋')}\n\n"
         f"{p('SHIELD', '🛡️')} <b>«KiberIz-4» — 4-maktab Raqamli Iz va Kiberxavfsizlik tizimi!</b> {p('FLAG_UZ', '🇺🇿')}\n\n"
         f"{p('SEARCH', '🔍')} <b>Bot imkoniyatlari (Universal Tahlil):</b>\n"
-        f"• 📸 <b>Suratlar (JPG, PNG, HEIC, DNG, RAW):</b> Yashirin GPS lokatsiya va AI Vision tahlili;\n"
+        f"• 📸 <b>Suratlar (JPG, PNG, HEIC, DNG, RAW):</b> Yashirin GPS lokatsiya va vizual OSINT tahlili;\n"
+        f"• 📱 <b>Skrinshotlar (SMS, Chat, Cheklar):</b> Soxta to‘lov, moddiy yordam va fishingni AI orqali fosh qilish (/screenshot);\n"
+        f"• 🏁 <b>QR-kodlar (Quishing himoyasi):</b> QR ichidagi yashirin havolalarni ochib, fishingdan ogohlantirish (/qr);\n"
         f"• 📱 <b>Android ilovalar (.APK):</b> Troyan, fishing va SMS o‘g‘irlovchi viruslar auditi;\n"
         f"• 🎬 <b>Videolar (MP4, MOV):</b> Qurilma parametrlari va GPS aniqlash;\n"
         f"• 📄 <b>Hujjatlar (PDF, Word, Excel):</b> Muallif shaxsi va xavfli makroslar tekshiruvi;\n"
         f"• 🎵 <b>Audio & Ovozli xabarlar:</b> Yozib olingan dastur va qurilma teglari;\n"
         f"• 🤖 <b>AI Kiber-Maslahatchi:</b> Har qanday savolingizga 24/7 aqlli yordam!\n\n"
-        f"{p('LIGHT', '👉')} <i>Tahlil qilish uchun istalgan fayl, havola yoki savolingizni to‘g‘ridan-to‘g‘ri yuboring!</i>\n"
+        f"{p('LIGHT', '👉')} <i>Tahlil qilish uchun istalgan surat, skrinshot, havola yoki savolingizni to‘g‘ridan-to‘g‘ri yuboring!</i>\n"
         f"{p('TEST', '🧪')} <i>GPS-li sinov rasmini olish uchun: /sample</i>"
     )
     
@@ -1000,6 +1045,41 @@ async def web_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Brauzerda ochish (Tashqi havola)", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["GLOBE"])]
     ])
     await context.bot.send_message(chat_id=chat_id, text=web_text, parse_mode="HTML", reply_markup=keyboard)
+
+async def qr_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Explains how to use the Quishing & QR-code security scanner."""
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
+    text = (
+        f"{p('SEARCH', '🏁')} <b>QUISHING & QR-KOD XAVFSIZLIK SKANERI:</b> {p('SHIELD', '🛡️')}\n\n"
+        f"Kiberjinoyatchilar ko‘pincha virusli va fishing havolalarni <b>QR-kod</b> ichiga yashirishadi (bunga «Quishing» deyiladi). "
+        f"Chunki antivirus va pochta filtrlari tasvirdagi havolani o‘qiy olmaydi!\n\n"
+        f"{p('INFO', 'ℹ️')} <b>Qanday ishlatiladi:</b>\n"
+        f"1. Ko‘chada, restoranda, e’londa yoki internetda ko‘rgan shubhali QR-kodni rasmga oling;\n"
+        f"2. Suratni to‘g‘ridan-to‘g‘ri botga yuboring;\n"
+        f"3. Bot bir zumda:\n"
+        f"   • QR ichidagi yashirin havola yoki matnni ochib beradi;\n"
+        f"   • Gemini AI orqali uning soxta/fishing ekanligini to‘liq tekshiradi!\n\n"
+        f"👉 <i>Tekshirish uchun QR-kodli suratni shu yerga yuboring!</i>"
+    )
+    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
+
+async def screenshot_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Explains how to use the AI Vision Screenshot & Phishing auditor."""
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
+    text = (
+        f"{p('ROBOT', '📱')} <b>SMART VISION: SKRINSHOT VA FISHING TAHLILI:</b> {p('SHIELD', '🛡️')}\n\n"
+        f"O‘zbekistonda eng keng tarqalgan kiber-tahdidlar — soxta SMS, soxta «Payme/Click» cheklari va Telegramdagi «500 000 so‘m moddiy yordam» kabi xabarlardir.\n\n"
+        f"{p('INFO', 'ℹ️')} <b>Qanday ishlatiladi:</b>\n"
+        f"1. Sizga shubhali tuyulgan har qanday SMS, chat xabari yoki chekni <b>skrinshot</b> qiling;\n"
+        f"2. Skrinshotni to‘g‘ridan-to‘g‘ri botga rasm yoki fayl qilib yuboring;\n"
+        f"3. Gemini 2.5 Flash Vision tasvirdagi matn va belgilarni o‘qib:\n"
+        f"   • Psixologik manipulyatsiya va yolg‘on va’dalarni fosh qiladi;\n"
+        f"   • Kiber-Xavf foizini (0-100%) hisoblab, to‘g‘ri xavfsizlik choralarini ko‘rsatadi!\n\n"
+        f"👉 <i>Tekshirish uchun shubhali skrinshotni shu yerga yuboring!</i>"
+    )
+    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
 
 # ==========================================
 # QUIZ / CALCULATOR HANDLER
@@ -1298,20 +1378,41 @@ def get_human_address(lat: float, lon: float) -> str:
         return None
 
 def scan_qr_code(file_bytes: bytes) -> str:
-    """Detects and decodes QR codes inside an image using OpenCV."""
-    if cv2 is None or np is None:
+    """Detects and decodes QR codes and barcodes inside an image using pyzbar with OpenCV fallback."""
+    if not file_bytes:
         return None
-    try:
-        nparr = np.frombuffer(file_bytes, np.uint8)
-        cv_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if cv_img is None:
-            return None
-        detector = cv2.QRCodeDetector()
-        val, _, _ = detector.detectAndDecode(cv_img)
-        return val.strip() if val else None
-    except Exception as e:
-        logging.warning(f"QR scan error: {e}")
-        return None
+        
+    # 1. Primary: pyzbar (robust barcode & QR decoder)
+    if pyzbar_decode is not None:
+        try:
+            pil_img = Image.open(io.BytesIO(file_bytes))
+            barcodes = pyzbar_decode(pil_img)
+            if barcodes:
+                for b in barcodes:
+                    if b.type == 'QRCODE':
+                        val = b.data.decode('utf-8', errors='ignore').strip()
+                        if val:
+                            return val
+                val = barcodes[0].data.decode('utf-8', errors='ignore').strip()
+                if val:
+                    return val
+        except Exception as e:
+            logging.debug(f"pyzbar QR scan error: {e}")
+
+    # 2. Fallback: OpenCV QRCodeDetector
+    if cv2 is not None and np is not None:
+        try:
+            nparr = np.frombuffer(file_bytes, np.uint8)
+            cv_img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if cv_img is not None:
+                detector = cv2.QRCodeDetector()
+                val, _, _ = detector.detectAndDecode(cv_img)
+                if val and val.strip():
+                    return val.strip()
+        except Exception as e:
+            logging.debug(f"OpenCV QR scan error: {e}")
+
+    return None
 
 def parse_document_metadata(file_bytes: bytes, file_name: str):
     """Extracts Author, Creator, Software, Dates, and macro security risks from documents."""
@@ -1777,8 +1878,14 @@ async def handle_raw_image_analysis(msg, file_bytes: bytes, file_name: str):
 
     ai_vision_text = ""
     qr_data = None
+    qr_audit_text = ""
     if preview_bytes:
         qr_data = scan_qr_code(preview_bytes)
+        if qr_data:
+            try:
+                qr_audit_text = await audit_quishing_with_ai(qr_data)
+            except Exception as qr_err:
+                logging.warning(f"RAW preview QR audit error: {qr_err}")
         try:
             ai_vision_text = await analyze_image_with_gemini_vision(preview_bytes)
         except Exception as ai_err:
@@ -1791,6 +1898,8 @@ async def handle_raw_image_analysis(msg, file_bytes: bytes, file_name: str):
         risk_score += 25
     if qr_data:
         risk_score += 25
+        if qr_audit_text and ("KRITIK" in qr_audit_text.upper() or "FISHING" in qr_audit_text.upper()):
+            risk_score = max(risk_score, 90)
     risk_score = min(risk_score, 100)
     filled = int(risk_score / 10)
     bar = "█" * filled + "░" * (10 - filled)
@@ -1815,16 +1924,19 @@ async def handle_raw_image_analysis(msg, file_bytes: bytes, file_name: str):
         report += f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi.</i>\n"
     report += "\n"
 
+    if qr_data:
+        if qr_audit_text:
+            report += f"{qr_audit_text}\n\n"
+        else:
+            report += (
+                f"🚨 <b>SURAT ICHIDA YASHIRIN QR-KOD TOPILDI:</b>\n"
+                f"• <b>QR Tarkibi:</b> <code>{html.escape(qr_data)}</code>\n\n"
+            )
+
     if ai_vision_text:
         report += (
             f"{p('LIGHT', '💡')} <b>2. AI VISION VIZUAL OSINT TAHLILI (Preview tasvirdan):</b>\n"
             f"{ai_vision_text}\n\n"
-        )
-        
-    if qr_data:
-        report += (
-            f"🚨 <b>SURAT ICHIDA YASHIRIN QR-KOD TOPILDI:</b>\n"
-            f"• <b>QR Tarkibi:</b> <code>{html.escape(qr_data)}</code>\n\n"
         )
 
     report += (
@@ -2610,6 +2722,12 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # QR Code & Barcode Detection
     qr_data = scan_qr_code(jpeg_bytes)
+    qr_audit_text = ""
+    if qr_data:
+        try:
+            qr_audit_text = await audit_quishing_with_ai(qr_data)
+        except Exception as qr_err:
+            logging.warning(f"Quishing audit error: {qr_err}")
 
     # Real Visual OSINT Analysis (Chronolocation & OCR)
     visual_info = analyze_visual_osint(jpeg_bytes)
@@ -2632,8 +2750,21 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         risk_score += visual_info.get("chrono_risk", 10)
         risk_score += visual_info.get("text_risk", 0)
         
+    if ai_vision_text:
+        ai_upper = ai_vision_text.upper()
+        if "KRITIK FISHING" in ai_upper or ("FISHING" in ai_upper and "KRITIK" in ai_upper):
+            risk_score = max(risk_score, 95)
+        elif "SHUBHALI" in ai_upper or "FISHING" in ai_upper:
+            risk_score = max(risk_score, 65)
+
     if qr_data:
-        risk_score += 25
+        risk_score = max(risk_score, 30)
+        if qr_audit_text:
+            qr_upper = qr_audit_text.upper()
+            if "KRITIK" in qr_upper or "FISHING" in qr_upper:
+                risk_score = max(risk_score, 95)
+            elif "SHUBHALI" in qr_upper:
+                risk_score = max(risk_score, 65)
         
     risk_score = min(risk_score, 100)
     filled = int(risk_score / 10)
@@ -2645,50 +2776,62 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         risk_label = f"⚠️ O‘RTA DARAJADAGI XAVF ({risk_score}%)"
     else:
         risk_label = f"✅ XAVFSIZROQ PROFIL ({risk_score}%)"
+
+    is_screenshot = ("SKRINSHOT" in ai_vision_text.upper()) and not coords
+    is_qr_primary = bool(qr_data) and not coords and not details
+
+    if is_screenshot:
+        header_title = f"{p('ROBOT', '📱')} <b>SMART VISION: SKRINSHOT VA FISHING AUDITI ({html.escape(file_name)}):</b>"
+    elif is_qr_primary:
+        header_title = f"{p('SEARCH', '🏁')} <b>QUISHING: QR-KOD VA HAVOLA XAVFSIZLIGI TAHLILI ({html.escape(file_name)}):</b>"
+    else:
+        header_title = f"{p('SEARCH', '🔍')} <b>KOMPLEKS OSINT TAHLIL ({html.escape(file_name)}):</b>"
         
     analysis_msg = (
-        f"{p('SEARCH', '🔍')} <b>KOMPLEKS OSINT TAHLIL ({html.escape(file_name)}):</b>\n\n"
+        f"{header_title}\n\n"
         f"📊 <b>KIBER-XAVF INDEKSI:</b>\n"
         f"<code>[{bar}]</code> <b>{risk_label}</b>\n\n"
-        f"{p('LOCK', '🔐')} <b>1. METAMA’LUMOTLAR (EXIF / GPS):</b>\n"
     )
-    
-    if details:
-        for d in details:
-            analysis_msg += f"• {d}\n"
-    else:
-        if not is_doc:
-            analysis_msg += (
-                f"• {p('INFO', 'ℹ️')} <i>Fayl ichidagi GPS tozalangan (Instagram yoki Telegram avtomatik siqib tozalagan).</i>\n"
-            )
+
+    # 1. QR Code & Quishing Section (Prominent if found!)
+    if qr_data:
+        if qr_audit_text:
+            analysis_msg += f"{qr_audit_text}\n\n"
         else:
-            analysis_msg += f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi (tozalangan).</i>\n"
-    analysis_msg += "\n"
-    
-    # 2. AI Vision OSINT Section
+            analysis_msg += (
+                f"🏁 <b>SURAT ICHIDA QR-KOD TOPILDI:</b>\n"
+                f"• <b>QR Tarkibi:</b> <code>{html.escape(qr_data)}</code>\n"
+                f"• ⚠️ <i>Kiber-Xavf: Notanish QR-kodlar orqali shaxsiy hisoblar yoki karta ma’lumotlari o‘g‘irlanishi (Quishing) mumkin!</i>\n\n"
+            )
+
+    # 2. AI Vision (Screenshot Phishing or Visual OSINT)
     if ai_vision_text:
-        analysis_msg += (
-            f"{p('LIGHT', '💡')} <b>2. AI VISION VIZUAL OSINT VA XAVFSIZLIK TAHLILI:</b>\n"
-            f"{ai_vision_text}\n\n"
-        )
+        analysis_msg += f"{ai_vision_text}\n\n"
     elif visual_info:
         analysis_msg += (
-            f"{p('TIMER', '☀️')} <b>2. XRONOLOKATSIYA VA VIZUAL TAHLIL:</b>\n"
+            f"{p('TIMER', '☀️')} <b>VIZUAL TAHLIL:</b>\n"
             f"• <b>Holat:</b> {visual_info['chrono_text']}\n"
             f"• <b>Yorug‘lik ko‘rsatkichi:</b> <code>{visual_info['brightness']} lx</code>\n\n"
         )
-    
-    # QR Code & Barcode Section
-    if qr_data:
-        analysis_msg += (
-            f"🚨 <b>SURAT ICHIDA YASHIRIN QR-KOD TOPILDI:</b>\n"
-            f"• <b>QR Tarkibi:</b> <code>{html.escape(qr_data)}</code>\n"
-            f"• ⚠️ <i>Kiber-Xavf: Chipta, sertifikat yoki chekdagi QR-kodlar orqali shaxsiy hisoblar yoki ma’lumotlar o‘g‘irlanadi!</i>\n\n"
-        )
+
+    # 3. EXIF & Metadata section (if not pure screenshot/QR or if details exist)
+    if details or not (is_screenshot or is_qr_primary):
+        analysis_msg += f"{p('LOCK', '🔐')} <b>METAMA’LUMOTLAR (EXIF / GPS):</b>\n"
+        if details:
+            for d in details:
+                analysis_msg += f"• {d}\n"
+        else:
+            if not is_doc:
+                analysis_msg += (
+                    f"• {p('INFO', 'ℹ️')} <i>Fayl ichidagi GPS tozalangan (Instagram yoki Telegram avtomatik siqib tozalagan).</i>\n"
+                )
+            else:
+                analysis_msg += f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi (tozalangan).</i>\n"
+        analysis_msg += "\n"
 
     # Reverse Search
     analysis_msg += (
-        f"{p('GLOBE', '🌐')} <b>3. TESKARI QIDIRUV (REVERSE SEARCH):</b>\n"
+        f"{p('GLOBE', '🌐')} <b>FOTO VA MANBA BO‘YICHA QIDIRUV:</b>\n"
         f"Surat bo‘yicha internetdagi ochiq ma’lumotlarni qidirish uchun quyidagi tugmalardan foydalanishingiz mumkin:\n"
     )
     
@@ -2866,22 +3009,23 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # 2. Main Menu Actions
-    if "Suratni tekshirish" in text or "OSINT" in text:
+    if "Surat" in text or "Skrinshot" in text or "OSINT" in text or "QR" in text or text.lower() in ["/qr", "/screenshot", "/skrinshot", "/quishing", "/fishing"]:
         context.user_data["waiting_for_ai"] = False
         context.user_data["waiting_for_audit"] = False
         await context.bot.send_message(
             chat_id=chat_id,
             text=(
-                f"{p('SEARCH', '🔍')} <b>UNIVERSAL FAYL VA OSINT TAHLILI:</b>\n\n"
-                f"Bot deyarli barcha formatdagi fayllarni chuqur tahlil qiladi:\n"
-                f"• 📸 <b>Suratlar:</b> JPG, PNG, HEIC, WEBP, <b>.DNG</b>, RAW (CR2, NEF, ARW);\n"
-                f"• 📱 <b>Android ilovalar:</b> <b>.APK</b>, .XAPK (Troyan, fishing va xavfli ruxsatlar auditi);\n"
-                f"• 🎬 <b>Videolar:</b> MP4, MOV, AVI, MKV (Kamera, GPS va audio yo‘lak);\n"
-                f"• 📄 <b>Hujjatlar:</b> PDF, DOCX, XLSX, PPTX (Muallif va makros tahlili);\n"
-                f"• 🎵 <b>Audio:</b> MP3, M4A, OGG, ovozli xabarlar (Teglar va qurilma);\n"
-                f"• 📦 <b>Arxivlar:</b> .ZIP, .RAR (Yashirin fayllar va rasmlar).\n\n"
-                f"👉 <i>Tekshirmoqchi bo‘lgan faylni to‘g‘ridan-to‘g‘ri yuboring!</i>\n"
-                f"💡 <i>Namuna fayl olish uchun: /sample</i>"
+                f"{p('SEARCH', '🔍')} <b>SURAT, SKRINSHOT VA QR-KOD XAVFSIZLIGI AUDITI:</b>\n\n"
+                f"Bot tasvirlarni quyidagi yo‘nalishlarda chuqur tahlil qiladi:\n\n"
+                f"1. 📱 <b>Skrinshotlar & Fishing Auditi:</b>\n"
+                f"   └ Shubhali SMS, Telegram/Instagram chat, Payme/Click cheki yoki soxta moddiy yordam xabarlari skrinshotini yuboring. AI ulardagi firibgarlik va yolg‘onlarni fosh qiladi!\n\n"
+                f"2. 🏁 <b>QR-kodlar & Quishing (QR-Fishing) Himoyasi:</b>\n"
+                f"   └ Ko‘chada, e’londa yoki restorandagi QR-kod suratini yuboring — bot yashirin havolani ochib, xavfsizligini tekshirib beradi!\n\n"
+                f"3. 📸 <b>Fotosuratlar (OSINT & GPS):</b>\n"
+                f"   └ Suratdagi yashirin GPS lokatsiya (xaritadagi nuqta), kamera modeli va vizual fon izlarini aniqlaydi (JPG, PNG, HEIC, .DNG, RAW).\n\n"
+                f"4. 📦 <b>Boshqa fayllar:</b>\n"
+                f"   └ .APK ilovalar, MP4 videolar, PDF/Word/Excel hujjatlar va audio yozuvlar.\n\n"
+                f"👉 <i>Tekshirmoqchi bo‘lgan surat, skrinshot yoki faylingizni to‘g‘ridan-to‘g‘ri yuboring!</i>"
             ),
             parse_mode="HTML"
         )
@@ -3088,6 +3232,10 @@ def main():
     app.add_handler(CommandHandler("portal", web_command))
     app.add_handler(CommandHandler("ai", ai_command))
     app.add_handler(CommandHandler("ask", ai_command))
+    app.add_handler(CommandHandler("qr", qr_command))
+    app.add_handler(CommandHandler("quishing", qr_command))
+    app.add_handler(CommandHandler("screenshot", screenshot_command))
+    app.add_handler(CommandHandler("skrinshot", screenshot_command))
     
     app.add_handler(CallbackQueryHandler(quiz_callback))
     app.add_handler(
