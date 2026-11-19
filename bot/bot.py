@@ -199,6 +199,7 @@ def p(name: str, fallback: str = "•") -> str:
 EMOJI_MAP = {
     '🇺🇿': E['FLAG_UZ'],
     '🛡️': E['SHIELD'], '🛡': E['SHIELD'],
+    '⚖️': E['SHIELD'], '⚖': E['SHIELD'],
     '🔍': E['SEARCH'], '🔎': E['SEARCH'],
     '🖼️': E['EXIF_PHOTO'], '🖼': E['EXIF_PHOTO'], '📸': E['EXIF_PHOTO'], '🎞': E['EXIF_PHOTO'], '🎬': E['EXIF_PHOTO'],
     '⚠️': E['WARNING'], '⚠': E['WARNING'],
@@ -210,33 +211,37 @@ EMOJI_MAP = {
     '❌': E['CROSS'], '🚫': E['CROSS'],
     '🏫': E['SCHOOL'], '🎒': E['SCHOOL'],
     '👨‍🏫': E['TEACHER'],
-    '👨‍💻': E['HACKER'], '🕵️‍♂️': E['HACKER'], '🕵': E['HACKER'], '👤': E['HACKER'], '🐙': E['HACKER'],
+    '👨‍💻': E['HACKER'], '🕵️‍♂️': E['HACKER'], '🕵': E['HACKER'], '👤': E['HACKER'], '👥': E['HACKER'], '🐙': E['HACKER'],
     '🏠': E['HOUSE'], '🚪': E['HOUSE'],
-    '🏢': E['BUILDING'], '🏬': E['BUILDING'], '🏦': E['BUILDING'], '🛣️': E['BUILDING'], '🛣': E['BUILDING'], '🚗': E['BUILDING'], '🛒': E['BUILDING'], '📍': E['BUILDING'],
-    '💻': E['LAPTOP'], '🎮': E['LAPTOP'], '📦': E['LAPTOP'],
+    '🏢': E['BUILDING'], '🏬': E['BUILDING'], '🏦': E['BUILDING'], '🛣️': E['BUILDING'], '🛣': E['BUILDING'], '🚗': E['BUILDING'], '🛒': E['BUILDING'], '📍': E['BUILDING'], '📌': E['BUILDING'],
+    '💻': E['LAPTOP'], '🎮': E['LAPTOP'], '📦': E['LAPTOP'], '📁': E['LAPTOP'], '📂': E['LAPTOP'],
     '📱': E['PHONE'], '📞': E['CALL'], '🔊': E['CALL'],
-    '⏰': E['TIMER'], '⏱️': E['TIMER'], '⏱': E['TIMER'], '📅': E['TIMER'], '🌙': E['TIMER'], '🌅': E['TIMER'], '☀️': E['TIMER'], '☀': E['TIMER'], '🌤️': E['TIMER'], '🌤': E['TIMER'],
+    '⏰': E['TIMER'], '⏱️': E['TIMER'], '⏱': E['TIMER'], '⏳': E['TIMER'], '⌛': E['TIMER'], '📅': E['TIMER'], '🌙': E['TIMER'], '🌅': E['TIMER'], '☀️': E['TIMER'], '☀': E['TIMER'], '🌤️': E['TIMER'], '🌤': E['TIMER'],
     '🌐': E['GLOBE'], '🔗': E['GLOBE'], '🗺️': E['GLOBE'], '🗺': E['GLOBE'],
+    '📡': E['RADAR'],
     '🚀': E['ROCKET'],
     '🧪': E['TEST'],
-    '💡': E['LIGHT'], '👉': E['LIGHT'], '🎵': E['LIGHT'],
-    '👋': E['WAVE'],
-    '⭐': E['STAR'], '🎯': E['STAR'], '🎰': E['STAR'], '⚽': E['STAR'],
-    '📊': E['STATS'], '💸': E['STATS'],
-    'ℹ️': E['INFO'], 'ℹ': E['INFO'], '📝': E['INFO'], '📑': E['INFO'], '📄': E['INFO'], '✏️': E['INFO'], '✏': E['INFO'], '📐': E['INFO'],
+    '💡': E['LIGHT'], '👉': E['LIGHT'], '🎵': E['LIGHT'], '🧠': E['LIGHT'], '⚡': E['LIGHT'], '➔': E['LIGHT'], '➜': E['LIGHT'], '➡️': E['LIGHT'], '➡': E['LIGHT'],
+    '👋': E['WAVE'], '🤝': E['WAVE'],
+    '⭐': E['STAR'], '🎯': E['STAR'], '🎰': E['STAR'], '⚽': E['STAR'], '✨': E['STAR'],
+    '📊': E['STATS'], '💸': E['STATS'], '💳': E['STATS'], '💰': E['STATS'],
+    'ℹ️': E['INFO'], 'ℹ': E['INFO'], '📝': E['INFO'], '📑': E['INFO'], '📄': E['INFO'], '✏️': E['INFO'], '✏': E['INFO'], '📐': E['INFO'], '🆔': E['INFO'],
     '👀': E['EYES'],
-    '💬': E['CHAT'], '✈️': E['CHAT'], '✈': E['CHAT'], '🎣': E['SEARCH'],
+    '💬': E['CHAT'], '✈️': E['CHAT'], '✈': E['CHAT'], '🎣': E['SEARCH'], '✍️': E['CHAT'], '✍': E['CHAT'],
     '💣': E['BOMB'], '🛑': E['BOMB'], '🔞': E['BOMB'], '☠️': E['BOMB'], '☠': E['BOMB'], '💊': E['BOMB'],
     '🔥': E['FIRE'],
     '💎': E['DIAMOND'],
-    '🏆': E['TROPHY'],
+    '🏆': E['TROPHY'], '🎉': E['TROPHY'], '🎊': E['TROPHY'],
     '🔄': E['REFRESH'],
     '💯': E['HUNDRED'],
-    '🤖': E['LIGHT'],
+    '🤖': E['HACKER'],
     '🟢': E['GREEN'],
     '🟡': E['YELLOW'],
     '🔴': E['RED'],
-    '⚙️': E['GEAR'], '⚙': E['GEAR']
+    '⚙️': E['GEAR'], '⚙': E['GEAR'],
+    '🔔': E['WARNING'], '📢': E['WARNING'], '❗': E['WARNING'], '‼️': E['WARNING'],
+    '👍': E['CHECK'], '👎': E['CROSS'],
+    '❓': E['SEARCH'], '❔': E['SEARCH']
 }
 
 _SORTED_EMOJIS = sorted(EMOJI_MAP.keys(), key=len, reverse=True)
@@ -511,10 +516,10 @@ async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"✍️ <i>Savolingizni pastga yozing yoki quyidagi tayyor tugmalardan birini bosing:</i>"
     )
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👥 Begona guruhlardan himoya", callback_data="ai_q_groups", icon_custom_emoji_id=E["LOCK"])],
-        [InlineKeyboardButton("🔐 2FA (Ikki bosqichli) yoqish", callback_data="ai_q_2fa", icon_custom_emoji_id=E["KEY_LOCK"])],
-        [InlineKeyboardButton("🎣 Fishing havolani aniqlash", callback_data="ai_q_phishing", icon_custom_emoji_id=E["WARNING"])],
-        [InlineKeyboardButton("🔑 Kuchli parol yaratish qoidasi", callback_data="ai_q_password", icon_custom_emoji_id=E["KEY"])]
+        [InlineKeyboardButton("Begona guruhlardan himoya", callback_data="ai_q_groups", icon_custom_emoji_id=E["LOCK"])],
+        [InlineKeyboardButton("2FA (Ikki bosqichli) yoqish", callback_data="ai_q_2fa", icon_custom_emoji_id=E["KEY_LOCK"])],
+        [InlineKeyboardButton("Fishing havolani aniqlash", callback_data="ai_q_phishing", icon_custom_emoji_id=E["WARNING"])],
+        [InlineKeyboardButton("Kuchli parol yaratish qoidasi", callback_data="ai_q_password", icon_custom_emoji_id=E["KEY"])]
     ])
     await update.message.reply_text(ai_intro_text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -531,10 +536,10 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
         ],
         [
             KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"]),
-            KeyboardButton("🌐 Kiber-Portal (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["GLOBE"])
+            KeyboardButton("Kiber-Portal (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["GLOBE"])
         ],
         [
-            KeyboardButton("🤖 AI Kiber-Maslahatchi", icon_custom_emoji_id=E["LIGHT"]),
+            KeyboardButton("AI Kiber-Maslahatchi", icon_custom_emoji_id=E["LIGHT"]),
             KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"])
         ]
     ],
@@ -635,17 +640,17 @@ async def sos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• {p('WARNING', '⚠️')} Shaxsiy rasmlaringiz yoki videolaringiz bilan shantajga;\n"
         f"• {p('WARNING', '⚠️')} Soxta akkaunt ochish, pul talab qilish yoki firibgarlikka duch kelgan bo‘lsangiz — <b>HECH QACHON QO‘RQMANG VA YASHIRMANG!</b>\n\n"
         f"{p('CALL', '📞')} <b>RASMIY ALOQA VA ISHONCH RAQAMLARI:</b>\n"
-        f"• 🛡️ <b>Kiberxavfsizlik hodisalari bo‘yicha:</b>\n"
+        f"• {p('SHIELD', '🛡️')} <b>Kiberxavfsizlik hodisalari bo‘yicha:</b>\n"
         f"   └ <code>+998 (55) 502-10-10</code> (yoki qisqa <b>1133</b>)\n"
-        f"• ⚖️ <b>Korrupsiyani oldini olish va komplaens nazorat bo‘limi:</b>\n"
+        f"• {p('SHIELD', '⚖️')} <b>Korrupsiyani oldini olish va komplaens nazorat bo‘limi:</b>\n"
         f"   └ <code>+998 (71) 203-55-11</code>\n\n"
-        f"🛡️ <b>SIZNING SHAXSINGIZ 100% SIR SAQLANADI!</b>\n"
-        f"Pastdagi <b>«✍️ Anonim Murojaat Qoldirish»</b> tugmasini bosing va muammoingizni yozing. "
+        f"{p('SHIELD', '🛡️')} <b>SIZNING SHAXSINGIZ 100% SIR SAQLANADI!</b>\n"
+        f"Pastdagi <b>«Anonim Murojaat Qoldirish»</b> tugmasini bosing va muammoingizni yozing. "
         f"Sizning Telegram profilingiz, ismingiz yoki raqamingiz tizim tomonidan to‘liq yashirilgan holda xavfsiz qabul qilinadi."
     )
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✍️ Anonim Murojaat Qoldirish", callback_data="start_anon_sos", icon_custom_emoji_id=E["CHAT"])],
-        [InlineKeyboardButton("🌐 Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])]
+        [InlineKeyboardButton("Anonim Murojaat Qoldirish", callback_data="start_anon_sos", icon_custom_emoji_id=E["CHAT"])],
+        [InlineKeyboardButton("Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])]
     ])
     await update.message.reply_text(sos_text, parse_mode="HTML", reply_markup=keyboard)
 
@@ -660,7 +665,7 @@ async def web_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Telegram ichida to‘g‘ridan-to‘g‘ri ochish uchun pastdagi tugmani bosing:"
     )
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌐 Kiber-Portalni ochish (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["ROCKET"])],
+        [InlineKeyboardButton("Kiber-Portalni ochish (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["ROCKET"])],
         [InlineKeyboardButton("Brauzerda ochish (Tashqi havola)", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["GLOBE"])]
     ])
     await update.message.reply_text(web_text, parse_mode="HTML", reply_markup=keyboard)
@@ -863,11 +868,11 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if ADMIN_ID:
             try:
                 alert_text = (
-                    f"🚨 <b>YANGI ANONIM SOS MUROJAAT (4-MAKTAB)</b>\n\n"
-                    f"🆔 <b>Kodi:</b> <code>#{report_code}</code>\n"
-                    f"📅 <b>Vaqti:</b> {timestamp}\n\n"
-                    f"📝 <b>Murojaat matni:</b>\n<i>«{html.escape(pending_text)}»</i>\n\n"
-                    f"🔒 <i>Foydalanuvchi ma’lumotlari to‘liq anonimlashtirilgan.</i>"
+                    f"{p('SOS', '🚨')} <b>YANGI ANONIM SOS MUROJAAT (4-MAKTAB)</b>\n\n"
+                    f"{p('INFO', '🆔')} <b>Kodi:</b> <code>#{report_code}</code>\n"
+                    f"{p('TIMER', '📅')} <b>Vaqti:</b> {timestamp}\n\n"
+                    f"{p('INFO', '📝')} <b>Murojaat matni:</b>\n<i>«{html.escape(pending_text)}»</i>\n\n"
+                    f"{p('LOCK', '🔒')} <i>Foydalanuvchi ma’lumotlari to‘liq anonimlashtirilgan.</i>"
                 )
                 await context.bot.send_message(chat_id=int(ADMIN_ID), text=alert_text, parse_mode="HTML")
             except Exception as e:
@@ -875,13 +880,13 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         success_msg = (
             f"{p('CHECK', '✅')} <b>ANONIM MUROJAATINGIZ QABUL QILINDI!</b>\n\n"
-            f"🆔 <b>Murojaat kodi:</b> <code>#{report_code}</code>\n"
-            f"📅 <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
-            f"🛡️ <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
+            f"{p('INFO', '🆔')} <b>Murojaat kodi:</b> <code>#{report_code}</code>\n"
+            f"{p('TIMER', '📅')} <b>Qayd etilgan vaqt:</b> <i>{timestamp}</i>\n"
+            f"{p('SHIELD', '🛡️')} <b>Maxfiylik maqomi:</b> <i>To‘liq himoyalangan (Ism, profil va shaxsiy ma’lumotlar oshkor etilmadi).</i>\n\n"
             f"Muammoingiz 4-maktab profilaktika inspektori va psixologiga ko‘rib chiqish uchun uzatildi.\n\n"
             f"{p('CALL', '📞')} <b>Rasmiy aloqa raqamlari:</b>\n"
-            f"• 🛡️ Kiberxavfsizlik hodisalari bo‘yicha: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
-            f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
+            f"• {p('SHIELD', '🛡️')} Kiberxavfsizlik hodisalari bo‘yicha: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+            f"• {p('SHIELD', '⚖️')} Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
         )
         await query.message.reply_text(success_msg, parse_mode="HTML")
     elif data.startswith("ai_q_"):
@@ -898,8 +903,8 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         answer = await ask_gemini_cyber_mentor(prompt, user_id=query.from_user.id)
         reply_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✍️ O‘z savolimni berish", callback_data="ask_custom_ai", icon_custom_emoji_id=E["CHAT"])],
-            [InlineKeyboardButton("🚨 Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])]
+            [InlineKeyboardButton("O‘z savolimni berish", callback_data="ask_custom_ai", icon_custom_emoji_id=E["CHAT"])],
+            [InlineKeyboardButton("Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])]
         ])
         await query.message.reply_text(
             f"{p('LIGHT', '💡')} <b>AI KIBER-MASLAHATCHI JAVOBI:</b>\n\n{answer}",
@@ -2233,12 +2238,12 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"Agar siz kiberbulling, shantaj yoki firibgarlikka duch kelgan bo‘lsangiz, shaxsingizni to‘liq yashirgan holda "
                 f"ushbu xabarni <b>Anonim SOS Murojaat</b> sifatida maktab mutaxassislariga yuborishingiz mumkin.\n\n"
                 f"{p('CALL', '📞')} <b>Rasmiy aloqa raqamlari:</b>\n"
-                f"• 🛡️ Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
-                f"• ⚖️ Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
+                f"• {p('SHIELD', '🛡️')} Kiberxavfsizlik hodisalari: <b>+998 (55) 502-10-10</b> (yoki 1133)\n"
+                f"• {p('SHIELD', '⚖️')} Komplaens nazorat bo‘limi: <b>+998 (71) 203-55-11</b>"
             )
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✍️ Ushbu xabarni Anonim SOS sifatida yuborish", callback_data="confirm_quick_sos", icon_custom_emoji_id=E["CHAT"])],
-                [InlineKeyboardButton("🌐 Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])]
+                [InlineKeyboardButton("Ushbu xabarni Anonim SOS sifatida yuborish", callback_data="confirm_quick_sos", icon_custom_emoji_id=E["CHAT"])],
+                [InlineKeyboardButton("Kiberxavfsizlik markazi (csec.uz)", url="https://csec.uz", icon_custom_emoji_id=E["GLOBE"])]
             ])
             context.user_data["pending_sos_text"] = text
             await update.message.reply_text(help_text, parse_mode="HTML", reply_markup=keyboard)
@@ -2253,9 +2258,9 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         ai_resp = await ask_gemini_cyber_mentor(text, user_id=update.effective_user.id)
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✍️ Boshqa savol berish", callback_data="ask_custom_ai", icon_custom_emoji_id=E["CHAT"])],
-            [InlineKeyboardButton("🚨 Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])],
-            [InlineKeyboardButton("🌐 Kiber-Portal (Web App)", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["GLOBE"])]
+            [InlineKeyboardButton("Boshqa savol berish", callback_data="ask_custom_ai", icon_custom_emoji_id=E["CHAT"])],
+            [InlineKeyboardButton("Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])],
+            [InlineKeyboardButton("Kiber-Portal (Web App)", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["GLOBE"])]
         ])
         await update.message.reply_text(
             f"{p('LIGHT', '💡')} <b>AI KIBER-MASLAHATCHI JAVOBI:</b>\n\n{ai_resp}",
