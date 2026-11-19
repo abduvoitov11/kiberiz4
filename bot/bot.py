@@ -1951,20 +1951,7 @@ async def handle_raw_image_analysis(msg, file_bytes: bytes, file_name: str):
             f"{ai_vision_text}\n\n"
         )
 
-    report += (
-        f"{p('GLOBE', '🌐')} <b>3. TESKARI QIDIRUV (REVERSE SEARCH):</b>\n"
-        f"Surat bo‘yicha internetdagi ochiq ma’lumotlarni qidirish uchun quyidagi tugmalardan foydalanishingiz mumkin:\n"
-    )
-
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("Google Lens qidiruv", url="https://lens.google.com/", icon_custom_emoji_id=E["SEARCH"]),
-            InlineKeyboardButton("Yandex Images", url="https://yandex.com/images/search?rpt=imageview", icon_custom_emoji_id=E["GLOBE"])
-        ],
-        [InlineKeyboardButton("Veb-Platformada tekshirish", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["ROCKET"])]
-    ])
-
-    await msg.reply_text(report, parse_mode="HTML", reply_markup=keyboard, disable_web_page_preview=True)
+    await msg.reply_text(report.strip(), parse_mode="HTML", disable_web_page_preview=True)
     if coords:
         lat_val, lon_val = coords
         await msg.reply_location(latitude=lat_val, longitude=lon_val)
@@ -2841,22 +2828,11 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 analysis_msg += f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi (tozalangan).</i>\n"
         analysis_msg += "\n"
 
-    # Reverse Search
-    analysis_msg += (
-        f"{p('GLOBE', '🌐')} <b>FOTO VA MANBA BO‘YICHA QIDIRUV:</b>\n"
-        f"Surat bo‘yicha internetdagi ochiq ma’lumotlarni qidirish uchun quyidagi tugmalardan foydalanishingiz mumkin:\n"
-    )
-    
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Suratni tozalash (EXIF-siz yuklab olish)", callback_data="sanitize", icon_custom_emoji_id=E["SHIELD"])],
-        [
-            InlineKeyboardButton("Google Lens qidiruv", url="https://lens.google.com/", icon_custom_emoji_id=E["SEARCH"]),
-            InlineKeyboardButton("Yandex Images", url="https://yandex.com/images/search?rpt=imageview", icon_custom_emoji_id=E["GLOBE"])
-        ],
-        [InlineKeyboardButton("Veb-Platformada tekshirish", url="https://abduvoitov11.github.io/kiberiz4/", icon_custom_emoji_id=E["ROCKET"])]
+        [InlineKeyboardButton("Suratni tozalash (EXIF-siz yuklab olish)", callback_data="sanitize", icon_custom_emoji_id=E["SHIELD"])]
     ])
     
-    await msg.reply_text(analysis_msg, parse_mode="HTML", reply_markup=keyboard, disable_web_page_preview=True)
+    await msg.reply_text(analysis_msg.strip(), parse_mode="HTML", reply_markup=keyboard, disable_web_page_preview=True)
     
     # If GPS coordinates were detected, send real Telegram Location pin!
     if coords:
