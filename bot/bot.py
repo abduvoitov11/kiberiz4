@@ -65,19 +65,27 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
 ADMIN_ID = os.environ.get("ADMIN_ID", "")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
-env_file = os.path.join(BASE_DIR, ".env")
-if not os.path.exists(env_file):
-    env_file = os.path.join(BASE_DIR, "../.env")
-if os.path.exists(env_file):
-    with open(env_file, "r") as f:
-        for line in f:
-            line_str = line.strip()
-            if line_str.startswith("BOT_TOKEN=") and not BOT_TOKEN:
-                BOT_TOKEN = line_str.split("=", 1)[1].strip("\"' ")
-            elif line_str.startswith("ADMIN_ID=") and not ADMIN_ID:
-                ADMIN_ID = line_str.split("=", 1)[1].strip("\"' ")
-            elif line_str.startswith("GEMINI_API_KEY=") and not GEMINI_API_KEY:
-                GEMINI_API_KEY = line_str.split("=", 1)[1].strip("\"' ")
+
+env_candidates = [
+    os.path.join(BASE_DIR, ".env"),
+    os.path.join(BASE_DIR, "../.env"),
+    os.path.join(os.getcwd(), ".env"),
+    os.path.join(os.getcwd(), "bot/.env")
+]
+for ef in env_candidates:
+    if os.path.exists(ef):
+        try:
+            with open(ef, "r", encoding="utf-8") as f:
+                for line in f:
+                    line_str = line.strip()
+                    if line_str.startswith("BOT_TOKEN=") and not BOT_TOKEN:
+                        BOT_TOKEN = line_str.split("=", 1)[1].strip("\"' ")
+                    elif line_str.startswith("ADMIN_ID=") and not ADMIN_ID:
+                        ADMIN_ID = line_str.split("=", 1)[1].strip("\"' ")
+                    elif line_str.startswith("GEMINI_API_KEY=") and not GEMINI_API_KEY:
+                        GEMINI_API_KEY = line_str.split("=", 1)[1].strip("\"' ")
+        except Exception as env_err:
+            logging.warning(f"Error reading {ef}: {env_err}")
 
 def resolve_path(candidates):
     for c in candidates:
@@ -253,14 +261,26 @@ def auto_premium(text: str) -> str:
             res.append(_EMOJI_REGEX.sub(repl, p_part))
     return ''.join(res)
 
-# Auto-inject premium animated emojis across all Telegram messaging methods
+def strip_html_tags(s: str) -> str:
+    return re.sub(r'<[^>]+>', '', s)
+
+# Auto-inject premium animated emojis across all Telegram messaging methods with robust HTML fallback
 _orig_reply_text = Message.reply_text
 async def _custom_reply_text(self, text, *args, **kwargs):
     if text and isinstance(text, str):
         text = auto_premium(text)
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
-    return await _orig_reply_text(self, text, *args, **kwargs)
+    try:
+        return await _orig_reply_text(self, text, *args, **kwargs)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "parse" in err_str or "bad request" in err_str:
+            logging.warning(f"reply_text HTML error: {e}. Retrying without HTML.")
+            kw = dict(kwargs)
+            kw.pop("parse_mode", None)
+            return await _orig_reply_text(self, strip_html_tags(text), *args, **kw)
+        raise e
 Message.reply_text = _custom_reply_text
 
 _orig_edit_text = Message.edit_text
@@ -269,7 +289,15 @@ async def _custom_edit_text(self, text, *args, **kwargs):
         text = auto_premium(text)
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
-    return await _orig_edit_text(self, text, *args, **kwargs)
+    try:
+        return await _orig_edit_text(self, text, *args, **kwargs)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "parse" in err_str or "bad request" in err_str:
+            kw = dict(kwargs)
+            kw.pop("parse_mode", None)
+            return await _orig_edit_text(self, strip_html_tags(text), *args, **kw)
+        raise e
 Message.edit_text = _custom_edit_text
 
 _orig_edit_message_text = CallbackQuery.edit_message_text
@@ -278,7 +306,15 @@ async def _custom_edit_message_text(self, text, *args, **kwargs):
         text = auto_premium(text)
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
-    return await _orig_edit_message_text(self, text, *args, **kwargs)
+    try:
+        return await _orig_edit_message_text(self, text, *args, **kwargs)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "parse" in err_str or "bad request" in err_str:
+            kw = dict(kwargs)
+            kw.pop("parse_mode", None)
+            return await _orig_edit_message_text(self, strip_html_tags(text), *args, **kw)
+        raise e
 CallbackQuery.edit_message_text = _custom_edit_message_text
 
 _orig_reply_document = Message.reply_document
@@ -287,7 +323,17 @@ async def _custom_reply_document(self, *args, **kwargs):
         kwargs["caption"] = auto_premium(kwargs["caption"])
         if "parse_mode" not in kwargs:
             kwargs["parse_mode"] = "HTML"
-    return await _orig_reply_document(self, *args, **kwargs)
+    try:
+        return await _orig_reply_document(self, *args, **kwargs)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "parse" in err_str or "bad request" in err_str:
+            kw = dict(kwargs)
+            kw.pop("parse_mode", None)
+            if "caption" in kw and isinstance(kw["caption"], str):
+                kw["caption"] = strip_html_tags(kw["caption"])
+            return await _orig_reply_document(self, *args, **kw)
+        raise e
 Message.reply_document = _custom_reply_document
 
 _orig_reply_photo = Message.reply_photo
@@ -296,7 +342,17 @@ async def _custom_reply_photo(self, *args, **kwargs):
         kwargs["caption"] = auto_premium(kwargs["caption"])
         if "parse_mode" not in kwargs:
             kwargs["parse_mode"] = "HTML"
-    return await _orig_reply_photo(self, *args, **kwargs)
+    try:
+        return await _orig_reply_photo(self, *args, **kwargs)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "parse" in err_str or "bad request" in err_str:
+            kw = dict(kwargs)
+            kw.pop("parse_mode", None)
+            if "caption" in kw and isinstance(kw["caption"], str):
+                kw["caption"] = strip_html_tags(kw["caption"])
+            return await _orig_reply_photo(self, *args, **kw)
+        raise e
 Message.reply_photo = _custom_reply_photo
 
 _orig_send_message = Bot.send_message
@@ -305,7 +361,15 @@ async def _custom_send_message(self, chat_id, text, *args, **kwargs):
         text = auto_premium(text)
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
-    return await _orig_send_message(self, chat_id, text, *args, **kwargs)
+    try:
+        return await _orig_send_message(self, chat_id, text, *args, **kwargs)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "parse" in err_str or "bad request" in err_str:
+            kw = dict(kwargs)
+            kw.pop("parse_mode", None)
+            return await _orig_send_message(self, chat_id, strip_html_tags(text), *args, **kw)
+        raise e
 Bot.send_message = _custom_send_message
 
 # ==========================================
