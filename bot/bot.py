@@ -377,18 +377,21 @@ MAIN_KEYBOARD = ReplyKeyboardMarkup(
         ],
         [
             KeyboardButton("Nikneym & Havola auditi", icon_custom_emoji_id=E["HACKER"]),
-            KeyboardButton("Real keyslar: 3 ta xavf", icon_custom_emoji_id=E["WARNING"])
+            KeyboardButton("💬 Sharh & Izoh OSINT", icon_custom_emoji_id=E["CHAT"])
         ],
         [
             KeyboardButton("🎭 Deepfake Detektor", icon_custom_emoji_id=E["ROBOT"]),
-            KeyboardButton("👥 Guruh Kiber-Qalqoni", icon_custom_emoji_id=E["SHIELD"])
+            KeyboardButton("Real keyslar: 3 ta xavf", icon_custom_emoji_id=E["WARNING"])
         ],
         [
-            KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"]),
-            KeyboardButton("Kiber-Portal (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["GLOBE"])
+            KeyboardButton("👥 Guruh Kiber-Qalqoni", icon_custom_emoji_id=E["SHIELD"]),
+            KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"])
         ],
         [
-            KeyboardButton("AI Kiber-Maslahatchi", icon_custom_emoji_id=E["LIGHT"]),
+            KeyboardButton("Kiber-Portal (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["GLOBE"]),
+            KeyboardButton("AI Kiber-Maslahatchi", icon_custom_emoji_id=E["LIGHT"])
+        ],
+        [
             KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"])
         ]
     ],
@@ -1057,6 +1060,96 @@ async def audit_username_with_ai(raw_username: str) -> tuple:
     raw_resp = await asyncio.to_thread(_query_gemini_api_sync, prompt)
     formatted = format_ai_to_tg_html(raw_resp)
     return formatted, raw
+
+async def audit_comments_with_ai(query_raw: str) -> tuple[str, InlineKeyboardMarkup]:
+    """Uses Gemini AI and Cross-Platform Dorking Matrix to analyze keywords/phrases in social media comments."""
+    clean = query_raw.strip().strip('"\'')
+    enc = urllib.parse.quote(clean)
+
+    # Cross-Platform Deep Comment Search Links
+    insta_dork = f"https://www.google.com/search?q=site%3Ainstagram.com+intext%3A%22{enc}%22+(intext%3A%22comments%22+OR+intext%3A%22fikr%22+OR+intext%3A%22javob%22)"
+    tg_dork = f"https://www.google.com/search?q=site%3At.me+intext%3A%22{enc}%22"
+    tgstat_url = f"https://tgstat.com/search?q={enc}"
+    yt_dork = f"https://www.google.com/search?q=site%3Ayoutube.com+intext%3A%22{enc}%22+(intext%3A%22comment%22+OR+intext%3A%22sharh%22)"
+    tiktok_url = f"https://www.tiktok.com/search?q={enc}"
+    reddit_url = f"https://www.reddit.com/search/?q={enc}&type=comment"
+    x_url = f"https://x.com/search?q={enc}&f=live"
+    vk_url = f"https://vk.com/search?c%5Bsection%5D=statuses&c%5Bq%5D={enc}"
+
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("📸 Instagram Sharhlar", url=insta_dork, icon_custom_emoji_id=E["EXIF_PHOTO"]),
+            InlineKeyboardButton("✈️ Telegram Izohlar", url=tgstat_url, icon_custom_emoji_id=E["CALL"])
+        ],
+        [
+            InlineKeyboardButton("🎥 YouTube Sharhlar", url=yt_dork, icon_custom_emoji_id=E["FIRE"]),
+            InlineKeyboardButton("🎵 TikTok Sharhlar", url=tiktok_url, icon_custom_emoji_id=E["SEARCH"])
+        ],
+        [
+            InlineKeyboardButton("🤖 Reddit Muhokamalar", url=reddit_url, icon_custom_emoji_id=E["LAPTOP"]),
+            InlineKeyboardButton("🐦 X (Twitter) Izohlar", url=x_url, icon_custom_emoji_id=E["WARNING"])
+        ],
+        [
+            InlineKeyboardButton("💬 VKontakte Izohlar", url=vk_url, icon_custom_emoji_id=E["SHIELD"]),
+            InlineKeyboardButton("🌐 Telegram Post Dork", url=tg_dork, icon_custom_emoji_id=E["SEARCH"])
+        ]
+    ])
+
+    prompt = (
+        f"Siz «KiberIz-4» maktab kiberxavfsizlik va Cross-Platform Social Media Comment OSINT ekspertisiz.\n"
+        f"Foydalanuvchi quyidagi so‘z/ibora/nikneym bo‘yicha ijtimoiy tarmoqlar (Instagram, Telegram, YouTube, TikTok, Reddit, X) sharhlarini qidirmoqda:\n"
+        f"Qidiruv so'zi: \"{clean}\"\n\n"
+        f"Ushbu so'zni ijtimoiy tarmoqlar sharhlari kontekstida tahlil qiling va Telegram HTML (b, i, code teglaridan foydalanib) formatida qaytaring:\n"
+        f"💬 <b>SHARHLAR OSINT TAHLILI:</b> <code>{html.escape(clean)}</code>\n"
+        f"📊 <b>XAVF VA TOKSIKLIK KO‘RSATKICHI:</b> [0% dan 100% gacha va holat, masalan: 85% (KRITIK FIRIBGARLIK / BULLING) yoki 10% (XAVFSIZ)]\n"
+        f"🎯 <b>SHARHLARDA ISHLATILISH KONTEKSTI:</b>\n"
+        f"• [Ushbu ibora ijtimoiy tarmoqlar sharhlarida odatda qanday maqsadda ishlatiladi: fishing botlar, kiberbulling, shantaj, sovrin aldovlari, provokatsiya yoki oddiy muloqot]\n"
+        f"⚠️ <b>KIBER-TAHDID VA HUQUQIY JAVOBGARLIK:</b>\n"
+        f"• [O'zbekiston Respublikasi JK/MJtK bo'yicha modda (JK 140-haqorat, JK 141-shaxsiy hayot daxlsizligi, JK 165-tovlamachilik, JK 168-firibgarlik)]\n"
+        f"🛡️ <b>AMALIY XAVFSIZLIK TAVSIYASI:</b>\n"
+        f"• [Agar bunday sharh sizga yozilgan bo'lsa yoki duch kelsangiz, nima qilish kerakligi bo'yicha 2 ta aniq qadam]\n\n"
+        f"Qisqa, lo'nda, ta'sirchan va o'quvchiga tushunarli yozing. div, span, p teglarini ishlatmang."
+    )
+
+    raw_ai = await asyncio.to_thread(_query_gemini_api_sync, prompt)
+    formatted = format_ai_to_tg_html(raw_ai)
+    return formatted, keyboard
+
+async def comment_osint_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
+
+    if context.args and len(context.args) > 0:
+        query_text = " ".join(context.args).strip()
+        try:
+            await update.message.chat.send_action("typing")
+        except Exception:
+            pass
+        ai_resp, kb = await audit_comments_with_ai(query_text)
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"{ai_resp}\n\n👇 <b>Quyidagi tugmalar orqali har bir tarmoqdagi sharhlarni to‘g‘ridan-to‘g‘ri oching:</b>",
+            parse_mode="HTML",
+            reply_markup=kb
+        )
+        return
+
+    context.user_data["waiting_for_comment_osint"] = True
+    context.user_data["waiting_for_audit"] = False
+    context.user_data["waiting_for_ai"] = False
+
+    msg = (
+        f"{p('CHAT', '💬')} <b>CROSS-PLATFORM SHARHLAR & IZOHLAR OSINT SKANERI:</b>\n\n"
+        f"Ushbu vosita orqali siz Instagram, Telegram, YouTube, TikTok, Reddit va X (Twitter) tarmoqlaridagi "
+        f"istalgan so‘z, ibora yoki nikneym qatnashgan ochiq sharhlarni topishingiz mumkin!\n\n"
+        f"🎯 <b>Nimalarni qidirish mumkin?</b>\n"
+        f"• 🚨 <b>Tahdid va bulling so‘zlari:</b> <code>shantaj</code>, <code>suratingni tarqataman</code>, <code>parol</code>;\n"
+        f"• 🎰 <b>Firibgarlik va tuzoqlar:</b> <code>sovrin yutdingiz</code>, <code>tekin robux</code>, <code>karta raqam</code>;\n"
+        f"• 👤 <b>Nikneym yoki shaxs:</b> <code>@ali_2008</code>, <code>sinfdosh</code>;\n"
+        f"• 📸 <b>Sharhlar skrinshoti:</b> Instagram yoki TikTok sharhlari skrinshotini yuborsangiz, AI haqorat va soxta bot profillarni fosh qiladi!\n\n"
+        f"👉 <i>Qidirmoqchi bo‘lgan so‘zingiz, iborangiz yoki nikneymni shu yerga yozib yuboring:</i>"
+    )
+    await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
 
 async def audit_link_with_ai(full_url: str) -> tuple:
     """Uses Gemini AI (gemini-2.5-flash / flash models) to perform deep cyber-threat, phishing, and legality analysis on a URL."""
@@ -3366,6 +3459,30 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg.reply_text(report, parse_mode="HTML", reply_markup=keyboard)
         return
 
+    # In Private DM: Check if user sent a screenshot in Comment OSINT mode
+    if context.user_data.get("waiting_for_comment_osint"):
+        context.user_data["waiting_for_comment_osint"] = False
+        jpeg_bytes = convert_image_to_jpeg_bytes(file_bytes, file_name)
+        try:
+            await msg.reply_chat_action("typing")
+        except Exception:
+            pass
+        prompt = (
+            "Siz «KiberIz-4» maktab kiberxavfsizlik, sud kiber-ekspertizasi va ijtimoiy tarmoqlar izoh tahlili bo'yicha mutaxassisisiz.\n"
+            "Foydalanuvchi ijtimoiy tarmoq (Instagram, Telegram, YouTube, TikTok va b.) sharhlari / chati skrinshotini yubordi.\n"
+            "Ushbu skrinshotni tahlil qiling va Telegram HTML (faqat b, i, code) formatida quyidagilarni bering:\n"
+            "💬 <b>IZOH / SHARH SKRINSHOTI EKSPERTIZASI:</b>\n\n"
+            "• 📸 <b>Aniqlangan Matn va Mazmun:</b> [Skrinshotdagi sharhlar, muallif nikneymi va asosiy gaplar]\n"
+            "• 📊 <b>Toksiklik va Kiber-Xavf:</b> [0% dan 100% gacha va holat: 🚨 KRITIK KIBERBULLING / ⚠️ SHUBHALI / ✅ ME'YORIY]\n"
+            "• ⚖️ <b>Huquqiy Baholash (O'zR JK/MJtK):</b> [JK 140-modda haqorat, JK 141-modda shaxsiy hayot daxlsizligi, JK 165-modda shantaj, yoki MJtK 40/41 moddalari]\n"
+            "• 🛡️ <b>Amaliy Qadamlar:</b> [1. Skrinshotni o'chirmaslik (rasmiy dalil), 2. Ijtimoiy tarmoqda shikoyat (Report) berish, 3. Maktab ma'muriyatiga yoki 102/1133 ga murojaat qilish]\n\n"
+            "Xulosa o'zbek tilida, professional va o'quvchiga aniq tushunarli bo'lsin."
+        )
+        raw = await asyncio.to_thread(_query_gemini_api_sync, prompt, jpeg_bytes, "image/jpeg")
+        report = format_ai_to_tg_html(raw)
+        await msg.reply_text(report, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
+        return
+
     # 1. Android APK
     if ext in apk_exts or "android.package-archive" in mime:
         await handle_apk_analysis(msg, file_bytes, file_name)
@@ -3932,6 +4049,11 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif "AI Kiber-Maslahatchi" in text or "AI Maslahatchi" in text:
         await ai_command(update, context)
         return
+    elif "Sharh" in text or "Izoh" in text or text.lower().startswith("/comment") or text.lower().startswith("/sharh"):
+        context.user_data["waiting_for_ai"] = False
+        context.user_data["waiting_for_audit"] = False
+        await comment_osint_command(update, context)
+        return
     elif "Nikneym" in text or "Havola" in text:
         context.user_data["waiting_for_ai"] = False
         context.user_data["waiting_for_audit"] = True
@@ -3968,6 +4090,21 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     words = text.split()
+    is_comment_mode = context.user_data.get("waiting_for_comment_osint", False)
+    if is_comment_mode:
+        context.user_data["waiting_for_comment_osint"] = False
+        try:
+            await update.message.chat.send_action("typing")
+        except Exception:
+            pass
+        ai_resp, kb = await audit_comments_with_ai(text)
+        await update.message.reply_text(
+            f"{ai_resp}\n\n👇 <b>Quyidagi tugmalar orqali har bir tarmoqdagi sharhlarni to‘g‘ridan-to‘g‘ri oching:</b>",
+            parse_mode="HTML",
+            reply_markup=kb
+        )
+        return
+
     is_explicit_ai = context.user_data.get("waiting_for_ai", False)
     is_audit_mode = context.user_data.get("waiting_for_audit", False)
 
@@ -4161,6 +4298,9 @@ def main():
     app.add_handler(CommandHandler("checklist", checklist_command))
     app.add_handler(CommandHandler("test", start_quiz))
     app.add_handler(CommandHandler("quiz", start_quiz))
+    app.add_handler(CommandHandler("comment", comment_osint_command))
+    app.add_handler(CommandHandler("sharh", comment_osint_command))
+    app.add_handler(CommandHandler("comments", comment_osint_command))
     app.add_handler(CommandHandler("cases", cases_command))
     app.add_handler(CommandHandler("sos", sos_command))
     app.add_handler(CommandHandler("web", web_command))
