@@ -205,9 +205,9 @@ slides_data = [
                 COLOR_SUCCESS
             ),
             (
-                "📞 Rasmiy Aloqa va Integratsiya",
-                "Davlat Idoralari Bilan Hamkorlik",
-                "• Telegram Bot: @kiberiz_bot\n• Veb-Platforma: kiberiz4\n• Yagona Ishonch Telefoni: 1133 (csec.uz)",
+                "🤖 AI Kiber-Maslahatchi",
+                "24/7 Sun’iy Intellekt Himoyasi",
+                "• 24/7 Raqamli Kiber-Mentor\n• Shaxsiy va guruh xavfsizligi\n• Telegram Bot: @kiberiz_bot",
                 COLOR_AMBER
             )
         ],
