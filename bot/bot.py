@@ -4563,7 +4563,12 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
 def main():
     start_health_check_if_needed()
     print("Starting KiberIz-4 Telegram Bot with Real OSINT, Video, HEIC & ZIP Support...")
-    request_cfg = HTTPXRequest(connect_timeout=30.0, read_timeout=30.0)
+    request_cfg = HTTPXRequest(
+        connect_timeout=60.0,
+        read_timeout=60.0,
+        write_timeout=60.0,
+        pool_timeout=60.0,
+    )
     app = ApplicationBuilder().token(BOT_TOKEN).request(request_cfg).build()
     
     app.add_handler(CommandHandler("start", start_command))
@@ -4613,7 +4618,7 @@ def main():
     app.add_error_handler(error_handler)
     
     print("Bot is successfully polling!")
-    app.run_polling()
+    app.run_polling(bootstrap_retries=10, timeout=30)
 
 if __name__ == "__main__":
     main()
