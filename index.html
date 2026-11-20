@@ -1030,12 +1030,94 @@
           </div>
         </div>
 
-        <!-- Asosiy Harakat Tugmasi -->
-        <div class="pt-2">
-          <a href="https://t.me/kiberiz_bot?start=ai" target="_blank" class="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center space-x-2 shadow-xl shadow-cyan-500/25 transition transform hover:scale-[1.01]">
-            <i class="fa-solid fa-robot text-base"></i>
-            <span>AI Maslahatchi Bilan Suhbatlashish (@kiberiz_bot)</span>
+        <!-- Asosiy Harakat Tugmasi & Telegram Havolasi -->
+        <div class="pt-2 flex flex-col sm:flex-row gap-3">
+          <a href="#webAiChatWidget" onclick="focusWebAiChat()" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg shadow-cyan-500/20 transition transform hover:scale-[1.01]">
+            <i class="fa-solid fa-comments text-base"></i>
+            <span>Saytda Jonli AI Chatni Boshlash</span>
           </a>
+          <a href="https://t.me/kiberiz_bot?start=ai" target="_blank" class="py-3 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 transition">
+            <i class="fa-brands fa-telegram text-base text-cyan-400"></i>
+            <span>Telegram Botda Ochish</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- INTERAKTIV JONLI AI CHAT TERMINALI (SAYTNING O'ZIDA) -->
+      <div id="webAiChatWidget" class="mt-6 rounded-2xl bg-slate-950/90 border border-cyan-500/40 overflow-hidden shadow-2xl flex flex-col">
+        <!-- Chat Header -->
+        <div class="px-4 py-3 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 text-slate-950 flex items-center justify-center text-sm font-bold shadow-md">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                <span>KiberIz Jonli AI Kiber-Maslahatchi</span>
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              </div>
+              <div class="text-[10px] text-emerald-400 font-mono">Faol // 24/7 Oflayn + Gemini AI Vision</div>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <button onclick="clearWebAiChat()" class="text-[11px] text-slate-400 hover:text-cyan-400 transition px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700" title="Suhbatni tozalash">
+              <i class="fa-solid fa-rotate-left mr-1"></i> Tozalash
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Messages Container -->
+        <div id="webAiChatMessages" class="p-4 space-y-3 min-h-[250px] max-h-[350px] overflow-y-auto text-xs scrollbar-none">
+          <!-- Initial Welcome Message -->
+          <div class="flex items-start space-x-2.5 max-w-[92%] sm:max-w-[85%]">
+            <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-cyan-500/30">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="p-3.5 rounded-2xl rounded-tl-none bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed shadow-sm">
+              <p class="font-bold text-cyan-300 mb-1 flex items-center">
+                <span>Assalomu alaykum! Men «KiberIz-4» AI Kiber-Maslahatchisiman.</span>
+                <span class="ml-1.5">🛡️</span>
+              </p>
+              <p class="text-[11px] text-slate-300">
+                Sizga fishing, akkaunt xavfsizligi, shubhali xabarlar, shantaj yoki kiber-tahdidlar bo‘yicha qanday yordam bera olaman? 
+                Quyidagi tayyor savollardan birini tanlang yoki o‘z savolingizni yozing:
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Suggested Prompt Pills -->
+        <div class="px-3.5 py-2.5 bg-slate-900/60 border-t border-slate-800/80">
+          <div class="text-[10px] text-slate-400 font-semibold mb-1.5 flex items-center space-x-1">
+            <i class="fa-solid fa-lightbulb text-amber-400"></i>
+            <span>Tezkor sinov savollari:</span>
+          </div>
+          <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
+            <button onclick="askWebAiSample('Shubhali fishing havolasini qanday aniqlash mumkin?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 text-[11px] transition">
+              🎣 Fishingni aniqlash
+            </button>
+            <button onclick="askWebAiSample('Akkauntim buzilsa yoki parol o‘g‘irlansa birinchi nima qilish kerak?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-rose-500/30 text-rose-300 text-[11px] transition">
+              🚨 Akkauntim buzilsa-chi?
+            </button>
+            <button onclick="askWebAiSample('Telegram va Instagramda ikki bosqichli tekshiruvni (2FA) qanday yoqaman?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-300 text-[11px] transition">
+              🔐 2FA yoqish
+            </button>
+            <button onclick="askWebAiSample('Begona odam internetda shaxsiy rasmimni tarqataman deb shantaj qilsa nima qilish kerak?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-purple-500/30 text-purple-300 text-[11px] transition">
+              ⚠️ Shantajdan himoyalanish
+            </button>
+            <button onclick="askWebAiSample('Karta maʼlumotlarim yoki SMS kodni firibgarga berib qo‘ydim, nima qilay?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 text-[11px] transition">
+              💳 Karta firibgarligi
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+          <input type="text" id="webAiChatInput" onkeydown="if(event.key==='Enter') sendWebAiChatMessage()" placeholder="Kiberxavfsizlik bo‘yicha savolingizni yozing..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400">
+          <button onclick="sendWebAiChatMessage()" id="webAiSendBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-bold text-xs flex items-center justify-center space-x-1.5 transition">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span class="hidden sm:inline">Yuborish</span>
+          </button>
         </div>
       </div>
 
@@ -3093,6 +3175,202 @@
       }
     }
 
+
+    // ==========================================
+    // 🤖 INTERACTIVE WEB AI CHAT ENGINE
+    // ==========================================
+    function focusWebAiChat() {
+      setTimeout(() => {
+        const inp = document.getElementById('webAiChatInput');
+        if (inp) {
+          inp.focus();
+          inp.classList.add('ring-2', 'ring-cyan-400');
+          setTimeout(() => inp.classList.remove('ring-2', 'ring-cyan-400'), 1500);
+        }
+      }, 300);
+    }
+
+    function askWebAiSample(question) {
+      const inp = document.getElementById('webAiChatInput');
+      if (inp) {
+        inp.value = question;
+        sendWebAiChatMessage();
+      }
+    }
+
+    function clearWebAiChat() {
+      const chat = document.getElementById('webAiChatMessages');
+      if (chat) {
+        chat.innerHTML = `
+          <div class="flex items-start space-x-2.5 max-w-[92%] sm:max-w-[85%]">
+            <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-cyan-500/30">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="p-3.5 rounded-2xl rounded-tl-none bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed shadow-sm">
+              <p class="font-bold text-cyan-300 mb-1 flex items-center">
+                <span>Suhbat tozalandi. Qanday kiber-savolingiz bor?</span>
+                <span class="ml-1.5">🛡️</span>
+              </p>
+              <p class="text-[11px] text-slate-300">
+                Fishing, akkaunt himoyasi, shantaj yoki begona xabarlar bo‘yicha savolingizni yozishingiz mumkin.
+              </p>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    async function sendWebAiChatMessage() {
+      const inp = document.getElementById('webAiChatInput');
+      const text = (inp.value || "").trim();
+      if (!text) return;
+      inp.value = "";
+
+      const chat = document.getElementById('webAiChatMessages');
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      // 1. Append User Message
+      const userBubble = document.createElement('div');
+      userBubble.className = "flex justify-end";
+      userBubble.innerHTML = `
+        <div class="max-w-[85%] sm:max-w-[75%] p-3 rounded-2xl rounded-tr-none bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-md">
+          <p class="text-xs leading-relaxed">${escapeHtml(text)}</p>
+          <div class="text-[9px] text-cyan-200 text-right mt-1">${timeStr}</div>
+        </div>
+      `;
+      chat.appendChild(userBubble);
+      chat.scrollTop = chat.scrollHeight;
+
+      // 2. Append Typing Indicator
+      const typingId = "aiTyping_" + Date.now();
+      const typingBubble = document.createElement('div');
+      typingBubble.id = typingId;
+      typingBubble.className = "flex items-start space-x-2.5 max-w-[92%] sm:max-w-[85%]";
+      typingBubble.innerHTML = `
+        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-cyan-500/30">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="p-3 rounded-2xl rounded-tl-none bg-slate-900 border border-slate-800 text-slate-300 flex items-center space-x-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.2s]"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-bounce [animation-delay:0.4s]"></span>
+          <span class="text-[11px] text-cyan-300 ml-1 font-mono">AI Maslahatchi o‘ylamoqda...</span>
+        </div>
+      `;
+      chat.appendChild(typingBubble);
+      chat.scrollTop = chat.scrollHeight;
+
+      // 3. Generate Response
+      let aiResponseText = "";
+      let isGeminiLive = false;
+
+      const apiKey = localStorage.getItem('gemini_api_key');
+      if (apiKey && apiKey.startsWith("AIzaSy")) {
+        try {
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{
+                parts: [{
+                  text: `Siz «KiberIz-4» maktab kiberxavfsizlik loyihasining professional AI Kiber-Maslahatchisisiz. O'quvchi va ota-onalarga kiber-xavflar, fishing, akkaunt buzilishi, firibgarlik va raqamli xavfsizlik bo'yicha o'zbek tilida aniq, tushunarli, dalda beruvchi va qadam-baqadam tavsiyalar bering. HTML teglari (faqat <b>, <i>, <code>) ishlating. Foydalanuvchi savoli: ${text}`
+                }]
+              }]
+            })
+          });
+          const json = await resp.json();
+          if (json.candidates && json.candidates[0] && json.candidates[0].content) {
+            aiResponseText = json.candidates[0].content.parts.map(p => p.text).join('\n');
+            isGeminiLive = true;
+          }
+        } catch (err) {
+          console.warn("Live Gemini web query fallback:", err);
+        }
+      }
+
+      if (!aiResponseText) {
+        aiResponseText = generateAiCyberResponse(text);
+      }
+
+      // 4. Render AI Response
+      setTimeout(() => {
+        const typEl = document.getElementById(typingId);
+        if (typEl) typEl.remove();
+
+        const aiBubble = document.createElement('div');
+        aiBubble.className = "flex items-start space-x-2.5 max-w-[92%] sm:max-w-[85%]";
+        aiBubble.innerHTML = `
+          <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-cyan-500/30">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div class="p-3.5 rounded-2xl rounded-tl-none bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed shadow-sm space-y-1.5">
+            <div class="flex items-center justify-between pb-1 border-b border-slate-800 text-[10px] text-slate-400">
+              <span class="font-bold text-cyan-300">${isGeminiLive ? '🤖 Gemini 2.5 Flash Vision' : '🛡️ KiberIz AI Maslahatchi'}</span>
+              <span>${timeStr}</span>
+            </div>
+            <div class="text-[11px] text-slate-200 leading-relaxed whitespace-pre-line">${aiResponseText}</div>
+          </div>
+        `;
+        chat.appendChild(aiBubble);
+        chat.scrollTop = chat.scrollHeight;
+      }, isGeminiLive ? 100 : 400);
+    }
+
+    function generateAiCyberResponse(userText) {
+      const low = userText.toLowerCase();
+
+      if (low.includes('fishing') || low.includes('havola') || low.includes('link') || low.includes('soxta') || low.includes('yutdim') || low.includes('500') || low.includes('yordam')) {
+        return `<b>🎣 Shubhali Havola va Fishingdan Himoyalanish:</b>\n\n` +
+          `1. <b>Domen nomini tekshiring:</b> Rasmiy davlat yoki bank saytlari hech qachon <code>.xyz</code>, <code>.top</code>, <code>.click</code> kabi arzon zonalarda ochilmaydi.\n` +
+          `2. <b>«500 000 so‘m yordam» — 100% yolg‘on:</b> Davlat hech qachon Telegram havolalari orqali karta raqami yoki SMS kod so‘rab pul tarqatmaydi.\n` +
+          `3. <b>Oltin qoida:</b> Begona havolaga kirmang, karta raqamingizni va SMS tasdiqlash kodini hech qachon kiritmang! Agar kiritib qo‘ygan bo‘lsangiz, zudlik bilan kartani bloklang.`;
+      }
+
+      if (low.includes('buzilsa') || low.includes('ogirlandi') || low.includes('parol') || low.includes('sessiya') || low.includes('buzildi') || low.includes('kira olmayapman')) {
+        return `<b>🚨 Akkaunt Buzilganda (Xak qilinganda) Zudlik Bilan Ko‘riladigan 3 Qadam:</b>\n\n` +
+          `1. <b>Boshqa sessiyalarni o‘chiring:</b> Telegram ➔ Sozlamalar ➔ Qurilmalar ➔ <i>«Boshqa barcha seanslarni tugatish»</i> tugmasini bosing.\n` +
+          `2. <b>Parolni yangilang:</b> Agar akkauntga kirish imkoni bo‘lsa, zudlik bilan murakkab yangi parol o‘rnating.\n` +
+          `3. <b>Ikki bosqichli tekshiruvni (2FA) yoqing:</b> Bu orqali begona shaxs kodingizni bilsa ham, ikkinchi parolsiz kira olmaydi. Do‘stlaringizga nomingizdan pul so‘rab yozilsa, bu firibgarlik ekanini darhol boshqa yo‘l bilan bildiring.`;
+      }
+
+      if (low.includes('2fa') || low.includes('ikki bosqichli') || low.includes('himoya') || low.includes('xavfsiz qilish')) {
+        return `<b>🔐 Ikki Bosqichli Tekshiruvni (2FA) Yoqish Qo‘llanmasi:</b>\n\n` +
+          `• <b>Telegramda:</b> Sozlamalar ➔ Maxfiylik va xavfsizlik ➔ <i>Ikki bosqichli tekshiruv (Two-Step Verification)</i> ➔ Parol o‘rnating va tiklash elektron pochtangizni kiriting.\n` +
+          `• <b>Instagramda:</b> Sozlamalar ➔ Xavfsizlik ➔ <i>Ikki faktorli autentifikatsiya</i> ➔ SMS yoki Google Authenticator orqali yoqing.\n\n` +
+          `💡 <i>Bu sizning raqamingiz o‘g‘irlanganda yoki klonlanganda ham akkauntingizni 100% himoya qiladi.</i>`;
+      }
+
+      if (low.includes('shantaj') || low.includes('rasm') || low.includes('tarqataman') || low.includes('buling') || low.includes("qo'rqit")) {
+        return `<b>⚠️ Kiber-Shantaj va Qo‘rqitishga Qarshi Muhim Yo‘riqnoma:</b>\n\n` +
+          `1. <b>HECH QACHON PUL TO‘LAMANG:</b> Firibgarga bir marta pul bersangiz, u yana va yana so‘rashda davom etadi.\n` +
+          `2. <b>Dalillarni saqlang:</b> Barcha yozishmalar, fotosuratlar va akkaunt profilini skrinshot qilib oling.\n` +
+          `3. <b>Yolg‘iz qolmang:</b> Darhol ota-onangizga, ishonchli ustozingizga yoki maktab psixologiga xabar bering. Bu sizning aybingiz emas!\n` +
+          `4. <b>Shaxsni bloklang va xabar bering (Report):</b> Suhbatni o‘chirib yubormasdan, foydalanuvchini platforma ma’muriyatiga shikoyat qiling.`;
+      }
+
+      if (low.includes('karta') || low.includes('sms') || low.includes('click') || low.includes('payme') || low.includes('pulim') || low.includes('kod')) {
+        return `<b>💳 Karta Maʼlumotlari yoki SMS Kod Fosh Bo‘lganda:</b>\n\n` +
+          `1. <b>Zudlik bilan kartani muzlatish:</b> Click, Payme yoki bank ilovasiga kirib, kartani «Bloklash (Muzlatish)» funksiyasini bosing.\n` +
+          `2. <b>Bankka qo‘ng‘iroq qiling:</b> Bankning rasmiy qo‘llab-quvvatlash raqamiga zudlik bilan murojaat qilib, kartadagi amaliyotlarni to‘xtating.\n` +
+          `3. <b>SMS kod — bu sizning kalitingiz:</b> Hech bir bank xodimi yoki operator sizdan SMS kodni so‘ramaydi. Kodni begonalarga aytganingizda, ular pulingizni yechib oladi!`;
+      }
+
+      if (low.includes('deepfake') || low.includes('ai') || low.includes("sun'iy") || low.includes('avatar') || low.includes('profil')) {
+        return `<b>🎭 Deepfake va Soxta Profillarni Fosh Qilish Qoidalari:</b>\n\n` +
+          `• <b>Ko‘z qorachiqlari:</b> Sun’iy intellekt chizgan suratlarda ko‘zdagi yorug‘lik nurlari bir xil burchakdan tushmagan bo‘ladi.\n` +
+          `• <b>Teri va sochlar:</b> Haddan tashqari silliq "mum haykal" effekti yoki soch tolalari orqa fon bilan erib ketgan bo‘ladi.\n` +
+          `• <b>Catfishing xavfi:</b> Internetda go‘zal qiz yoki yigit surati bilan ochilgan profillar orqali o‘quvchilarni shantaj qilish holatlari ko‘p uchraydi. Shaxsiy suratlaringizni notanishlarga jo‘natmang!`;
+      }
+
+      return `<b>🛡️ KiberIz AI Kiber-Maslahatchisi Tavsiyasi:</b>\n\n` +
+        `Sizning savolingiz: <i>«${escapeHtml(userText)}»</i>\n\n` +
+        `Kiberxavfsizlikning 3 ta oltin qoidasiga rioya qiling:\n` +
+        `1. <b>Nomaʼlum fayllarni ochmang:</b> Telegramda .apk, .exe yoki shubhali zip arxivlarni yuklamang.\n` +
+        `2. <b>2FA doimo yoqiq bo‘lsin:</b> Barcha ijtimoiy tarmoq akkauntlaringizni ikki bosqichli parol bilan yoping.\n` +
+        `3. <b>Shaxsiy maʼlumotlarni himoyalang:</b> Telefon raqamingiz, geolokatsiyangiz va maktabingizni begonalarga fosh qilmang.\n\n` +
+        `Agar qo‘shimcha savolingiz bo‘lsa, yozing — men 24/7 yordam berishga tayyorman!`;
+    }
+
   </script>
 
   <!-- MODAL: GEMINI AI VISION & ADVANCED SETTINGS -->
@@ -3140,6 +3418,18 @@
       </div>
       <div id="geminiTestOutput" class="hidden mt-3 p-3 rounded-xl text-xs"></div>
     </div>
+  </div>
+
+  <!-- FLOATING AI CHAT LAUNCHER BUTTON -->
+  <div class="fixed bottom-5 right-5 z-40">
+    <a href="#aloqa" onclick="focusWebAiChat()" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center space-x-2 shadow-2xl shadow-cyan-500/40 border border-cyan-400/40 transition transform hover:scale-105 active:scale-95">
+      <span class="relative flex h-2.5 w-2.5">
+        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+      </span>
+      <i class="fa-solid fa-robot text-sm"></i>
+      <span>AI Maslahatchi</span>
+    </a>
   </div>
 
 </body>
