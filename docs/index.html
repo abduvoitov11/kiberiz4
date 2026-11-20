@@ -1984,7 +1984,7 @@
       checkboxes.forEach(cb => { if(cb.checked) checked++; });
       const percent = Math.round((checked / checkboxes.length) * 100);
       document.getElementById('progressBar').style.width = percent + '%';
-      document.getElementById('scoreText').innerText = percent + '% (' + checked + '/5)';
+      document.getElementById('scoreText').innerText = percent + '% (' + checked + '/' + checkboxes.length + ')';
     }
 
     function convertDMSToDD(dms, ref) {
