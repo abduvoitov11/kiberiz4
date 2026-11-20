@@ -1062,54 +1062,113 @@ async def audit_username_with_ai(raw_username: str) -> tuple:
     return formatted, raw
 
 async def audit_comments_with_ai(query_raw: str) -> tuple[str, InlineKeyboardMarkup]:
-    """Uses Gemini AI and Cross-Platform Dorking Matrix to analyze keywords/phrases in social media comments."""
+    """Uses Gemini AI and Cross-Platform Dorking Matrix to analyze keywords/phrases OR specific author account comments."""
     clean = query_raw.strip().strip('"\'')
+    
+    # Check if query is an author account username (e.g. @username or pure handle)
+    is_author_query = False
+    author_uname = clean.lstrip('@').strip()
+    if clean.startswith('@'):
+        is_author_query = True
+    elif re.match(r'^[a-zA-Z0-9_\.]{3,30}$', clean) and ' ' not in clean:
+        lower_val = clean.lower()
+        if lower_val not in ['shantaj', 'fishing', 'parol', 'tahdid', 'kiberbulling', 'donat', 'robux', 'sovrin', 'yutuq', 'prezident', 'click', 'payme']:
+            if any(c.isdigit() for c in clean) or '_' in clean or '.' in clean:
+                is_author_query = True
+
     enc = urllib.parse.quote(clean)
+    enc_uname = urllib.parse.quote(author_uname)
 
-    # Cross-Platform Deep Comment Search Links
-    insta_dork = f"https://www.google.com/search?q=site%3Ainstagram.com+intext%3A%22{enc}%22+(intext%3A%22comments%22+OR+intext%3A%22fikr%22+OR+intext%3A%22javob%22)"
-    tg_dork = f"https://www.google.com/search?q=site%3At.me+intext%3A%22{enc}%22"
-    tgstat_url = f"https://tgstat.com/search?q={enc}"
-    yt_dork = f"https://www.google.com/search?q=site%3Ayoutube.com+intext%3A%22{enc}%22+(intext%3A%22comment%22+OR+intext%3A%22sharh%22)"
-    tiktok_url = f"https://www.tiktok.com/search?q={enc}"
-    reddit_url = f"https://www.reddit.com/search/?q={enc}&type=comment"
-    x_url = f"https://x.com/search?q={enc}&f=live"
-    vk_url = f"https://vk.com/search?c%5Bsection%5D=statuses&c%5Bq%5D={enc}"
+    if is_author_query:
+        # Cross-Platform Author Specific Comments Links
+        reddit_url = f"https://www.reddit.com/user/{enc_uname}/comments/"
+        x_url = f"https://x.com/search?q=from%3A{enc_uname}&f=live"
+        insta_dork = f"https://www.google.com/search?q=site%3Ainstagram.com+intext%3A%22@{enc_uname}%22+(intext%3A%22replied%22+OR+intext%3A%22fikr%22+OR+intext%3A%22javob%22+OR+intext%3A%22comment%22)"
+        tgstat_url = f"https://tgstat.com/search?q=@{enc_uname}"
+        yt_dork = f"https://www.google.com/search?q=site%3Ayoutube.com+intext%3A%22{enc_uname}%22+(intext%3A%22reply%22+OR+intext%3A%22comment%22+OR+intext%3A%22sharh%22)"
+        tiktok_url = f"https://www.tiktok.com/@{enc_uname}"
+        vk_url = f"https://vk.com/search?c%5Bsection%5D=statuses&c%5Bq%5D={enc_uname}"
+        web_dork = f"https://www.google.com/search?q=intext%3A%22{enc_uname}%22+(inurl%3Acomments+OR+inurl%3Aauthor+OR+intext%3A%22yozgan+izohlari%22+OR+intext%3A%22fikr+bildirdi%22)"
 
-    keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("📸 Instagram Sharhlar", url=insta_dork, icon_custom_emoji_id=E["EXIF_PHOTO"]),
-            InlineKeyboardButton("✈️ Telegram Izohlar", url=tgstat_url, icon_custom_emoji_id=E["CALL"])
-        ],
-        [
-            InlineKeyboardButton("🎥 YouTube Sharhlar", url=yt_dork, icon_custom_emoji_id=E["FIRE"]),
-            InlineKeyboardButton("🎵 TikTok Sharhlar", url=tiktok_url, icon_custom_emoji_id=E["SEARCH"])
-        ],
-        [
-            InlineKeyboardButton("🤖 Reddit Muhokamalar", url=reddit_url, icon_custom_emoji_id=E["LAPTOP"]),
-            InlineKeyboardButton("🐦 X (Twitter) Izohlar", url=x_url, icon_custom_emoji_id=E["WARNING"])
-        ],
-        [
-            InlineKeyboardButton("💬 VKontakte Izohlar", url=vk_url, icon_custom_emoji_id=E["SHIELD"]),
-            InlineKeyboardButton("🌐 Telegram Post Dork", url=tg_dork, icon_custom_emoji_id=E["SEARCH"])
-        ]
-    ])
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🤖 Reddit: Yozgan Sharhlari", url=reddit_url, icon_custom_emoji_id=E["LAPTOP"]),
+                InlineKeyboardButton("🐦 X: Replies (from:)", url=x_url, icon_custom_emoji_id=E["SEARCH"])
+            ],
+            [
+                InlineKeyboardButton("📸 Instagram Izoh Dork", url=insta_dork, icon_custom_emoji_id=E["EXIF_PHOTO"]),
+                InlineKeyboardButton("✈️ TGStat Sharhlar", url=tgstat_url, icon_custom_emoji_id=E["CALL"])
+            ],
+            [
+                InlineKeyboardButton("🎥 YouTube Sharh Dork", url=yt_dork, icon_custom_emoji_id=E["FIRE"]),
+                InlineKeyboardButton("🎵 TikTok Profili", url=tiktok_url, icon_custom_emoji_id=E["SEARCH"])
+            ],
+            [
+                InlineKeyboardButton("🌐 Web Forum Sharhlar", url=web_dork, icon_custom_emoji_id=E["SHIELD"]),
+                InlineKeyboardButton("💬 VKontakte Izohlar", url=vk_url, icon_custom_emoji_id=E["SHIELD"])
+            ]
+        ])
 
-    prompt = (
-        f"Siz «KiberIz-4» maktab kiberxavfsizlik va Cross-Platform Social Media Comment OSINT ekspertisiz.\n"
-        f"Foydalanuvchi quyidagi so‘z/ibora/nikneym bo‘yicha ijtimoiy tarmoqlar (Instagram, Telegram, YouTube, TikTok, Reddit, X) sharhlarini qidirmoqda:\n"
-        f"Qidiruv so'zi: \"{clean}\"\n\n"
-        f"Ushbu so'zni ijtimoiy tarmoqlar sharhlari kontekstida tahlil qiling va Telegram HTML (b, i, code teglaridan foydalanib) formatida qaytaring:\n"
-        f"💬 <b>SHARHLAR OSINT TAHLILI:</b> <code>{html.escape(clean)}</code>\n"
-        f"📊 <b>XAVF VA TOKSIKLIK KO‘RSATKICHI:</b> [0% dan 100% gacha va holat, masalan: 85% (KRITIK FIRIBGARLIK / BULLING) yoki 10% (XAVFSIZ)]\n"
-        f"🎯 <b>SHARHLARDA ISHLATILISH KONTEKSTI:</b>\n"
-        f"• [Ushbu ibora ijtimoiy tarmoqlar sharhlarida odatda qanday maqsadda ishlatiladi: fishing botlar, kiberbulling, shantaj, sovrin aldovlari, provokatsiya yoki oddiy muloqot]\n"
-        f"⚠️ <b>KIBER-TAHDID VA HUQUQIY JAVOBGARLIK:</b>\n"
-        f"• [O'zbekiston Respublikasi JK/MJtK bo'yicha modda (JK 140-haqorat, JK 141-shaxsiy hayot daxlsizligi, JK 165-tovlamachilik, JK 168-firibgarlik)]\n"
-        f"🛡️ <b>AMALIY XAVFSIZLIK TAVSIYASI:</b>\n"
-        f"• [Agar bunday sharh sizga yozilgan bo'lsa yoki duch kelsangiz, nima qilish kerakligi bo'yicha 2 ta aniq qadam]\n\n"
-        f"Qisqa, lo'nda, ta'sirchan va o'quvchiga tushunarli yozing. div, span, p teglarini ishlatmang."
-    )
+        prompt = (
+            f"Siz «KiberIz-4» maktab kiberxavfsizlik, raqamli iz (Digital Footprint) va Akkaunt Sharhlari OSINT ekspertisiz.\n"
+            f"Foydalanuvchi aniq bir akkauntning: @{author_uname} ijtimoiy tarmoqlardagi (Reddit, X, Instagram, YouTube, Telegram) ochiq yozgan izohlari va faollik tarixini qidirmoqda.\n\n"
+            f"Ushbu akkauntning ochiq izohlar orqali qoldirishi mumkin bo‘lgan raqamli izini tahlil qiling va Telegram HTML (faqat <b>, <i>, <code> teglari bilan) formatida qaytaring:\n"
+            f"👤 <b>AKKAUNT SHARHLARI & RAQAMLI IZ AUDITI:</b> <code>@{html.escape(author_uname)}</code>\n\n"
+            f"📊 <b>IZOHLAR ORQALI SHAXSIY MA'LUMOT SIZISH XAVFI:</b> [0% dan 100% gacha va holat: YUQORI RAQAMLI IZ / O‘RTA / XAVFSIZ]\n"
+            f"🎯 <b>AKKAUNTNING OCHIQ TARMOQDAGI FOALLIK MAYDONI:</b>\n"
+            f"• [Reddit (/user/.../comments) va X (from:...) kabi tarmoqlarda yozilgan sharhlar orqali insonning qiziqishlari, fikrlash tarzi, maktabi yoki yoshi qanday fosh bo‘lishi]\n"
+            f"⚠️ <b>ANTI-STALKING VA MAXFIYLIK QOIDASI (O‘RQ-547):</b>\n"
+            f"• [Ushbu vosita faqat o‘z hisobingiz xavfsizligini ta'minlash va internetdagi ortiqcha izlarni tozalash uchun mo‘ljallangan. Boshqa shaxslarni ruxsatsiz ta'qib qilish qonunan taqiqlanadi]\n"
+            f"🛡️ <b>AKKAUNT SHARHLARINI TOZALASH VA HIMOYA TAVSIYALARI:</b>\n"
+            f"• 1. <i>Reddit va X-da shaxsiy ma'lumot (telefon, shahar, maktab) yozilgan eski sharhlarni o‘chirib yuring.</i>\n"
+            f"• 2. <i>Instagram va TikTok-da 'Faqat do‘stlar sharhlashi mumkin' funksiyasini yoqing.</i>\n\n"
+            f"Qisqa, lo‘nda va ta'sirchan yozing. div, span, p teglarini ishlatmang."
+        )
+    else:
+        # Cross-Platform Keyword Comment Search Links
+        insta_dork = f"https://www.google.com/search?q=site%3Ainstagram.com+intext%3A%22{enc}%22+(intext%3A%22comments%22+OR+intext%3A%22fikr%22+OR+intext%3A%22javob%22)"
+        tg_dork = f"https://www.google.com/search?q=site%3At.me+intext%3A%22{enc}%22"
+        tgstat_url = f"https://tgstat.com/search?q={enc}"
+        yt_dork = f"https://www.google.com/search?q=site%3Ayoutube.com+intext%3A%22{enc}%22+(intext%3A%22comment%22+OR+intext%3A%22sharh%22)"
+        tiktok_url = f"https://www.tiktok.com/search?q={enc}"
+        reddit_url = f"https://www.reddit.com/search/?q={enc}&type=comment"
+        x_url = f"https://x.com/search?q={enc}&f=live"
+        vk_url = f"https://vk.com/search?c%5Bsection%5D=statuses&c%5Bq%5D={enc}"
+
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("📸 Instagram Sharhlar", url=insta_dork, icon_custom_emoji_id=E["EXIF_PHOTO"]),
+                InlineKeyboardButton("✈️ Telegram Izohlar", url=tgstat_url, icon_custom_emoji_id=E["CALL"])
+            ],
+            [
+                InlineKeyboardButton("🎥 YouTube Sharhlar", url=yt_dork, icon_custom_emoji_id=E["FIRE"]),
+                InlineKeyboardButton("🎵 TikTok Sharhlar", url=tiktok_url, icon_custom_emoji_id=E["SEARCH"])
+            ],
+            [
+                InlineKeyboardButton("🤖 Reddit Muhokamalar", url=reddit_url, icon_custom_emoji_id=E["LAPTOP"]),
+                InlineKeyboardButton("🐦 X (Twitter) Izohlar", url=x_url, icon_custom_emoji_id=E["WARNING"])
+            ],
+            [
+                InlineKeyboardButton("💬 VKontakte Izohlar", url=vk_url, icon_custom_emoji_id=E["SHIELD"]),
+                InlineKeyboardButton("🌐 Telegram Post Dork", url=tg_dork, icon_custom_emoji_id=E["SEARCH"])
+            ]
+        ])
+
+        prompt = (
+            f"Siz «KiberIz-4» maktab kiberxavfsizlik va Cross-Platform Social Media Comment OSINT ekspertisiz.\n"
+            f"Foydalanuvchi quyidagi so‘z/ibora/nikneym bo‘yicha ijtimoiy tarmoqlar (Instagram, Telegram, YouTube, TikTok, Reddit, X) sharhlarini qidirmoqda:\n"
+            f"Qidiruv so'zi: \"{clean}\"\n\n"
+            f"Ushbu so'zni ijtimoiy tarmoqlar sharhlari kontekstida tahlil qiling va Telegram HTML (b, i, code teglaridan foydalanib) formatida qaytaring:\n"
+            f"💬 <b>SHARHLAR OSINT TAHLILI:</b> <code>{html.escape(clean)}</code>\n"
+            f"📊 <b>XAVF VA TOKSIKLIK KO‘RSATKICHI:</b> [0% dan 100% gacha va holat, masalan: 85% (KRITIK FIRIBGARLIK / BULLING) yoki 10% (XAVFSIZ)]\n"
+            f"🎯 <b>SHARHLARDA ISHLATILISH KONTEKSTI:</b>\n"
+            f"• [Ushbu ibora ijtimoiy tarmoqlar sharhlarida odatda qanday maqsadda ishlatiladi: fishing botlar, kiberbulling, shantaj, sovrin aldovlari, provokatsiya yoki oddiy muloqot]\n"
+            f"⚠️ <b>KIBER-TAHDID VA HUQUQIY JAVOBGARLIK:</b>\n"
+            f"• [O'zbekiston Respublikasi JK/MJtK bo'yicha modda (JK 140-haqorat, JK 141-shaxsiy hayot daxlsizligi, JK 165-tovlamachilik, JK 168-firibgarlik)]\n"
+            f"🛡️ <b>AMALIY XAVFSIZLIK TAVSIYASI:</b>\n"
+            f"• [Agar bunday sharh sizga yozilgan bo'lsa yoki duch kelsangiz, nima qilish kerakligi bo'yicha 2 ta aniq qadam]\n\n"
+            f"Qisqa, lo'nda, ta'sirchan va o'quvchiga tushunarli yozing. div, span, p teglarini ishlatmang."
+        )
 
     raw_ai = await asyncio.to_thread(_query_gemini_api_sync, prompt)
     formatted = format_ai_to_tg_html(raw_ai)
@@ -1140,14 +1199,14 @@ async def comment_osint_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     msg = (
         f"{p('CHAT', '💬')} <b>CROSS-PLATFORM SHARHLAR & IZOHLAR OSINT SKANERI:</b>\n\n"
-        f"Ushbu vosita orqali siz Instagram, Telegram, YouTube, TikTok, Reddit va X (Twitter) tarmoqlaridagi "
-        f"istalgan so‘z, ibora yoki nikneym qatnashgan ochiq sharhlarni topishingiz mumkin!\n\n"
-        f"🎯 <b>Nimalarni qidirish mumkin?</b>\n"
-        f"• 🚨 <b>Tahdid va bulling so‘zlari:</b> <code>shantaj</code>, <code>suratingni tarqataman</code>, <code>parol</code>;\n"
-        f"• 🎰 <b>Firibgarlik va tuzoqlar:</b> <code>sovrin yutdingiz</code>, <code>tekin robux</code>, <code>karta raqam</code>;\n"
-        f"• 👤 <b>Nikneym yoki shaxs:</b> <code>@ali_2008</code>, <code>sinfdosh</code>;\n"
-        f"• 📸 <b>Sharhlar skrinshoti:</b> Instagram yoki TikTok sharhlari skrinshotini yuborsangiz, AI haqorat va soxta bot profillarni fosh qiladi!\n\n"
-        f"👉 <i>Qidirmoqchi bo‘lgan so‘zingiz, iborangiz yoki nikneymni shu yerga yozib yuboring:</i>"
+        f"Ushbu vosita orqali siz 2 xil usulda chuqur izohlar qidiruvini o‘tkazishingiz mumkin:\n\n"
+        f"1. 👤 <b>ANIQ BIR AKKAUNTNING YOZGAN SHARHLARINI TOPISH:</b>\n"
+        f"   Foydalanuvchi nikneymini <code>@</code> belgisi bilan yuboring (masalan: <code>@ali_gamer</code> yoki <code>@sarvar_2008</code>).\n"
+        f"   └ <i>Bot Reddit (foydalanuvchining barcha sharhlari feedi), X (Twitter) repliylari, Instagram dork, YouTube va TGStat-da qoldirgan ochiq izohlarini topib beradi!</i>\n\n"
+        f"2. 💬 <b>KALIT SO‘Z YOKI IBORA BO‘YICHA SHARHLAR:</b>\n"
+        f"   Istalgan mavzu yoki so‘zni yuboring (masalan: <code>shantaj</code>, <code>sovrin yutdingiz</code>, <code>tekin robux</code>).\n\n"
+        f"📸 <b>Skrinshot tekshirish:</b> Agar sizga shubhali yoki haqoratli izoh yozishgan bo‘lsa, to‘g‘ridan-to‘g‘ri rasm skrinshotini yuboring!\n\n"
+        f"👉 <i>Qidirmoqchi bo‘lgan @nikneym yoki so‘zingizni shu yerga yozib yuboring:</i>"
     )
     await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
 
@@ -4301,6 +4360,9 @@ def main():
     app.add_handler(CommandHandler("comment", comment_osint_command))
     app.add_handler(CommandHandler("sharh", comment_osint_command))
     app.add_handler(CommandHandler("comments", comment_osint_command))
+    app.add_handler(CommandHandler("user_comments", comment_osint_command))
+    app.add_handler(CommandHandler("author_comments", comment_osint_command))
+    app.add_handler(CommandHandler("profil_sharh", comment_osint_command))
     app.add_handler(CommandHandler("cases", cases_command))
     app.add_handler(CommandHandler("sos", sos_command))
     app.add_handler(CommandHandler("web", web_command))
