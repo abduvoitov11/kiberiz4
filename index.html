@@ -496,6 +496,9 @@
           <span class="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 text-[10px] font-mono">JK 140 / 141 / 165 / 168</span>
           <span class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono">Zero-Log RAM-Only</span>
         </div>
+        <p class="text-[11px] text-slate-300 leading-relaxed mb-2">
+          <b>🔒 Shaxsiy Maxfiylik va O‘RQ-547 Kafolati:</b> Fuqarolarning shaxsiy daxlsizligini ta’minlash maqsadida, <b>aniq shaxs yoki akkaunt yozgan sharhlarni ommaviy veb-saytda qidirish to‘liq yopilgan</b>. Shaxsiy kiber-audit faqat <a href="https://t.me/kiberiz_bot" target="_blank" class="text-cyan-400 underline font-bold">@kiberiz_bot</a> Telegram botida Bio-kod va Rozilik (Consent) tizimi orqali himoyalangan.
+        </p>
         <p class="text-[11px] text-slate-300 leading-relaxed">
           Ijtimoiy tarmoqlardagi ochiq sharhlar ko‘pincha kiberbulling, shantaj va shaxsiy ma'lumotlarni noqonuniy tarqatish manbasiga aylanadi. Ushbu modul o‘zingiz haqingizdagi salbiy izohlarni, fishing tuzoqlarini yoki noqonuniy faoliyatni fosh etish uchun professional dorking mexanizmlaridan foydalanadi.
         </p>
@@ -504,18 +507,6 @@
 
     <!-- SEARCH CONSOLE -->
     <div class="glass-card p-4 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl border-cyan-500/30 shadow-2xl shadow-cyan-950/50 mb-6">
-      <!-- SEARCH MODE SELECTOR TABS -->
-      <div class="flex items-center gap-2 mb-4 p-1.5 rounded-xl bg-slate-950/80 border border-slate-800 w-fit">
-        <button id="commentModeKeywordBtn" onclick="setCommentSearchMode('keyword')" class="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md">
-          <i class="fa-solid fa-comments"></i>
-          <span>Mavzu & Kalit So‘z</span>
-        </button>
-        <button id="commentModeAuthorBtn" onclick="setCommentSearchMode('author')" class="px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 text-slate-400 hover:text-white hover:bg-slate-900">
-          <i class="fa-solid fa-user-tag text-purple-400"></i>
-          <span>👤 Aniq Akkaunt Sharhlari (Author OSINT)</span>
-        </button>
-      </div>
-
       <div class="flex flex-col md:flex-row gap-2.5 sm:gap-3 items-center">
         <div class="relative flex-1 w-full">
           <div class="absolute inset-y-0 left-0 pl-3.5 sm:pl-4 flex items-center pointer-events-none text-cyan-400 text-base sm:text-lg">
@@ -524,7 +515,7 @@
           <input 
             type="text" 
             id="commentSearchInput" 
-            placeholder="Nikneym (@ali_gamer), kalit so'z yoki ibora (masalan: shantaj, sovrin yutdingiz, parol)..." 
+            placeholder="Shubhali so‘z yoki ibora (masalan: shantaj, sovrin yutdingiz, parol, tekin robux)..." 
             class="w-full pl-10 sm:pl-12 pr-9 sm:pr-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-slate-900/90 border border-slate-700/80 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-500/20 text-white placeholder-slate-500 text-xs sm:text-sm md:text-base outline-none transition font-medium"
             onkeydown="if(event.key==='Enter') runCommentOsintScan()"
           >
@@ -4774,49 +4765,6 @@ Javobni o'zbek tilida, professional, ta'sirchan va o'quvchi tushunadigan uslubda
     // CROSS-PLATFORM COMMENT & REACTION OSINT ENGINE
     // ==========================================
     let currentCommentFilter = 'all';
-    let currentCommentSearchMode = 'keyword'; // 'keyword' or 'author'
-
-    function setCommentSearchMode(mode) {
-      currentCommentSearchMode = mode;
-      const kwBtn = document.getElementById('commentModeKeywordBtn');
-      const authorBtn = document.getElementById('commentModeAuthorBtn');
-      const input = document.getElementById('commentSearchInput');
-      const pillsContainer = document.getElementById('commentSamplePills');
-
-      if (mode === 'author') {
-        if (authorBtn) authorBtn.className = 'px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-md';
-        if (kwBtn) kwBtn.className = 'px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 text-slate-400 hover:text-white hover:bg-slate-900';
-        if (input) {
-          input.placeholder = "Akkaunt nikneymini kiriting: masalan @ali_gamer yoki sarvar_2008...";
-        }
-        if (pillsContainer) {
-          pillsContainer.innerHTML = `
-            <span class="text-slate-500 text-[10px] uppercase font-mono mr-1">Akkaunt namunalari:</span>
-            <button onclick="setCommentSample('@sarvar_2008')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-purple-500/30 text-purple-300 transition">👤 @sarvar_2008</button>
-            <button onclick="setCommentSample('@ali_gamer')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 transition">🎮 @ali_gamer</button>
-            <button onclick="setCommentSample('@malika_uz')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-pink-500/30 text-pink-300 transition">🌸 @malika_uz</button>
-            <button onclick="setCommentSample('@gamer_uzb')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-300 transition">🏆 @gamer_uzb</button>
-            <button onclick="setCommentSample('@admin_cyber')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 transition">🛡️ @admin_cyber</button>
-          `;
-        }
-      } else {
-        if (kwBtn) kwBtn.className = 'px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md';
-        if (authorBtn) authorBtn.className = 'px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 text-slate-400 hover:text-white hover:bg-slate-900';
-        if (input) {
-          input.placeholder = "Nikneym (@ali_gamer), kalit so'z yoki ibora (masalan: shantaj, sovrin yutdingiz, parol)...";
-        }
-        if (pillsContainer) {
-          pillsContainer.innerHTML = `
-            <span class="text-slate-500 text-[10px] uppercase font-mono mr-1">Tezkor namunalar:</span>
-            <button onclick="setCommentSample('shantaj')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-rose-500/30 text-rose-300 transition">🚨 Shantaj / Tahdid</button>
-            <button onclick="setCommentSample('sovrin yutdingiz')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 transition">🎁 Sovrin yutdingiz (Fishing)</button>
-            <button onclick="setCommentSample('tekin robux')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-purple-500/30 text-purple-300 transition">🎮 Tekin Robux / Donat</button>
-            <button onclick="setCommentSample('kiberbulling')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 transition">🤬 Kiberbulling</button>
-            <button onclick="setCommentSample('parol o\'g\'irlash')" class="px-2 py-0.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-300 transition">🔑 Parol & Kod</button>
-          `;
-        }
-      }
-    }
 
     function setCommentPlatformFilter(platform) {
       currentCommentFilter = platform;
@@ -4865,9 +4813,28 @@ Javobni o'zbek tilida, professional, ta'sirchan va o'quvchi tushunadigan uslubda
         </div>
       `;
 
-      // Check if this is Author Comment OSINT
-      const isAuthorMode = (currentCommentSearchMode === 'author') || rawQuery.startsWith('@');
-      const authorUsername = cleanQuery.replace(/^@/, '');
+      // ANTI-STALKING GUARD ON PUBLIC WEBSITE:
+      if (rawQuery.startsWith('@') || (cleanQuery.length > 3 && !rawQuery.includes(' ') && (rawQuery.includes('_') || rawQuery.includes('.')))) {
+        container.innerHTML = `
+          <div class="p-6 sm:p-8 rounded-2xl bg-slate-900 border border-purple-500/40 text-center">
+            <div class="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-xl mx-auto mb-3">
+              <i class="fa-solid fa-user-shield"></i>
+            </div>
+            <h3 class="text-base font-bold text-white mb-2">🔒 Aniq Akkaunt Sharhlarini Ommaviy Qidirish Cheklangan!</h3>
+            <p class="text-xs text-slate-300 max-w-lg mx-auto leading-relaxed mb-4">
+              O‘zbekiston Respublikasining <i>«Shaxsga doir ma’lumotlar to‘g‘risida»gi Qonuni (O‘RQ-547)</i> talabiga muvofiq, begona shaxslarni ruxsatsiz poylash (Stalking) ning oldini olish uchun aniq akkaunt izohlarini ommaviy veb-saytda qidirish yopilgan.
+            </p>
+            <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 text-[11px] text-cyan-300 max-w-md mx-auto mb-4">
+              🛡️ Faqat o‘zingizning hisobingizni tekshirish yoki ruxsat orqali audit qilish uchun rasmiy <b>@kiberiz_bot</b> Telegram botimizdan foydalaning!
+            </div>
+            <a href="https://t.me/kiberiz_bot" target="_blank" class="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-bold text-xs uppercase tracking-wider shadow-lg">
+              <i class="fa-brands fa-telegram text-sm"></i>
+              <span>Telegram Botda O‘z Hisobingizni Tekshirish</span>
+            </a>
+          </div>
+        `;
+        return;
+      }
 
       const qLower = rawQuery.toLowerCase();
       let threatLevel = "PAST (AXBOROT)";
@@ -4875,17 +4842,6 @@ Javobni o'zbek tilida, professional, ta'sirchan va o'quvchi tushunadigan uslubda
       let threatScore = 15;
       let legalCitations = [];
       let recommendations = [];
-
-      if (isAuthorMode) {
-        threatLevel = "RAQAMLI IZ (DIGITAL FOOTPRINT)";
-        threatBadge = "bg-purple-500/20 text-purple-300 border-purple-500/40";
-        threatScore = 45;
-        legalCitations.push("O‘zbekiston Respublikasi O‘RQ-547 'Shaxsga doir ma\'lumotlar to‘g‘risida'gi Qonuni (O‘z akkauntingiz xavfsizligi auditi)");
-        legalCitations.push("Boshqa fuqarolarni ruxsatsiz ta\'qib qilish (Doxxing / Cyber-stalking) qat\'iyan taqiqlanadi");
-        recommendations.push("Reddit va X (Twitter) foydalanuvchining barcha yozgan sharhlarini ochiq saqlaydi — eski shaxsiy ma\'lumotlaringizni o\'chirib yuring.");
-        recommendations.push("Instagram va TikTok-da shaxsiy akkaunt sozlamalarida izohlarni faqat obunachilar (Close Friends) uchun cheklang.");
-        recommendations.push("Hech qachon ochiq sharhlarda telefon raqamingiz, maktabingiz yoki yashash manzilingizni yozib qoldirmang.");
-      } else
 
       if (qLower.includes('shantaj') || qLower.includes('tahdid') || qLower.includes("qo'rqitish") || qLower.includes('qasoslash') || qLower.includes("o'ldiraman")) {
         threatLevel = "YUQORI (TAHDID / SHANTAJ)";
@@ -4942,100 +4898,7 @@ Javobni o'zbek tilida, professional, ta'sirchan va o'quvchi tushunadigan uslubda
       const encQ = encodeURIComponent(rawQuery);
       const encClean = encodeURIComponent(cleanQuery);
 
-      let platforms = [];
-      if (isAuthorMode) {
-        platforms = [
-          {
-            id: 'reddit',
-            name: 'Reddit: Yozgan Barcha Sharhlari',
-            icon: 'fa-brands fa-reddit text-orange-400',
-            color: 'border-orange-500/40 bg-orange-950/20',
-            badge: 'Direct Author Feed',
-            desc: 'u/' + authorUsername + ' akkaunti tomonidan Reddit-da yozilgan barcha ochiq sharhlar va muhokamalar tarixi.',
-            url: 'https://www.reddit.com/user/' + encodeURIComponent(authorUsername) + '/comments/',
-            subUrl: 'https://www.reddit.com/search/?q=author%3A' + encodeURIComponent(authorUsername) + '&type=comment',
-            subLabel: 'Reddit Author Search'
-          },
-          {
-            id: 'x',
-            name: 'X (Twitter): Replies & Tvitlar',
-            icon: 'fa-brands fa-x-twitter text-slate-200',
-            color: 'border-slate-500/40 bg-slate-900/60',
-            badge: 'from:' + authorUsername,
-            desc: '@' + authorUsername + ' akkauntining barcha ochiq tvitlari, bahslari va boshqalarga yozgan javoblari (Replies).',
-            url: 'https://x.com/search?q=from%3A' + encodeURIComponent(authorUsername) + '&f=live',
-            subUrl: 'https://x.com/search?q=to%3A' + encodeURIComponent(authorUsername) + '&f=live',
-            subLabel: 'Murojaat va Mentions'
-          },
-          {
-            id: 'instagram',
-            name: 'Instagram: Fikr & Izohlar Dork',
-            icon: 'fa-brands fa-instagram text-pink-400',
-            color: 'border-pink-500/40 bg-pink-950/20',
-            badge: '@' + authorUsername + ' Mentions',
-            desc: 'Instagram postlari va javoblari ichida @' + authorUsername + ' qatnashgan ochiq sharhlar dorki.',
-            url: 'https://www.google.com/search?q=' + encodeURIComponent('site:instagram.com intext:"@' + authorUsername + '" (intext:"replied" OR intext:"fikr" OR intext:"javob" OR intext:"comment")'),
-            subUrl: 'https://www.google.com/search?q=' + encodeURIComponent('site:instagram.com/p/ intext:"' + authorUsername + '"'),
-            subLabel: 'Faqat /p/ Postlar'
-          },
-          {
-            id: 'telegram',
-            name: 'TGStat: Telegram Sharhlar & Xabarlar',
-            icon: 'fa-brands fa-telegram text-sky-400',
-            color: 'border-sky-500/40 bg-sky-950/20',
-            badge: '@' + authorUsername,
-            desc: 'Telegram ochiq kanallari, chatlari va izohlarida @' + authorUsername + ' faolligi tahlili.',
-            url: 'https://tgstat.com/search?q=@' + encodeURIComponent(authorUsername),
-            subUrl: 'https://www.google.com/search?q=' + encodeURIComponent('site:t.me intext:"@' + authorUsername + '"'),
-            subLabel: 'Google t.me Dork'
-          },
-          {
-            id: 'youtube',
-            name: 'YouTube: Sharh & Video Izlari',
-            icon: 'fa-brands fa-youtube text-red-400',
-            color: 'border-red-500/40 bg-red-950/20',
-            badge: authorUsername + ' Channel/Reply',
-            desc: 'YouTube video muhokamalari va sharhlarida ' + authorUsername + ' qoldirgan izlar dorki.',
-            url: 'https://www.google.com/search?q=' + encodeURIComponent('site:youtube.com intext:"' + authorUsername + '" (intext:"reply" OR intext:"comment" OR intext:"sharh")'),
-            subUrl: 'https://www.youtube.com/@' + encodeURIComponent(authorUsername),
-            subLabel: 'Kanal Sahifasi'
-          },
-          {
-            id: 'tiktok',
-            name: 'TikTok: Profil & Izohlar',
-            icon: 'fa-brands fa-tiktok text-rose-400',
-            color: 'border-rose-500/40 bg-rose-950/20',
-            badge: '@' + authorUsername,
-            desc: 'TikTok tarmog‘ida @' + authorUsername + ' akkaunti sahifasi va u qatnashgan ochiq sharhlar.',
-            url: 'https://www.tiktok.com/@' + encodeURIComponent(authorUsername),
-            subUrl: 'https://www.tiktok.com/search?q=@' + encodeURIComponent(authorUsername),
-            subLabel: 'TikTok Qidiruv'
-          },
-          {
-            id: 'vk',
-            name: 'VKontakte: Devor & Sharhlar',
-            icon: 'fa-brands fa-vk text-blue-400',
-            color: 'border-blue-500/40 bg-blue-950/20',
-            badge: authorUsername + ' Post/Comments',
-            desc: 'VK platformasida ' + authorUsername + ' nomli foydalanuvchining ochiq statuslari va sharhlari.',
-            url: 'https://vk.com/search?c%5Bsection%5D=statuses&c%5Bq%5D=' + encodeURIComponent(authorUsername),
-            subUrl: 'https://www.google.com/search?q=' + encodeURIComponent('site:vk.com intext:"' + authorUsername + '"'),
-            subLabel: 'VK Google Dork'
-          },
-          {
-            id: 'google_all',
-            name: 'Global Forum & Blog Sharhlari',
-            icon: 'fa-brands fa-google text-emerald-400',
-            color: 'border-emerald-500/40 bg-emerald-950/20',
-            badge: 'Author Dorking',
-            desc: 'Disqus, ommabop bloglar va forumlarda ' + authorUsername + ' qoldirgan sharhlar dorki.',
-            url: 'https://www.google.com/search?q=' + encodeURIComponent('intext:"' + authorUsername + '" (inurl:comments OR inurl:author OR intext:"yozgan izohlari" OR intext:"fikr bildirdi")'),
-            subUrl: 'https://yandex.uz/search/?text=' + encodeURIComponent(authorUsername + ' izohlar'),
-            subLabel: 'Yandex Izohlar'
-          }
-        ];
-      } else {
-        platforms = [
+      const platforms = [
         {
           id: 'instagram',
           name: 'Instagram Izohlar & Postlar',
@@ -5125,7 +4988,6 @@ Javobni o'zbek tilida, professional, ta'sirchan va o'quvchi tushunadigan uslubda
           subLabel: 'Yandex Qidiruvi'
         }
       ];
-      }
 
       const filtered = (currentCommentFilter === 'all') 
         ? platforms 

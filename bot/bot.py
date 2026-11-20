@@ -132,6 +132,46 @@ SAMPLE_VISUAL_PATH = resolve_path([
 # ==========================================
 CONSENT_FILE = os.path.join(BASE_DIR, "data", "consent_requests.json")
 BIO_TOKENS_FILE = os.path.join(BASE_DIR, "data", "bio_tokens.json")
+ADMINS_FILE = os.path.join(BASE_DIR, "data", "admins.json")
+
+def load_admins():
+    default_data = {
+        "super_admin": "torabek_abduvoitov",
+        "admin_usernames": ["torabek_abduvoitov"],
+        "admin_ids": []
+    }
+    if os.path.exists(ADMINS_FILE):
+        try:
+            with open(ADMINS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                unames = [u.lower().lstrip('@') for u in data.get("admin_usernames", [])]
+                if "torabek_abduvoitov" not in unames:
+                    data.setdefault("admin_usernames", []).append("torabek_abduvoitov")
+                return data
+        except Exception as e:
+            logging.error(f"Error reading admins.json: {e}")
+    return default_data
+
+def save_admins(data):
+    try:
+        os.makedirs(os.path.dirname(ADMINS_FILE), exist_ok=True)
+        with open(ADMINS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.error(f"Error saving admins.json: {e}")
+
+ADMINS_DATA = load_admins()
+
+def is_user_admin(user) -> bool:
+    if not user:
+        return False
+    uname = (user.username or "").lower().lstrip('@')
+    uid = user.id
+    admin_unames = [u.lower().lstrip('@') for u in ADMINS_DATA.get("admin_usernames", [])]
+    admin_ids = ADMINS_DATA.get("admin_ids", [])
+    if ADMIN_ID and str(uid) == str(ADMIN_ID):
+        return True
+    return (uname in admin_unames) or (uid in admin_ids)
 
 def load_json_store(filepath):
     if os.path.exists(filepath):
@@ -1174,20 +1214,136 @@ async def audit_comments_with_ai(query_raw: str) -> tuple[str, InlineKeyboardMar
     formatted = format_ai_to_tg_html(raw_ai)
     return formatted, keyboard
 
+
+async def addadmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sender = update.effective_user
+    if not is_user_admin(sender):
+        await update.message.reply_text("⛔ <b>Kechirasiz:</b> Ushbu buyruq faqat bot administratorlari uchun ruxsat etilgan.", parse_mode="HTML")
+        return
+
+    if not context.args or len(context.args) == 0:
+        await update.message.reply_text(
+            "ℹ️ <b>Yangi admin tayinlash:</b>\n<code>/addadmin @username</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    new_uname = context.args[0].strip().lstrip('@').lower()
+    if not new_uname:
+        await update.message.reply_text("Noto‘g‘ri nikneym.", parse_mode="HTML")
+        return
+
+    admin_unames = [u.lower().lstrip('@') for u in ADMINS_DATA.get("admin_usernames", [])]
+    if new_uname in admin_unames:
+        await update.message.reply_text(f"ℹ️ <code>@{html.escape(new_uname)}</code> allaqachon administratorlar ro‘yxatida mavjud.", parse_mode="HTML")
+        return
+
+    ADMINS_DATA.setdefault("admin_usernames", []).append(new_uname)
+    save_admins(ADMINS_DATA)
+    await update.message.reply_text(
+        f"✅ <b>YANGI ADMINISTRATOR QO‘SHILDI!</b>\n\n"
+        f"👑 <b>Admin:</b> <code>@{html.escape(new_uname)}</code>\n"
+        f"🛡️ <b>Huquqlari:</b> Boshqa shaxslarni ruxsatsiz to‘liq OSINT va sharhlar tahlilini o‘tkazish, tizimni nazorat qilish.",
+        parse_mode="HTML"
+    )
+
+async def deladmin_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sender = update.effective_user
+    if not is_user_admin(sender):
+        await update.message.reply_text("⛔ <b>Kechirasiz:</b> Ushbu buyruq faqat bot administratorlari uchun ruxsat etilgan.", parse_mode="HTML")
+        return
+
+    if not context.args or len(context.args) == 0:
+        await update.message.reply_text(
+            "ℹ️ <b>Adminni o‘chirish:</b>\n<code>/deladmin @username</code>",
+            parse_mode="HTML"
+        )
+        return
+
+    target_uname = context.args[0].strip().lstrip('@').lower()
+    if target_uname == "torabek_abduvoitov":
+        await update.message.reply_text("⛔ <b>Xatolik:</b> Asosiy Super-Admin (@Torabek_Abduvoitov) ni o‘chirib bo‘lmaydi!", parse_mode="HTML")
+        return
+
+    admin_unames = [u.lower().lstrip('@') for u in ADMINS_DATA.get("admin_usernames", [])]
+    if target_uname not in admin_unames:
+        await update.message.reply_text(f"Foydalanuvchi <code>@{html.escape(target_uname)}</code> adminlar ro‘yxatida topilmadi.", parse_mode="HTML")
+        return
+
+    ADMINS_DATA["admin_usernames"] = [u for u in ADMINS_DATA["admin_usernames"] if u.lower().lstrip('@') != target_uname]
+    save_admins(ADMINS_DATA)
+    await update.message.reply_text(f"✅ <code>@{html.escape(target_uname)}</code> administratorlik huquqidan mahrum qilindi.", parse_mode="HTML")
+
+async def admins_list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    sender = update.effective_user
+    if not is_user_admin(sender):
+        await update.message.reply_text("⛔ <b>Kechirasiz:</b> Ushbu buyruq faqat bot administratorlari uchun ruxsat etilgan.", parse_mode="HTML")
+        return
+
+    admins = ADMINS_DATA.get("admin_usernames", ["torabek_abduvoitov"])
+    txt = "👑 <b>«KIBERIZ-4» AKTIV ADMINISTRATORLAR RO‘YXATI:</b>\n\n"
+    for i, a in enumerate(admins, 1):
+        is_super = " (Super-Admin)" if a.lower().lstrip('@') == "torabek_abduvoitov" else ""
+        txt += f"{i}. <code>@{html.escape(a)}</code>{is_super}\n"
+    txt += "\n💡 <i>Adminlar istalgan shaxs ustidan ruxsatsiz chuqur OSINT tahlilini o‘tkazish huquqiga ega.</i>"
+    await update.message.reply_text(txt, parse_mode="HTML")
+
 async def comment_osint_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await prepare_clean_chat(update, context)
     chat_id = update.effective_chat.id
+    sender = update.effective_user
 
     if context.args and len(context.args) > 0:
         query_text = " ".join(context.args).strip()
+        clean = query_text.strip().strip('"\'')
+        
+        # Check if query is author username
+        is_author_query = False
+        target_uname = clean.lstrip('@').strip().lower()
+        if clean.startswith('@'):
+            is_author_query = True
+        elif re.match(r'^[a-zA-Z0-9_\.]{3,30}$', clean) and ' ' not in clean:
+            if any(c.isdigit() for c in clean) or '_' in clean or '.' in clean:
+                is_author_query = True
+
+        if is_author_query:
+            is_admin = is_user_admin(sender)
+            sender_uname = (sender.username or "").lower().lstrip('@')
+            
+            # Non-admins can only check their OWN account!
+            if not is_admin and (not sender_uname or sender_uname != target_uname):
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔑 1. Bio-kod orqali egalikni tasdiqlash", callback_data=f"bio_prove_{target_uname}")],
+                    [InlineKeyboardButton("🔗 2. Do‘stga ruxsat so‘rovi (Consent Link)", callback_data=f"gen_consent_{target_uname}")],
+                    [InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_audit")]
+                ])
+                sender_display = f"@{sender_uname}" if sender_uname else "hozirgi hisobingizga"
+                warn_msg = (
+                    f"{p('SHIELD', '🛡️')} <b>DIQQAT: BEGONA SHAXSNING SHARHLARINI POYLASH (STALKING) TAQIQLANADI!</b>\n\n"
+                    f"Siz kiritgan <code>@{html.escape(target_uname)}</code> nikneymi sizning Telegram profilingizga "
+                    f"({html.escape(sender_display)}) mos kelmadi.\n\n"
+                    f"⚖️ <b>Qonuniy talab (O‘RQ-547):</b>\n"
+                    f"O‘zbekiston Respublikasining <i>«Shaxsga doir ma’lumotlar to‘g‘risida»gi Qonuni</i>ga binoan, "
+                    f"boshqa fuqarolar ortidan ruxsatsiz ma’lumot yig‘ish (Doxxing / Stalking) qat’iyan man etiladi! "
+                    f"Har bir foydalanuvchi faqat <b>o‘zining shaxsiy hisobini</b> tekshirishi mumkin.\n\n"
+                    f"👉 <b>Boshqa hisobni tekshirish uchun 2 ta qonuniy yo‘l mavjud:</b>\n\n"
+                    f"1️⃣ <b>«Bu mening boshqa tarmoqdagi o‘z hisobim»:</b>\n"
+                    f"└ <i>1-tugmani bosing, profilingiz tavsifiga (Bio) maxfiy kod qo‘shib egalikni tasdiqlang.</i>\n\n"
+                    f"2️⃣ <b>«Bu do‘stim yoki sinfdoshim»:</b>\n"
+                    f"└ <i>2-tugmani bosing, do‘stingizga maxsus rozilik havolasini yuboring. Do‘stingiz tasdiqlasa, tahlil hisoboti UNING O‘ZIGA yuboriladi (sizga emas!).</i>"
+                )
+                await context.bot.send_message(chat_id=chat_id, text=warn_msg, parse_mode="HTML", reply_markup=keyboard)
+                return
+
         try:
             await update.message.chat.send_action("typing")
         except Exception:
             pass
         ai_resp, kb = await audit_comments_with_ai(query_text)
+        admin_badge = "👑 <b>ADMIN OSINT NAZORATI:</b> <i>Ruxsatsiz to‘liq tahlil o‘tkazildi.</i>\n\n" if (is_author_query and is_user_admin(sender) and (sender.username or "").lower().lstrip('@') != target_uname) else ""
         await context.bot.send_message(
             chat_id=chat_id,
-            text=f"{ai_resp}\n\n👇 <b>Quyidagi tugmalar orqali har bir tarmoqdagi sharhlarni to‘g‘ridan-to‘g‘ri oching:</b>",
+            text=f"{admin_badge}{ai_resp}\n\n👇 <b>Quyidagi tugmalar orqali har bir tarmoqdagi sharhlarni to‘g‘ridan-to‘g‘ri oching:</b>",
             parse_mode="HTML",
             reply_markup=kb
         )
@@ -1197,15 +1353,17 @@ async def comment_osint_command(update: Update, context: ContextTypes.DEFAULT_TY
     context.user_data["waiting_for_audit"] = False
     context.user_data["waiting_for_ai"] = False
 
+    admin_note = "\n👑 <i>Siz bot administratorisiz (@Torabek_Abduvoitov tizimi): Istalgan shaxsni ruxsatsiz tekshirish huquqiga egasiz!</i>" if is_user_admin(sender) else "\n🔒 <i>Anti-Stalking (O‘RQ-547): Oddiy foydalanuvchilar faqat o‘z akkauntini tekshira oladi. Boshqalarni tekshirish uchun Consent/Bio-kod talab etiladi.</i>"
+
     msg = (
         f"{p('CHAT', '💬')} <b>CROSS-PLATFORM SHARHLAR & IZOHLAR OSINT SKANERI:</b>\n\n"
         f"Ushbu vosita orqali siz 2 xil usulda chuqur izohlar qidiruvini o‘tkazishingiz mumkin:\n\n"
-        f"1. 👤 <b>ANIQ BIR AKKAUNTNING YOZGAN SHARHLARINI TOPISH:</b>\n"
-        f"   Foydalanuvchi nikneymini <code>@</code> belgisi bilan yuboring (masalan: <code>@ali_gamer</code> yoki <code>@sarvar_2008</code>).\n"
-        f"   └ <i>Bot Reddit (foydalanuvchining barcha sharhlari feedi), X (Twitter) repliylari, Instagram dork, YouTube va TGStat-da qoldirgan ochiq izohlarini topib beradi!</i>\n\n"
+        f"1. 👤 <b>O‘ZINGIZNING AKKAUNTINGIZ YOZGAN SHARHLARINI AUDIT QILISH:</b>\n"
+        f"   O‘zingizning nikneymingizni <code>@</code> belgisi bilan yuboring (masalan: <code>@{html.escape(sender.username or 'ali_gamer')}</code>).\n"
+        f"   └ <i>Bot Reddit, X (Twitter), Instagram va TGStat-da qoldirgan ochiq sharhlaringizni topib, raqamli izingizni tozalashga yordam beradi!</i>\n\n"
         f"2. 💬 <b>KALIT SO‘Z YOKI IBORA BO‘YICHA SHARHLAR:</b>\n"
-        f"   Istalgan mavzu yoki so‘zni yuboring (masalan: <code>shantaj</code>, <code>sovrin yutdingiz</code>, <code>tekin robux</code>).\n\n"
-        f"📸 <b>Skrinshot tekshirish:</b> Agar sizga shubhali yoki haqoratli izoh yozishgan bo‘lsa, to‘g‘ridan-to‘g‘ri rasm skrinshotini yuboring!\n\n"
+        f"   Istalgan xavfli so‘zni yuboring (masalan: <code>shantaj</code>, <code>sovrin yutdingiz</code>, <code>tekin robux</code>).\n\n"
+        f"📸 <b>Skrinshot tekshirish:</b> Agar sizga shubhali yoki haqoratli izoh yozishgan bo‘lsa, to‘g‘ridan-to‘g‘ri skrinshotni yuboring!{admin_note}\n\n"
         f"👉 <i>Qidirmoqchi bo‘lgan @nikneym yoki so‘zingizni shu yerga yozib yuboring:</i>"
     )
     await context.bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
@@ -4152,13 +4310,54 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_comment_mode = context.user_data.get("waiting_for_comment_osint", False)
     if is_comment_mode:
         context.user_data["waiting_for_comment_osint"] = False
+        sender = update.effective_user
+        clean = text.strip().strip('"\'')
+        
+        is_author_query = False
+        target_uname = clean.lstrip('@').strip().lower()
+        if clean.startswith('@'):
+            is_author_query = True
+        elif re.match(r'^[a-zA-Z0-9_\.]{3,30}$', clean) and ' ' not in clean:
+            if any(c.isdigit() for c in clean) or '_' in clean or '.' in clean:
+                is_author_query = True
+
+        if is_author_query:
+            is_admin = is_user_admin(sender)
+            sender_uname = (sender.username or "").lower().lstrip('@')
+            
+            # Non-admins can only check their OWN account!
+            if not is_admin and (not sender_uname or sender_uname != target_uname):
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔑 1. Bio-kod orqali egalikni tasdiqlash", callback_data=f"bio_prove_{target_uname}")],
+                    [InlineKeyboardButton("🔗 2. Do‘stga ruxsat so‘rovi (Consent Link)", callback_data=f"gen_consent_{target_uname}")],
+                    [InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_audit")]
+                ])
+                sender_display = f"@{sender_uname}" if sender_uname else "hozirgi hisobingizga"
+                warn_msg = (
+                    f"{p('SHIELD', '🛡️')} <b>DIQQAT: BEGONA SHAXSNING SHARHLARINI POYLASH (STALKING) TAQIQLANADI!</b>\n\n"
+                    f"Siz kiritgan <code>@{html.escape(target_uname)}</code> nikneymi sizning Telegram profilingizga "
+                    f"({html.escape(sender_display)}) mos kelmadi.\n\n"
+                    f"⚖️ <b>Qonuniy talab (O‘RQ-547):</b>\n"
+                    f"O‘zbekiston Respublikasining <i>«Shaxsga doir ma’lumotlar to‘g‘risida»gi Qonuni</i>ga binoan, "
+                    f"boshqa fuqarolar ortidan ruxsatsiz ma’lumot yig‘ish (Doxxing / Stalking) qat’iyan man etiladi! "
+                    f"Har bir foydalanuvchi faqat <b>o‘zining shaxsiy hisobini</b> tekshirishi mumkin.\n\n"
+                    f"👉 <b>Boshqa hisobni tekshirish uchun 2 ta qonuniy yo‘l mavjud:</b>\n\n"
+                    f"1️⃣ <b>«Bu mening boshqa tarmoqdagi o‘z hisobim»:</b>\n"
+                    f"└ <i>1-tugmani bosing, profilingiz tavsifiga (Bio) maxfiy kod qo‘shib egalikni tasdiqlang.</i>\n\n"
+                    f"2️⃣ <b>«Bu do‘stim yoki sinfdoshim»:</b>\n"
+                    f"└ <i>2-tugmani bosing, do‘stingizga maxsus rozilik havolasini yuboring. Do‘stingiz tasdiqlasa, tahlil hisoboti UNING O‘ZIGA yuboriladi (sizga emas!).</i>"
+                )
+                await update.message.reply_text(warn_msg, parse_mode="HTML", reply_markup=keyboard)
+                return
+
         try:
             await update.message.chat.send_action("typing")
         except Exception:
             pass
         ai_resp, kb = await audit_comments_with_ai(text)
+        admin_badge = "👑 <b>ADMIN OSINT NAZORATI:</b> <i>Ruxsatsiz to‘liq tahlil o‘tkazildi.</i>\n\n" if (is_author_query and is_user_admin(sender) and (sender.username or "").lower().lstrip('@') != target_uname) else ""
         await update.message.reply_text(
-            f"{ai_resp}\n\n👇 <b>Quyidagi tugmalar orqali har bir tarmoqdagi sharhlarni to‘g‘ridan-to‘g‘ri oching:</b>",
+            f"{admin_badge}{ai_resp}\n\n👇 <b>Quyidagi tugmalar orqali har bir tarmoqdagi sharhlarni to‘g‘ridan-to‘g‘ri oching:</b>",
             parse_mode="HTML",
             reply_markup=kb
         )
@@ -4230,6 +4429,22 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sender = update.effective_user
         sender_uname = (sender.username or "").lower().lstrip('@')
         target_uname = text.lstrip('@').strip().lower()
+
+        # CASE 0: SENDER IS ADMIN -> FULL UNRESTRICTED OSINT ACCESS!
+        if is_user_admin(sender):
+            try:
+                await update.message.chat.send_action("typing")
+            except Exception:
+                pass
+            await update.message.reply_text(
+                f"👑 <b>ADMIN OSINT NAZORATI (@Torabek_Abduvoitov tizimi):</b>\n"
+                f"🎯 Nishon: <code>@{html.escape(target_uname)}</code> (Ruxsatsiz to‘liq tahlil ruxsat etildi)...",
+                parse_mode="HTML"
+            )
+            ai_resp, raw = await audit_username_with_ai(text)
+            kb = build_username_result_keyboard(raw)
+            await update.message.reply_text(ai_resp, parse_mode="HTML", reply_markup=kb)
+            return
 
         # CASE A: User is testing their OWN Telegram account!
         if sender_uname and sender_uname == target_uname:
@@ -4363,6 +4578,9 @@ def main():
     app.add_handler(CommandHandler("user_comments", comment_osint_command))
     app.add_handler(CommandHandler("author_comments", comment_osint_command))
     app.add_handler(CommandHandler("profil_sharh", comment_osint_command))
+    app.add_handler(CommandHandler("addadmin", addadmin_command))
+    app.add_handler(CommandHandler("deladmin", deladmin_command))
+    app.add_handler(CommandHandler("admins", admins_list_command))
     app.add_handler(CommandHandler("cases", cases_command))
     app.add_handler(CommandHandler("sos", sos_command))
     app.add_handler(CommandHandler("web", web_command))
