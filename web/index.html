@@ -1030,94 +1030,16 @@
           </div>
         </div>
 
-        <!-- Asosiy Harakat Tugmasi & Telegram Havolasi -->
+        <!-- Asosiy Harakat Tugmalari -->
         <div class="pt-2 flex flex-col sm:flex-row gap-3">
-          <a href="#webAiChatWidget" onclick="focusWebAiChat()" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg shadow-cyan-500/20 transition transform hover:scale-[1.01]">
+          <button onclick="toggleFloatingChat(true)" class="flex-1 py-3.5 px-6 rounded-xl bg-gradient-to-r from-cyan-500 via-sky-400 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider flex items-center justify-center space-x-2 shadow-xl shadow-cyan-500/25 transition transform hover:scale-[1.01]">
             <i class="fa-solid fa-comments text-base"></i>
-            <span>Saytda Jonli AI Chatni Boshlash</span>
-          </a>
-          <a href="https://t.me/kiberiz_bot?start=ai" target="_blank" class="py-3 px-5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 transition">
+            <span>AI Maslahatchi Chatini Ochish</span>
+          </button>
+          <a href="https://t.me/kiberiz_bot?start=ai" target="_blank" class="py-3.5 px-6 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 transition">
             <i class="fa-brands fa-telegram text-base text-cyan-400"></i>
             <span>Telegram Botda Ochish</span>
           </a>
-        </div>
-      </div>
-
-      <!-- INTERAKTIV JONLI AI CHAT TERMINALI (SAYTNING O'ZIDA) -->
-      <div id="webAiChatWidget" class="mt-6 rounded-2xl bg-slate-950/90 border border-cyan-500/40 overflow-hidden shadow-2xl flex flex-col">
-        <!-- Chat Header -->
-        <div class="px-4 py-3 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between">
-          <div class="flex items-center space-x-2.5">
-            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 text-slate-950 flex items-center justify-center text-sm font-bold shadow-md">
-              <i class="fa-solid fa-robot"></i>
-            </div>
-            <div>
-              <div class="text-xs font-bold text-white flex items-center space-x-1.5">
-                <span>KiberIz Jonli AI Kiber-Maslahatchi</span>
-                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              </div>
-              <div class="text-[10px] text-emerald-400 font-mono">Faol // 24/7 Oflayn + Gemini AI Vision</div>
-            </div>
-          </div>
-          <div class="flex items-center space-x-2">
-            <button onclick="clearWebAiChat()" class="text-[11px] text-slate-400 hover:text-cyan-400 transition px-2.5 py-1 rounded-lg bg-slate-800/80 border border-slate-700" title="Suhbatni tozalash">
-              <i class="fa-solid fa-rotate-left mr-1"></i> Tozalash
-            </button>
-          </div>
-        </div>
-
-        <!-- Chat Messages Container -->
-        <div id="webAiChatMessages" class="p-4 space-y-3 min-h-[250px] max-h-[350px] overflow-y-auto text-xs scrollbar-none">
-          <!-- Initial Welcome Message -->
-          <div class="flex items-start space-x-2.5 max-w-[92%] sm:max-w-[85%]">
-            <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs flex-shrink-0 mt-0.5 border border-cyan-500/30">
-              <i class="fa-solid fa-robot"></i>
-            </div>
-            <div class="p-3.5 rounded-2xl rounded-tl-none bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed shadow-sm">
-              <p class="font-bold text-cyan-300 mb-1 flex items-center">
-                <span>Assalomu alaykum! Men «KiberIz-4» AI Kiber-Maslahatchisiman.</span>
-                <span class="ml-1.5">🛡️</span>
-              </p>
-              <p class="text-[11px] text-slate-300">
-                Sizga fishing, akkaunt xavfsizligi, shubhali xabarlar, shantaj yoki kiber-tahdidlar bo‘yicha qanday yordam bera olaman? 
-                Quyidagi tayyor savollardan birini tanlang yoki o‘z savolingizni yozing:
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick Suggested Prompt Pills -->
-        <div class="px-3.5 py-2.5 bg-slate-900/60 border-t border-slate-800/80">
-          <div class="text-[10px] text-slate-400 font-semibold mb-1.5 flex items-center space-x-1">
-            <i class="fa-solid fa-lightbulb text-amber-400"></i>
-            <span>Tezkor sinov savollari:</span>
-          </div>
-          <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-1">
-            <button onclick="askWebAiSample('Shubhali fishing havolasini qanday aniqlash mumkin?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 text-[11px] transition">
-              🎣 Fishingni aniqlash
-            </button>
-            <button onclick="askWebAiSample('Akkauntim buzilsa yoki parol o‘g‘irlansa birinchi nima qilish kerak?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-rose-500/30 text-rose-300 text-[11px] transition">
-              🚨 Akkauntim buzilsa-chi?
-            </button>
-            <button onclick="askWebAiSample('Telegram va Instagramda ikki bosqichli tekshiruvni (2FA) qanday yoqaman?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-300 text-[11px] transition">
-              🔐 2FA yoqish
-            </button>
-            <button onclick="askWebAiSample('Begona odam internetda shaxsiy rasmimni tarqataman deb shantaj qilsa nima qilish kerak?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-purple-500/30 text-purple-300 text-[11px] transition">
-              ⚠️ Shantajdan himoyalanish
-            </button>
-            <button onclick="askWebAiSample('Karta maʼlumotlarim yoki SMS kodni firibgarga berib qo‘ydim, nima qilay?')" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 text-[11px] transition">
-              💳 Karta firibgarligi
-            </button>
-          </div>
-        </div>
-
-        <!-- Chat Input Form -->
-        <div class="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
-          <input type="text" id="webAiChatInput" onkeydown="if(event.key==='Enter') sendWebAiChatMessage()" placeholder="Kiberxavfsizlik bo‘yicha savolingizni yozing..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400">
-          <button onclick="sendWebAiChatMessage()" id="webAiSendBtn" class="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-bold text-xs flex items-center justify-center space-x-1.5 transition">
-            <i class="fa-solid fa-paper-plane"></i>
-            <span class="hidden sm:inline">Yuborish</span>
-          </button>
         </div>
       </div>
 
@@ -3179,15 +3101,29 @@
     // ==========================================
     // 🤖 INTERACTIVE WEB AI CHAT ENGINE
     // ==========================================
+    function toggleFloatingChat(forceOpen) {
+      const container = document.getElementById('floatingChatContainer');
+      const icon = document.getElementById('floatingChatIcon');
+      if (!container) return;
+
+      const isHidden = container.classList.contains('hidden');
+      const shouldOpen = (typeof forceOpen === 'boolean') ? forceOpen : isHidden;
+
+      if (shouldOpen) {
+        container.classList.remove('hidden');
+        if (icon) icon.className = "fa-solid fa-xmark text-lg";
+        setTimeout(() => {
+          const inp = document.getElementById('webAiChatInput');
+          if (inp) inp.focus();
+        }, 150);
+      } else {
+        container.classList.add('hidden');
+        if (icon) icon.className = "fa-solid fa-robot group-hover:rotate-12 transition";
+      }
+    }
+
     function focusWebAiChat() {
-      setTimeout(() => {
-        const inp = document.getElementById('webAiChatInput');
-        if (inp) {
-          inp.focus();
-          inp.classList.add('ring-2', 'ring-cyan-400');
-          setTimeout(() => inp.classList.remove('ring-2', 'ring-cyan-400'), 1500);
-        }
-      }, 300);
+      toggleFloatingChat(true);
     }
 
     function askWebAiSample(question) {
@@ -3420,16 +3356,86 @@
     </div>
   </div>
 
-  <!-- FLOATING AI CHAT LAUNCHER BUTTON -->
-  <div class="fixed bottom-5 right-5 z-40">
-    <a href="#aloqa" onclick="focusWebAiChat()" class="px-4 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs uppercase tracking-wider flex items-center space-x-2 shadow-2xl shadow-cyan-500/40 border border-cyan-400/40 transition transform hover:scale-105 active:scale-95">
-      <span class="relative flex h-2.5 w-2.5">
+  <!-- COMPACT FLOATING AI CHAT WIDGET (POPUP WINDOW) -->
+  <div id="floatingChatContainer" class="hidden fixed bottom-24 right-3 sm:right-6 z-50 w-[94vw] sm:w-[390px] max-h-[530px] rounded-2xl glass-card border border-cyan-500/40 shadow-2xl flex flex-col overflow-hidden backdrop-blur-2xl transition-all duration-300">
+    <!-- Chat Header -->
+    <div class="px-4 py-3 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 to-emerald-400 text-slate-950 flex items-center justify-center text-sm font-bold shadow-md">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div>
+          <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+            <span>KiberIz AI Maslahatchi</span>
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          </div>
+          <div class="text-[10px] text-emerald-400 font-mono">24/7 Faol Kiber-Yordamchi</div>
+        </div>
+      </div>
+      <div class="flex items-center space-x-1">
+        <button onclick="clearWebAiChat()" class="text-slate-400 hover:text-cyan-400 p-1.5 rounded-lg hover:bg-slate-800 transition text-xs" title="Suhbatni tozalash">
+          <i class="fa-solid fa-rotate-left"></i>
+        </button>
+        <button onclick="toggleFloatingChat(false)" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition text-xs" title="Yopish">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Messages Container -->
+    <div id="webAiChatMessages" class="p-3.5 space-y-2.5 overflow-y-auto max-h-[290px] text-xs scrollbar-none flex-1">
+      <div class="flex items-start space-x-2 max-w-[92%]">
+        <div class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5 border border-cyan-500/30">
+          <i class="fa-solid fa-robot"></i>
+        </div>
+        <div class="p-3 rounded-2xl rounded-tl-none bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed shadow-sm">
+          <p class="font-bold text-cyan-300 text-xs mb-1">Assalomu alaykum! 🛡️</p>
+          <p class="text-[11px] text-slate-300">
+            Men «KiberIz-4» AI Kiber-Maslahatchisiman. Kiber-tahdid, fishing yoki akkaunt himoyasi bo‘yicha savolingiz bormi?
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Suggested Prompts -->
+    <div class="px-3 py-2 bg-slate-900/60 border-t border-slate-800/80">
+      <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5 text-[10px]">
+        <button onclick="askWebAiSample('Shubhali fishing havolasini qanday aniqlash mumkin?')" class="flex-shrink-0 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-cyan-500/30 text-cyan-300 transition">
+          🎣 Fishing
+        </button>
+        <button onclick="askWebAiSample('Akkauntim buzilsa yoki parol o‘g‘irlansa birinchi nima qilish kerak?')" class="flex-shrink-0 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-rose-500/30 text-rose-300 transition">
+          🚨 Akkaunt buzilsa
+        </button>
+        <button onclick="askWebAiSample('Telegram va Instagramda ikki bosqichli tekshiruvni (2FA) qanday yoqaman?')" class="flex-shrink-0 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-emerald-500/30 text-emerald-300 transition">
+          🔐 2FA yoqish
+        </button>
+        <button onclick="askWebAiSample('Begona odam internetda shaxsiy rasmimni tarqataman deb shantaj qilsa nima qilish kerak?')" class="flex-shrink-0 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-purple-500/30 text-purple-300 transition">
+          ⚠️ Shantaj
+        </button>
+        <button onclick="askWebAiSample('Karta maʼlumotlarim yoki SMS kodni firibgarga berib qo‘ydim, nima qilay?')" class="flex-shrink-0 px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-amber-500/30 text-amber-300 transition">
+          💳 Karta firibgarligi
+        </button>
+      </div>
+    </div>
+
+    <!-- Chat Input Form -->
+    <div class="p-2.5 bg-slate-900 border-t border-slate-800 flex gap-2">
+      <input type="text" id="webAiChatInput" onkeydown="if(event.key==='Enter') sendWebAiChatMessage()" placeholder="Kiber-savolingizni yozing..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400">
+      <button onclick="sendWebAiChatMessage()" id="webAiSendBtn" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 font-bold text-xs flex items-center justify-center transition">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- FLOATING CHAT BUTTON AT THE CORNER -->
+  <div class="fixed bottom-5 right-5 z-50">
+    <button onclick="toggleFloatingChat()" id="floatingChatTriggerBtn" class="w-13 h-13 sm:w-14 sm:h-14 rounded-full bg-gradient-to-tr from-cyan-500 to-emerald-400 hover:from-cyan-400 hover:to-emerald-300 text-slate-950 flex items-center justify-center text-xl sm:text-2xl shadow-2xl shadow-cyan-500/50 border-2 border-cyan-300 transition transform hover:scale-110 active:scale-95 group relative" title="AI Kiber-Maslahatchi">
+      <i class="fa-solid fa-robot group-hover:rotate-12 transition" id="floatingChatIcon"></i>
+      <span class="absolute top-0 right-0 flex h-3.5 w-3.5">
         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400"></span>
+        <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border-2 border-slate-950"></span>
       </span>
-      <i class="fa-solid fa-robot text-sm"></i>
-      <span>AI Maslahatchi</span>
-    </a>
+    </button>
   </div>
 
 </body>
