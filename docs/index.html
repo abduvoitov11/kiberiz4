@@ -126,10 +126,7 @@
     </div>
 
     <div class="flex items-center space-x-2 sm:space-x-3">
-      <button onclick="openAiSettingsModal()" class="px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-slate-900/90 border border-slate-700 hover:border-cyan-400 text-[11px] text-cyan-400 flex items-center space-x-1.5 transition shadow-sm" title="AI Dvigatel sozlamalari">
-        <i class="fa-solid fa-microchip text-xs"></i>
-        <span class="hidden md:inline font-semibold">AI Sozlama</span>
-      </button>
+
     <a href="https://t.me/kiberiz_bot" target="_blank" class="px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-[11px] sm:text-xs uppercase tracking-wider flex items-center space-x-1.5 sm:space-x-2 shadow-lg shadow-cyan-500/25 transition transform hover:scale-105 flex-shrink-0">
       <i class="fa-brands fa-telegram text-sm sm:text-base"></i>
       <span><span class="hidden sm:inline">Telegram Bot </span>@kiberiz_bot</span>
@@ -143,7 +140,7 @@
     <a href="#groupshield" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 border border-emerald-500/30 text-emerald-300 hover:text-emerald-200 flex items-center space-x-1"><i class="fa-solid fa-shield-halved text-[10px] text-emerald-400"></i><span>Guruh Qalqoni</span></a>
     <a href="#apkscan" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 border border-green-500/30 text-green-300 hover:text-green-200 flex items-center space-x-1"><i class="fa-brands fa-android text-[10px] text-green-400"></i><span>APK Auditi</span></a>
     <a href="#checklist" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 hover:border-cyan-500/40 hover:text-cyan-400"><span>Chek-list</span></a>
-    <button onclick="openAiSettingsModal()" class="flex-shrink-0 px-2.5 py-1 rounded-lg bg-cyan-950/40 border border-cyan-500/40 text-cyan-300 flex items-center space-x-1"><i class="fa-solid fa-microchip text-[10px]"></i><span>AI</span></button>
+    
   </div>
 
   <!-- HERO SECTION -->
@@ -1087,8 +1084,7 @@
     ];
 
     async function queryLiveGeminiAI(prompt, imageBase64 = null, mimeType = "image/jpeg") {
-      const customKey = localStorage.getItem('gemini_api_key');
-      const keysToTry = (customKey && customKey.trim()) ? [customKey.trim(), ...DEFAULT_GEMINI_KEYS] : DEFAULT_GEMINI_KEYS;
+      const keysToTry = DEFAULT_GEMINI_KEYS;
 
       const sysInstruction = "Siz «KiberIz-4» — Toshkent shahri 4-sonli umumiy o'rta ta'lim maktabining Kiberxavfsizlik va Kiber-Gigiyena bo'yicha sun'iy intellekt virtual murabbiyisiz (Cyber-Mentor).\n" +
         "Vazifangiz: Maktab o'quvchilari (5-11 sinflar), ularning ota-onalari va o'qituvchilariga ijtimoiy tarmoqlar (Telegram, Instagram, TikTok), akkauntlarni himoyalash, 2FA, murakkab parollar, fishing havolalar, kiberbulling, shantaj, darknet (.onion saytlar), viruslar, onlayn o'yinlar (Roblox, Brawl Stars, PUBG) va shaxsiy ma'lumotlar xavfsizligi bo'yicha aniq, do'stona, tushunarli va amaliy yordam berish.\n" +
@@ -3088,95 +3084,6 @@
       `;
     }
 
-    // ==========================================
-    // ⚙️ GOOGLE GEMINI AI SETTINGS MODAL
-    // ==========================================
-    function openAiSettingsModal() {
-      const modal = document.getElementById('aiSettingsModal');
-      if (modal) {
-        modal.classList.remove('hidden');
-        const key = localStorage.getItem('gemini_api_key') || "";
-        document.getElementById('geminiApiKeyInput').value = key;
-        document.getElementById('geminiTestOutput').classList.add('hidden');
-      }
-    }
-
-    function closeAiSettingsModal() {
-      const modal = document.getElementById('aiSettingsModal');
-      if (modal) modal.classList.add('hidden');
-    }
-
-    function toggleApiKeyVisibility() {
-      const input = document.getElementById('geminiApiKeyInput');
-      const icon = document.getElementById('apiKeyVisIcon');
-      if (input.type === 'password') {
-        input.type = 'text';
-        icon.className = 'fa-solid fa-eye-slash';
-      } else {
-        input.type = 'password';
-        icon.className = 'fa-solid fa-eye';
-      }
-    }
-
-    function saveGeminiApiKey() {
-      const key = (document.getElementById('geminiApiKeyInput').value || "").trim();
-      if (key) {
-        localStorage.setItem('gemini_api_key', key);
-        alert("✅ Gemini API kaliti muvaffaqiyatli saqlandi! Endi tahlillar Google Gemini 2.5 Flash Vision orqali jonli ishlaydi.");
-      } else {
-        localStorage.removeItem('gemini_api_key');
-        alert("ℹ️ Kalit o'chirildi. Sayt avtonom kiber-ekspertiza dvigatelida ishlaydi.");
-      }
-      closeAiSettingsModal();
-    }
-
-    async function testGeminiApiKey() {
-      const key = (document.getElementById('geminiApiKeyInput').value || "").trim();
-      const out = document.getElementById('geminiTestOutput');
-      out.classList.remove('hidden');
-      if (!key) {
-        out.className = "mt-3 p-3 rounded-xl bg-amber-950/60 border border-amber-500/40 text-amber-300 text-xs";
-        out.innerHTML = "⚠️ API kalit kiritilmagan. Kalitni kiriting yoki avtonom rejimdan foydalaning.";
-        return;
-      }
-      out.className = "mt-3 p-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 text-xs";
-      out.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5 text-cyan-400"></i> Google Gemini API serveriga so‘rov yuborilmoqda...';
-
-      let success = false;
-      let errorMsg = "";
-      for (const model of GEMINI_WEB_MODELS) {
-        try {
-          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: "Salom! 1 so'z bilan javob ber: Tayyormisiz?" }] }]
-            })
-          });
-          if (resp.ok) {
-            const data = await resp.json();
-            if (data.candidates && data.candidates[0]) {
-              success = true;
-              break;
-            }
-          } else {
-            const errData = await resp.json().catch(() => null);
-            errorMsg = errData?.error?.message || `HTTP ${resp.status}`;
-          }
-        } catch (err) {
-          errorMsg = err.message;
-        }
-      }
-
-      if (success) {
-        out.className = "mt-3 p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-semibold";
-        out.innerHTML = "✅ Google Gemini API muvaffaqiyatli ulandi! Jonli Vision va AI tahlillari faollashdi.";
-      } else {
-        out.className = "mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs";
-        out.innerHTML = "❌ Xatolik: " + (errorMsg || "API kalit yaroqsiz yoki ruxsat yo'q.");
-      }
-    }
-
 
 
 
@@ -3502,53 +3409,6 @@
     }
 
   </script>
-
-  <!-- MODAL: GEMINI AI VISION & ADVANCED SETTINGS -->
-  <div id="aiSettingsModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-    <div class="glass-card max-w-lg w-full p-6 sm:p-8 rounded-3xl border border-cyan-500/30 neon-border relative shadow-2xl">
-      <button onclick="closeAiSettingsModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white transition">
-        <i class="fa-solid fa-xmark text-lg"></i>
-      </button>
-
-      <div class="flex items-center space-x-3 mb-4">
-        <div class="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xl">
-          <i class="fa-solid fa-microchip"></i>
-        </div>
-        <div>
-          <h3 class="text-lg font-bold text-white">Google Gemini AI Integratsiyasi</h3>
-          <p class="text-xs text-emerald-400 font-mono">Dvigatel: Avtonom Ekspertiza + Gemini API</p>
-        </div>
-      </div>
-
-      <p class="text-xs text-slate-300 leading-relaxed mb-4">
-        «KiberIz-4» sayti brauzer ichida ishlovchi <b>aqlli kiber-ekspertiza dvigateli</b> bilan to‘liq ta’minlangan (100% oflayn va tezkor).
-        Agar xohlasangiz, o‘zingizning bepul <i>Google Gemini API Kalitingizni</i> kiritib, bevosita <b>Gemini 2.5 Flash Multimodal Vision</b> orqali jonli chuqur tahlilni yoqishingiz mumkin.
-      </p>
-
-      <div class="space-y-3 mb-5">
-        <label class="block text-xs font-semibold text-slate-300">Google Gemini API Kaliti (Ixtiyoriy):</label>
-        <div class="flex gap-2">
-          <input type="password" id="geminiApiKeyInput" placeholder="AIzaSy..." class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-cyan-400 font-mono">
-          <button onclick="toggleApiKeyVisibility()" class="px-3 rounded-xl bg-slate-800 text-slate-300 hover:text-white border border-slate-700 text-xs">
-            <i class="fa-solid fa-eye" id="apiKeyVisIcon"></i>
-          </button>
-        </div>
-        <p class="text-[11px] text-slate-400">Kalit faqat brauzeringiz xotirasida (localStorage) saqlanadi va hech qayerga uzatilmaydi.</p>
-      </div>
-
-      <div class="flex flex-col sm:flex-row gap-2.5">
-        <button onclick="saveGeminiApiKey()" class="flex-1 py-2.5 px-4 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-bold text-xs uppercase transition flex items-center justify-center space-x-1.5">
-          <i class="fa-solid fa-floppy-disk"></i>
-          <span>Saqlash va Faollashtirish</span>
-        </button>
-        <button onclick="testGeminiApiKey()" class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/30 font-semibold text-xs transition flex items-center justify-center space-x-1.5">
-          <i class="fa-solid fa-bolt"></i>
-          <span>Ulanishni tekshirish</span>
-        </button>
-      </div>
-      <div id="geminiTestOutput" class="hidden mt-3 p-3 rounded-xl text-xs"></div>
-    </div>
-  </div>
 
   <!-- COMPACT FLOATING AI CHAT WIDGET (POPUP WINDOW) -->
   <div id="floatingChatContainer" class="hidden fixed bottom-24 right-3 sm:right-6 z-50 w-[94vw] sm:w-[390px] max-h-[530px] rounded-2xl glass-card border border-cyan-500/40 shadow-2xl flex flex-col overflow-hidden backdrop-blur-2xl transition-all duration-300">
