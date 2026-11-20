@@ -1,6 +1,8 @@
 import os
 import secrets
 import random
+import datetime
+import base64
 import io
 import re
 import html
@@ -2140,7 +2142,6 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(prompt, parse_mode="HTML")
     elif data == "confirm_quick_sos":
         pending_text = context.user_data.get("pending_sos_text", "Anonim xabar")
-        import random, datetime
         report_code = f"SOS-4M-{random.randint(1000, 9999)}"
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         
@@ -3460,7 +3461,6 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     # Check if this photo/doc is an anonymous SOS evidence submission
     if context.user_data.get("waiting_for_sos"):
         context.user_data["waiting_for_sos"] = False
-        import random, datetime
         report_code = f"SOS-4M-{random.randint(1000, 9999)}"
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         caption_text = msg.caption or "(Dalil fotosurati / skrinshot biriktirildi)"
@@ -4171,7 +4171,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # 1. Active Anonymous SOS Submission
     if context.user_data.get("waiting_for_sos"):
         context.user_data["waiting_for_sos"] = False
-        import random, datetime
         report_code = f"SOS-4M-{random.randint(1000, 9999)}"
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
         
@@ -4220,10 +4219,16 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=chat_id, text=success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
         return
 
-    # 2. Main Menu Actions
-    if "Surat" in text or "Skrinshot" in text or "OSINT" in text or "QR" in text or text.lower() in ["/qr", "/screenshot", "/skrinshot", "/quishing", "/fishing"]:
+    # 2. Main Menu Actions (Sharh & Izoh OSINT prioritized first to avoid substring clashes)
+    if "Sharh" in text or "Izoh" in text or text.lower().startswith("/comment") or text.lower().startswith("/sharh") or text.lower().startswith("/user_comments"):
         context.user_data["waiting_for_ai"] = False
         context.user_data["waiting_for_audit"] = False
+        await comment_osint_command(update, context)
+        return
+    elif "Surat" in text or "Skrinshot" in text or text.lower().startswith("/photo") or text.lower() in ["/qr", "/screenshot", "/skrinshot", "/quishing", "/fishing"]:
+        context.user_data["waiting_for_ai"] = False
+        context.user_data["waiting_for_audit"] = False
+        context.user_data["waiting_for_comment_osint"] = False
         await context.bot.send_message(
             chat_id=chat_id,
             text=(
@@ -4265,11 +4270,6 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     elif "AI Kiber-Maslahatchi" in text or "AI Maslahatchi" in text:
         await ai_command(update, context)
-        return
-    elif "Sharh" in text or "Izoh" in text or text.lower().startswith("/comment") or text.lower().startswith("/sharh"):
-        context.user_data["waiting_for_ai"] = False
-        context.user_data["waiting_for_audit"] = False
-        await comment_osint_command(update, context)
         return
     elif "Nikneym" in text or "Havola" in text:
         context.user_data["waiting_for_ai"] = False
