@@ -841,7 +841,7 @@ def _query_gemini_api_sync(prompt: str, image_bytes: bytes = None, mime_type: st
     parts = [{"text": prompt}]
     if image_bytes:
         # Lightweight compression for Termux & mobile environments (saves RAM, battery & mobile data)
-        if len(image_bytes) > 800_000:
+        if len(image_bytes) > 800_000 and mime_type.startswith("image/"):
             try:
                 im = Image.open(io.BytesIO(image_bytes))
                 im.thumbnail((1280, 1280), Image.Resampling.LANCZOS)
@@ -998,6 +998,71 @@ async def audit_deepfake_with_ai(image_bytes: bytes, mime_type: str = "image/jpe
         "Javobni o'zbek tilida, aniq, faktlarga asoslangan va ta'sirli qilib yozing."
     )
     raw = await asyncio.to_thread(_query_gemini_api_sync, prompt, image_bytes, mime_type)
+    return format_ai_to_tg_html(raw)
+
+def extract_or_convert_to_audio_bytes(input_bytes: bytes, file_name: str = "audio.ogg") -> tuple[bytes, str]:
+    """Converts voice notes, audio files, or video notes into 16kHz mono MP3 via ffmpeg for Gemini Multimodal Audio analysis."""
+    ext = os.path.splitext(file_name)[1].lower() or ".ogg"
+    with tempfile.NamedTemporaryFile(suffix=ext, delete=False) as tf_in:
+        tf_in.write(input_bytes)
+        in_path = tf_in.name
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tf_out:
+        out_path = tf_out.name
+    try:
+        cmd = [
+            'ffmpeg', '-y', '-i', in_path,
+            '-vn', '-acodec', 'libmp3lame', '-ar', '16000', '-ac', '1', '-b:a', '32k',
+            '-t', '120',
+            out_path
+        ]
+        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=10)
+        if res.returncode == 0 and os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+            with open(out_path, "rb") as f:
+                return f.read(), "audio/mp3"
+    except Exception as e:
+        logging.warning(f"Audio conversion failed: {e}")
+    finally:
+        for p in (in_path, out_path):
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
+    return input_bytes, "audio/ogg"
+
+async def audit_audio_deepfake_with_ai(audio_bytes: bytes, mime_type: str = "audio/mp3", file_name: str = "ovoz.ogg", is_video_note: bool = False) -> str:
+    """Uses Gemini Multimodal Audio analysis to detect:
+    1. AI-generated voice clones (ElevenLabs, Bark, RVC, VALL-E, Voice Clone).
+    2. Voice Phishing (Vishing): Urgent extortion, fake emergency ('menga tezda 100 ming som tashla'), bank fraud.
+    3. Biometric acoustic anomalies: unnatural breathing, metallic synthesis artifacts, room acoustic mismatch.
+    4. Calculates AI Clone Probability (0-100%) and provides actionable student/parent defense guidance.
+    """
+    media_desc = "Telegram video-doirachasi (video note) audio yozuvi" if is_video_note else f"audio / Telegram ovozli xabari ({file_name})"
+    prompt = (
+        "Siz «KiberIz-4» sud kiber-fonetikasi, audio biometriya va Ovozli Sun'iy Intellekt (Audio Deepfake & Vishing) yetakchi mutaxassisisiz.\n"
+        f"Foydalanuvchi tekshirish uchun {media_desc} yubordi.\n"
+        "Ushbu audio yozuvni neyrotarmoqlar orqali generatsiya qilingan klonlangan ovoz (ElevenLabs, Bark, RVC, VALL-E, Voice Clone) "
+        "yoki Ovozli Fishing (Vishing - o'quvchi yoki ota-onasi nomidan shoshilinch pul talab qilish) tahdidiga chuqur tahlil qiling.\n\n"
+        "Quyidagi kiber-fonetik va psixologik mezonlarni sinchkovlik bilan tekshiring:\n"
+        "1. 🎙️ Nutq va Transkripsiya (Speech-to-Text): Ovozda aytilgan gaplar va asosiy mazmun (O'zbek, Rus yoki boshqa tilda);\n"
+        "2. 🫁 Nafas olish va mikro-pauzalar: Inson gapirayotganda tabiiy nafas olish (inhale/exhale) tovushlari, yutinish bormi yoki uzluksiz robotik sintez oqimimi?\n"
+        "3. 🤖 Sintetik metallik artefaktlar: Neyrotarmoqlarga xos robotik tembr, fazaviy buzilishlar (phase glitches), ortiqcha sun'iy tekis intonatsiya yoki so'z oxirlarida g'alati uzilishlar bormi?\n"
+        "4. 🏠 Akustik fon va rezonans: Ovoz atrof-muhit shovqini (xona rezonansi, tabiiy fon) bilan uyg'unlashganmi yoki studio qoplamasi ustiga sun'iy shovqin qo'shilganmi?\n"
+        "5. 🎣 Vishing (Ovozli Firibgarlik) alomatlari: Pul talab qilish ('tezda kartaga pul tashla', 'falokat bo'ldi', 'qarz berib tur', '100 ming so'm'), shoshiltirish ('zudlik bilan', 'hozir kerak'), hissiy bosim yoki bank ma'lumotlarini so'rash bormi?\n\n"
+        "Javobni Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) quyidagi qat'iy tuzilmada bering:\n"
+        "🎙 <b>AUDIO DEEPFAKE VA OVOZLI FISHING (VISHING) EKSPERTIZASI:</b>\n\n"
+        "• 📝 <b>Ovoz Mazmuni (Transkripsiya):</b> [Ovozda aytilgan asosiy gaplar va kontekst]\n"
+        "• 📊 <b>AI Ovoz Klonlash Ehtimolligi:</b> [0% dan 100% gacha foiz va aniq holat: masalan, <code>🚨 91% (YUQORI EHTIMOLLI AI KLON / ELEVENLABS)</code> yoki <code>✅ 12% (TABIIY INSON OVOZI)</code>]\n"
+        "• 🔬 <b>Akustik va Fonetik Tahlil:</b> [Nafas olish mavjudligi, robotik metallik artefaktlar, intonatsiya tabiiyligi va fon akustikasi bo'yicha aniq xulosa]\n"
+        "• 🎣 <b>Vishing (Ovozli Firibgarlik) Xavfi:</b> [🚨 YUQORI TAHDID (Pul / Shoshilinch shantaj aniqlandi) yoki ⚠️ SHUBHALI / ✅ XAVFSIZ]\n"
+        "• 🛡️ <b>Zudlik Bilan Qilinadigan Kiber-Himoya Qadamlari:</b>\n"
+        "   1. 🚫 <b>1-Qoida:</b> <i>Hech qachon darhol pul o'tkazmang va shoshilmang!</i>\n"
+        "   2. 📞 <b>2-Qoida:</b> <i>Ushbu odamga Telegram orqali emas, oddiy mobil telefon (GSM aloqa) orqali to'g'ridan-to'g'ri qo'ng'iroq qilib tekshiring!</i>\n"
+        "   3. 🔐 <b>3-Qoida (Oilaviy maxfiy parol):</b> <i>Faqat ikkingiz biladigan maxfiy savol bering (masalan: 'kecha qayerda edik?'). AI klon bunga aslo javob berolmaydi!</i>\n"
+        "   4. 💳 <b>4-Qoida:</b> <i>Taqdim etilgan bank kartasi egasining ism-familiyasini haqiqiy tanishingiz bilan solishtiring (firibgarlar har doim begona dropper kartasini beradi).</i>\n\n"
+        "Xulosa o'zbek tilida, aniq, faktlarga asoslangan va ta'sirli bo'lsin."
+    )
+    raw = await asyncio.to_thread(_query_gemini_api_sync, prompt, audio_bytes, mime_type)
     return format_ai_to_tg_html(raw)
 
 SCAM_PHISHING_KEYWORDS = [
@@ -1500,25 +1565,29 @@ async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # (MAIN_KEYBOARD is defined persistently above)
 
 async def deepfake_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Explains Deepfake and AI photo detection and prompts user to upload a face/profile photo."""
+    """Explains Deepfake, AI photo & Audio Vishing detection and prompts user to upload photo, voice note, or video note."""
     await prepare_clean_chat(update, context)
     chat_id = update.effective_chat.id
     context.user_data["waiting_for_deepfake"] = True
     context.user_data["waiting_for_ai"] = False
     context.user_data["waiting_for_audit"] = False
     context.user_data["waiting_for_sos"] = False
+    context.user_data["waiting_for_comment_osint"] = False
     
     text = (
-        f"{p('ROBOT', '🎭')} <b>«DEEPFAKE VA AI RASM DETEKTORI» (SUN’IY INTELLEKTNI ANIQLASH)</b>\n\n"
-        f"Hozirgi kunda kiberjinoyatchilar neyrotarmoqlar (Midjourney, Stable Diffusion, DALL-E, FaceSwap, Deepfake) "
-        f"yordamida soxta profillar va sun’iy qizlar/yigitlar rasmlarini yasab, o‘quvchilarni aldash (Catfishing), "
-        f"ishonchiga kirish va shantaj qilish holatlari keskin avj olmoqda!\n\n"
+        f"{p('ROBOT', '🎭')} <b>«DEEPFAKE VA OVOZLI FISHING (VISHING) DETEKTORI»</b>\n\n"
+        f"Hozirgi kunda kiberjinoyatchilar sun’iy intellekt orqali 2 xil xavfli kiber-hujumni amalga oshirmoqda:\n\n"
+        f"1. 🖼️ <b>Vizual Deepfake & Soxta Profillar:</b>\n"
+        f"   └ Neyrotarmoqlar (Midjourney, FaceSwap) yordamida sun’iy qizlar/yigitlar suratini yasab, "
+        f"o‘quvchilarni aldash (Catfishing) va shantaj qilish.\n\n"
+        f"2. 🎙️ <b>Audio Deepfake & Ovozli Fishing (Vishing):</b>\n"
+        f"   └ O‘quvchi yoki ota-onaning ovozini AI (ElevenLabs, Bark) orqali klonlab: "
+        f"<i>«Menga tezda 100 ming so‘m tashla, falokat bo‘ldi»</i> deb do‘stlariga yoki ota-onalar guruhiga yuborish.\n\n"
         f"🔍 <b>Bot qanday tekshiradi?</b>\n"
-        f"• {p('SEARCH', '👁️')} <b>Yuz va ko‘z qorachiqlari:</b> Yorug‘lik akslanishi va shakl buzilishlari;\n"
-        f"• {p('SEARCH', '👤')} <b>Teri teksturasi:</b> Sun’iy mum/plastik silliqligi va tishlar anomaliyasi;\n"
-        f"• {p('SEARCH', '👂')} <b>Quloq va sochlar:</b> Asimmetriya va orqa fonga erib ketish xatolari;\n"
-        f"• {p('SEARCH', '📊')} <b>AI Ehtimollik Ko‘rsatkichi:</b> <i>«Ushbu rasm 87% ehtimol bilan AI orqali yasalgan!»</i>\n\n"
-        f"👉 <i>Tekshirmoqchi bo‘lgan shubhali profil yoki inson fotosuratini shu yerga yuboring:</i>"
+        f"• 👁️ <b>Yuz va ko‘z qorachiqlari:</b> Yorug‘lik akslanishi, teri va soch erishi xatolari;\n"
+        f"• 🎙️ <b>Ovoz to‘lqini va nafas chastotasi:</b> Sintetik metallik tembr, robotik uzilishlar va sun’iy pauzalarni fosh qilish;\n"
+        f"• 📊 <b>AI Ehtimollik Ko‘rsatkichi:</b> <i>«🚨 91% ehtimol bilan bu AI klon ovoz / rasm!»</i>\n\n"
+        f"👉 <b>Tekshirish uchun:</b> Shubhali <b>fotosurat</b>, Telegram <b>ovozli xabari (.ogg voice)</b>, <b>audio fayl</b> yoki <b>video-doiracha (video note)</b> yuboring!"
     )
     await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
 
@@ -2827,26 +2896,39 @@ async def handle_raw_image_analysis(msg, file_bytes: bytes, file_name: str):
         lat_val, lon_val = coords
         await msg.reply_location(latitude=lat_val, longitude=lon_val)
 
-async def handle_audio_analysis(msg, file_bytes: bytes, file_name: str):
-    """Analyzes audio/voice recordings for hidden device, author, and software tags."""
+async def handle_audio_analysis(msg, file_bytes: bytes, file_name: str, is_video_note: bool = False):
+    """Analyzes audio/voice recordings & video notes for AI Voice Cloning (Deepfake) and Vishing attacks."""
+    try:
+        await msg.reply_chat_action("record_voice")
+    except Exception:
+        pass
+
+    # 1. Technical ID3 & Audio Metadata Check
     details, _ = parse_audio_metadata(file_bytes, file_name)
-    
-    audio_msg = (
-        f"{p('CALL', '🎵')} <b>AUDIO VA OVOZ YOZUV TAHLILI ({html.escape(file_name)}):</b>\n\n"
-    )
-    
+    tech_info = ""
     if details:
-        audio_msg += f"{p('WARNING', '⚠️')} <b>ANIQLANGAN METAMA’LUMOTLAR VA TEGLAR:</b>\n"
+        tech_info = f"\n\n{p('WARNING', '⚠️')} <b>TEXNIK METAMA’LUMOTLAR VA TEGLAR:</b>\n"
         for d in details:
-            audio_msg += f"• {d}\n"
-        audio_msg += (
-            f"\n{p('SHIELD', '🛡️')} <b>Kiber-Tahlil:</b> Ovoz yozuvlari va audio fayllardagi ID3 teglar "
-            f"yozib olingan dastur nomi (DAW), kompyuter yoki telefon modelini oshkor qilishi mumkin."
+            tech_info += f"• {d}\n"
+        tech_info += (
+            f"\n{p('SHIELD', '🛡️')} <i>Ovoz yozuvlari va audio fayllardagi ID3 teglar "
+            f"yozib olingan dastur nomi (DAW), audio muharrir yoki telefon modelini oshkor qilishi mumkin.</i>"
         )
-    else:
-        audio_msg += f"{p('CHECK', '✅')} <i>Ushbu audio faylda shaxsiy yoki texnik teglar topilmadi (tozalangan).</i>"
-        
-    await msg.reply_text(audio_msg, parse_mode="HTML")
+
+    # 2. Extract / convert audio to 16kHz mono MP3 via ffmpeg
+    norm_bytes, mime_type = await asyncio.to_thread(extract_or_convert_to_audio_bytes, file_bytes, file_name)
+
+    # 3. AI Audio Deepfake & Vishing Forensic Analysis
+    ai_report = await audit_audio_deepfake_with_ai(norm_bytes, mime_type, file_name, is_video_note=is_video_note)
+
+    full_response = f"{ai_report}{tech_info}"
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🚨 Anonim SOS Yordam", callback_data="start_anon_sos", icon_custom_emoji_id=E["SOS"])],
+        [InlineKeyboardButton("🛡️ 5 daqiqalik Chek-list", callback_data="show_checklist", icon_custom_emoji_id=E["SHIELD"])],
+        [InlineKeyboardButton("🤖 Boshqa savol berish (AI)", callback_data="ask_custom_ai", icon_custom_emoji_id=E["LIGHT"])]
+    ])
+    await msg.reply_text(full_response, parse_mode="HTML", reply_markup=keyboard)
 
 async def handle_document_analysis(msg, file_bytes: bytes, file_name: str):
     """Analyzes documents (PDF, DOCX, XLSX, etc.) for metadata leaks and macros."""
@@ -3661,6 +3743,9 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     # In Private DM: Check if user specifically requested Deepfake detection
     if context.user_data.get("waiting_for_deepfake"):
         context.user_data["waiting_for_deepfake"] = False
+        if is_audio or bool(msg.voice) or bool(msg.video_note) or ext in audio_exts or mime.startswith("audio/"):
+            await handle_audio_analysis(msg, file_bytes, file_name, is_video_note=bool(msg.video_note))
+            return
         jpeg_bytes = convert_image_to_jpeg_bytes(file_bytes, file_name)
         context.user_data["last_photo"] = jpeg_bytes
         try:
@@ -3710,9 +3795,9 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await handle_raw_image_analysis(msg, file_bytes, file_name)
         return
 
-    # 3. Audio & Voice
-    if is_audio or ext in audio_exts or mime.startswith("audio/"):
-        await handle_audio_analysis(msg, file_bytes, file_name)
+    # 3. Audio, Voice & Video Notes (Vishing & Audio Deepfake)
+    if is_audio or bool(msg.voice) or bool(msg.video_note) or ext in audio_exts or mime.startswith("audio/"):
+        await handle_audio_analysis(msg, file_bytes, file_name, is_video_note=bool(msg.video_note))
         return
 
     # 4. Document / Office (PDF, Word, Excel, PowerPoint)
@@ -4295,9 +4380,10 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["waiting_for_audit"] = False
         await web_command(update, context)
         return
-    elif "Deepfake" in text or text.lower() in ["/deepfake", "/ai_rasm", "/ai_detector"]:
+    elif "Deepfake" in text or "Vishing" in text or text.lower() in ["/deepfake", "/ai_rasm", "/ai_detector", "/vishing", "/audio_deepfake", "/voice"]:
         context.user_data["waiting_for_ai"] = False
         context.user_data["waiting_for_audit"] = False
+        context.user_data["waiting_for_comment_osint"] = False
         await deepfake_command(update, context)
         return
     elif "Guruh" in text or text.lower() in ["/group_shield", "/guruh", "/group"]:
@@ -4598,6 +4684,9 @@ def main():
     app.add_handler(CommandHandler("skrinshot", screenshot_command))
     app.add_handler(CommandHandler("deepfake", deepfake_command))
     app.add_handler(CommandHandler("ai_rasm", deepfake_command))
+    app.add_handler(CommandHandler("vishing", deepfake_command))
+    app.add_handler(CommandHandler("audio_deepfake", deepfake_command))
+    app.add_handler(CommandHandler("voice", deepfake_command))
     app.add_handler(CommandHandler("group_shield", group_shield_command))
     app.add_handler(CommandHandler("guruh", group_shield_command))
     
