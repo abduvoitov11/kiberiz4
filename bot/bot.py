@@ -118,6 +118,12 @@ SAMPLE_PATH = resolve_path([
     "/home/torabek/KiberIz4/web/samples/sample_gps_school4.jpg"
 ])
 
+SAMPLE_VISUAL_PATH = resolve_path([
+    os.path.join(BASE_DIR, "sample_visual_osint_test.jpg"),
+    os.path.join(BASE_DIR, "../samples/sample_visual_osint_test.jpg"),
+    "/home/torabek/KiberIz4/samples/sample_visual_osint_test.jpg"
+])
+
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -164,6 +170,7 @@ E = {
     "SCHOOL": "5265002646397285605",       # 🏫 4-Maktab
     "TEACHER": "5373039692574893940",      # 👨‍🏫 Teacher
     "HACKER": "5190498849440931467",       # 👨‍💻 Cyber Analyst
+    "ROBOT": "5431376038628171216",        # 🤖 AI Robot / Deepfake
     "HOUSE": "5465226866321268133",        # 🏠 Home
     "BUILDING": "5264733042710181045",     # 🏢 Street Building
     "LAPTOP": "5431376038628171216",       # 💻 Laptop
@@ -277,19 +284,58 @@ def strip_html_tags(s: str) -> str:
     return re.sub(r'<[^>]+>', '', s)
 
 # ==========================================
+# MAIN PERSISTENT KEYBOARD (TELEGRAM BOT API 6.0+)
+# ==========================================
+MAIN_KEYBOARD = ReplyKeyboardMarkup(
+    [
+        [
+            KeyboardButton("Surat & Skrinshot auditi", icon_custom_emoji_id=E["SEARCH"]),
+            KeyboardButton("5 daqiqalik Chek-list", icon_custom_emoji_id=E["SHIELD"])
+        ],
+        [
+            KeyboardButton("Nikneym & Havola auditi", icon_custom_emoji_id=E["HACKER"]),
+            KeyboardButton("Real keyslar: 3 ta xavf", icon_custom_emoji_id=E["WARNING"])
+        ],
+        [
+            KeyboardButton("🎭 Deepfake Detektor", icon_custom_emoji_id=E["ROBOT"]),
+            KeyboardButton("👥 Guruh Kiber-Qalqoni", icon_custom_emoji_id=E["SHIELD"])
+        ],
+        [
+            KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"]),
+            KeyboardButton("Kiber-Portal (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["GLOBE"])
+        ],
+        [
+            KeyboardButton("AI Kiber-Maslahatchi", icon_custom_emoji_id=E["LIGHT"]),
+            KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"])
+        ]
+    ],
+    resize_keyboard=True,
+    is_persistent=True
+)
+
+# ==========================================
 # CHAT AUTO-CLEANUP & MESSAGE MANAGEMENT
 # ==========================================
-PREV_BOT_MSGS = {}  # {chat_id: set_of_message_ids}
+PREV_BOT_MSGS = {}        # {chat_id: set_of_message_ids}
+ACTIVE_KEYBOARD_MSGS = {} # {chat_id: message_id}
 
 async def cleanup_chat(chat_id: int, bot_instance, keep_ids=None):
-    """Deletes previous bot messages in this chat so that the screen stays clean."""
+    """Deletes previous bot messages in this chat so that the screen stays clean,
+    while ALWAYS protecting the active persistent keyboard message."""
     if not chat_id:
         return
     if chat_id in PREV_BOT_MSGS:
         to_del = list(PREV_BOT_MSGS[chat_id])
         PREV_BOT_MSGS[chat_id] = set()
+        active_kb_mid = ACTIVE_KEYBOARD_MSGS.get(chat_id)
         for mid in to_del:
             if keep_ids and mid in keep_ids:
+                PREV_BOT_MSGS[chat_id].add(mid)
+                continue
+            # CRITICAL: Do NOT delete the active message that anchors MAIN_KEYBOARD!
+            # If deleted, Telegram removes the persistent bottom buttons.
+            if active_kb_mid and mid == active_kb_mid:
+                PREV_BOT_MSGS[chat_id].add(mid)
                 continue
             try:
                 await bot_instance.delete_message(chat_id=chat_id, message_id=mid)
@@ -313,6 +359,26 @@ def record_bot_msg(chat_id, msg):
     elif isinstance(msg, int):
         PREV_BOT_MSGS[chat_id].add(msg)
 
+async def register_new_keyboard_msg(chat_id: int, bot_instance, new_msg):
+    """Registers a message that carries MAIN_KEYBOARD and cleanly replaces the old keyboard anchor."""
+    if not chat_id or not new_msg:
+        return
+    new_mid = getattr(new_msg, "message_id", None)
+    if not new_mid:
+        return
+    old_kb_mid = ACTIVE_KEYBOARD_MSGS.get(chat_id)
+    ACTIVE_KEYBOARD_MSGS[chat_id] = new_mid
+    if chat_id not in PREV_BOT_MSGS:
+        PREV_BOT_MSGS[chat_id] = set()
+    PREV_BOT_MSGS[chat_id].add(new_mid)
+    if old_kb_mid and old_kb_mid != new_mid and bot_instance:
+        try:
+            await bot_instance.delete_message(chat_id=chat_id, message_id=old_kb_mid)
+        except Exception:
+            pass
+        if chat_id in PREV_BOT_MSGS and old_kb_mid in PREV_BOT_MSGS[chat_id]:
+            PREV_BOT_MSGS[chat_id].discard(old_kb_mid)
+
 MENU_BUTTON_TEXTS = {
     "Suratni tekshirish (OSINT)",
     "Surat & Skrinshot auditi",
@@ -320,16 +386,22 @@ MENU_BUTTON_TEXTS = {
     "Nikneym & Havola auditi",
     "Real keyslar: 3 ta xavf",
     "\"Raqamli Iz\" Testi",
+    "Raqamli Iz Testi",
     "Kiber-Portal (Web App)",
-    "AI Kiber-Maslahatchi",
-    "Anonim SOS / Yordam",
     "🌐 Kiber-Portal (Web App)",
-    "🤖 AI Kiber-Maslahatchi"
+    "AI Kiber-Maslahatchi",
+    "🤖 AI Kiber-Maslahatchi",
+    "Anonim SOS / Yordam",
+    "🎭 Deepfake Detektor",
+    "Deepfake Detektor",
+    "👥 Guruh Kiber-Qalqoni",
+    "Guruh Kiber-Qalqoni"
 }
 
 async def prepare_clean_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cleans up previous bot messages and deletes command/menu trigger text if applicable."""
-    chat_id = update.effective_chat.id if update.effective_chat else None
+    chat = update.effective_chat
+    chat_id = chat.id if chat else None
     if chat_id:
         await cleanup_chat(chat_id, context.bot)
     if update.message:
@@ -349,9 +421,19 @@ async def _custom_reply_text(self, text, *args, **kwargs):
             text = text[:3900] + "\n\n<i>[Qisqartirildi...]</i>"
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
+
+    is_private = getattr(self.chat, "type", "") == "private" or (isinstance(self.chat_id, int) and self.chat_id > 0)
+    has_kb = kwargs.get("reply_markup") == MAIN_KEYBOARD
+
+    if is_private and ("reply_markup" not in kwargs or kwargs["reply_markup"] is None):
+        kwargs["reply_markup"] = MAIN_KEYBOARD
+        has_kb = True
+
     try:
         res = await _orig_reply_text(self, text, *args, **kwargs)
         record_bot_msg(self.chat_id, res)
+        if has_kb and res:
+            await register_new_keyboard_msg(self.chat_id, self.get_bot(), res)
         return res
     except Exception as e:
         err_str = str(e).lower()
@@ -361,6 +443,8 @@ async def _custom_reply_text(self, text, *args, **kwargs):
             kw.pop("parse_mode", None)
             res = await _orig_reply_text(self, strip_html_tags(text), *args, **kw)
             record_bot_msg(self.chat_id, res)
+            if has_kb and res:
+                await register_new_keyboard_msg(self.chat_id, self.get_bot(), res)
             return res
         raise e
 Message.reply_text = _custom_reply_text
@@ -419,9 +503,12 @@ async def _custom_reply_document(self, *args, **kwargs):
         kwargs["caption"] = auto_premium(kwargs["caption"])
         if "parse_mode" not in kwargs:
             kwargs["parse_mode"] = "HTML"
+    has_kb = kwargs.get("reply_markup") == MAIN_KEYBOARD
     try:
         res = await _orig_reply_document(self, *args, **kwargs)
         record_bot_msg(self.chat_id, res)
+        if has_kb and res:
+            await register_new_keyboard_msg(self.chat_id, self.get_bot(), res)
         return res
     except Exception as e:
         err_str = str(e).lower()
@@ -432,6 +519,8 @@ async def _custom_reply_document(self, *args, **kwargs):
                 kw["caption"] = strip_html_tags(kw["caption"])
             res = await _orig_reply_document(self, *args, **kw)
             record_bot_msg(self.chat_id, res)
+            if has_kb and res:
+                await register_new_keyboard_msg(self.chat_id, self.get_bot(), res)
             return res
         raise e
 Message.reply_document = _custom_reply_document
@@ -442,9 +531,12 @@ async def _custom_reply_photo(self, *args, **kwargs):
         kwargs["caption"] = auto_premium(kwargs["caption"])
         if "parse_mode" not in kwargs:
             kwargs["parse_mode"] = "HTML"
+    has_kb = kwargs.get("reply_markup") == MAIN_KEYBOARD
     try:
         res = await _orig_reply_photo(self, *args, **kwargs)
         record_bot_msg(self.chat_id, res)
+        if has_kb and res:
+            await register_new_keyboard_msg(self.chat_id, self.get_bot(), res)
         return res
     except Exception as e:
         err_str = str(e).lower()
@@ -455,6 +547,8 @@ async def _custom_reply_photo(self, *args, **kwargs):
                 kw["caption"] = strip_html_tags(kw["caption"])
             res = await _orig_reply_photo(self, *args, **kw)
             record_bot_msg(self.chat_id, res)
+            if has_kb and res:
+                await register_new_keyboard_msg(self.chat_id, self.get_bot(), res)
             return res
         raise e
 Message.reply_photo = _custom_reply_photo
@@ -474,9 +568,19 @@ async def _custom_send_message(self, chat_id, text, *args, **kwargs):
             text = text[:3900] + "\n\n<i>[Qisqartirildi...]</i>"
     if "parse_mode" not in kwargs:
         kwargs["parse_mode"] = "HTML"
+
+    is_private = isinstance(chat_id, int) and chat_id > 0
+    has_kb = kwargs.get("reply_markup") == MAIN_KEYBOARD
+
+    if is_private and ("reply_markup" not in kwargs or kwargs["reply_markup"] is None):
+        kwargs["reply_markup"] = MAIN_KEYBOARD
+        has_kb = True
+
     try:
         res = await _orig_send_message(self, chat_id, text, *args, **kwargs)
         record_bot_msg(chat_id, res)
+        if has_kb and res:
+            await register_new_keyboard_msg(chat_id, self, res)
         return res
     except Exception as e:
         err_str = str(e).lower()
@@ -485,6 +589,8 @@ async def _custom_send_message(self, chat_id, text, *args, **kwargs):
             kw.pop("parse_mode", None)
             res = await _orig_send_message(self, chat_id, strip_html_tags(text), *args, **kw)
             record_bot_msg(chat_id, res)
+            if has_kb and res:
+                await register_new_keyboard_msg(chat_id, self, res)
             return res
         raise e
 Bot.send_message = _custom_send_message
@@ -495,9 +601,12 @@ async def _custom_send_photo(self, chat_id, *args, **kwargs):
         kwargs["caption"] = auto_premium(kwargs["caption"])
         if "parse_mode" not in kwargs:
             kwargs["parse_mode"] = "HTML"
+    has_kb = kwargs.get("reply_markup") == MAIN_KEYBOARD
     try:
         res = await _orig_send_photo(self, chat_id, *args, **kwargs)
         record_bot_msg(chat_id, res)
+        if has_kb and res:
+            await register_new_keyboard_msg(chat_id, self, res)
         return res
     except Exception as e:
         err_str = str(e).lower()
@@ -508,6 +617,8 @@ async def _custom_send_photo(self, chat_id, *args, **kwargs):
                 kw["caption"] = strip_html_tags(kw["caption"])
             res = await _orig_send_photo(self, chat_id, *args, **kw)
             record_bot_msg(chat_id, res)
+            if has_kb and res:
+                await register_new_keyboard_msg(chat_id, self, res)
             return res
         raise e
 Bot.send_photo = _custom_send_photo
@@ -518,9 +629,12 @@ async def _custom_send_document(self, chat_id, *args, **kwargs):
         kwargs["caption"] = auto_premium(kwargs["caption"])
         if "parse_mode" not in kwargs:
             kwargs["parse_mode"] = "HTML"
+    has_kb = kwargs.get("reply_markup") == MAIN_KEYBOARD
     try:
         res = await _orig_send_document(self, chat_id, *args, **kwargs)
         record_bot_msg(chat_id, res)
+        if has_kb and res:
+            await register_new_keyboard_msg(chat_id, self, res)
         return res
     except Exception as e:
         err_str = str(e).lower()
@@ -531,6 +645,8 @@ async def _custom_send_document(self, chat_id, *args, **kwargs):
                 kw["caption"] = strip_html_tags(kw["caption"])
             res = await _orig_send_document(self, chat_id, *args, **kw)
             record_bot_msg(chat_id, res)
+            if has_kb and res:
+                await register_new_keyboard_msg(chat_id, self, res)
             return res
         raise e
 Bot.send_document = _custom_send_document
@@ -539,9 +655,9 @@ Bot.send_document = _custom_send_document
 # GEMINI AI CYBER-MENTOR ENGINE (Method 1)
 # ==========================================
 GEMINI_MODELS = [
-    "gemini-3.5-flash-lite",
-    "gemini-flash-latest",
     "gemini-2.5-flash",
+    "gemini-flash-latest",
+    "gemini-3.5-flash-lite",
     "gemini-3.1-flash-lite",
     "gemini-3.8-flash"
 ]
@@ -624,7 +740,7 @@ def _query_gemini_api_sync(prompt: str, image_bytes: bytes = None, mime_type: st
         ],
         "generationConfig": {
             "temperature": 0.35,
-            "maxOutputTokens": 950
+            "maxOutputTokens": 2048
         }
     }
     if system_instruction:
@@ -677,36 +793,131 @@ def _query_gemini_api_sync(prompt: str, image_bytes: bytes = None, mime_type: st
         "Iltimos, birozdan so'ng qayta urinib ko'ring."
     )
 
-async def analyze_image_with_gemini_vision(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
+async def analyze_image_with_gemini_vision(
+    image_bytes: bytes, 
+    mime_type: str = "image/jpeg", 
+    has_gps: bool = False, 
+    extra_context: str = ""
+) -> str:
     """Uses Gemini Vision API (gemini-2.5-flash / flash models) to detect:
     1. Screenshots of SMS, Telegram, banking (Click/Payme), fake financial aid, phishing, and scam manipulation.
-    2. Visual privacy leaks, surroundings, documents, and student cyber-risks in regular photos.
+    2. Deep Visual OSINT (indirect environmental clues, Uzbekistan car plates 01-95, signage, architecture, shadows)
+       specifically demonstrating that stripping GPS EXIF does NOT make an image anonymous!
     """
+    gps_status_note = (
+        "Diqqat: Ushbu suratda GPS koordinatalari MAVJUD EMAS (Telegram yoki Instagram orqali o‘tganligi sababli EXIF tozalangan). "
+        "Sizning vazifangiz — professional VISUAL OSINT (tasviriy kiber-razvedka) yordamida orqa fondagi bilvosita belgilar orqali "
+        "joylashuvni fosh qilish va o‘quvchiga 'GPS bo‘lmasa ham orqa fondagi izlar orqali joylashuvingiz fosh bo‘lishi mumkin' "
+        "ekanligini amalda ko‘rsatib, hakamlar va o‘quvchilarni lol qoldiruvchi WOW-effekt yaratishdir."
+        if not has_gps else
+        "Diqqat: Ushbu suratda EXIF GPS koordinatalari mavjud. Vizual OSINT orqali orqa fondagi bilvosita belgilarni tekshiring va haqiqiy joylashuv bilan qiyoslang."
+    )
+    if extra_context:
+        gps_status_note += f"\nTasvirdan dastlabki aniqlangan vizual/matn izlar: {extra_context}"
+
     prompt = (
-        "Siz «KiberIz-4» maktab kiberxavfsizlik, vizual OSINT va anti-fishing bo'yicha sun'iy intellektsiz.\n"
-        "Ushbu tasvirni diqqat bilan o'rganing va 2 ta toifadan biriga moslab tahlil qiling:\n\n"
-        "A) AGAR TASVIR SKRINSHOT BO'LSA (SMS xabarnoma, Telegram/WhatsApp/Instagram chati, Click/Payme/Uzum cheki yoki ilovasi, soxta pul/yordam/sovrin, akkount bloklanishi haqida ogohlantirish):\n"
+        "Siz «KiberIz-4» maktab kiberxavfsizlik, vizual OSINT va sun'iy intellekt bo'yicha yetakchi mutaxassisisiz.\n"
+        f"{gps_status_note}\n\n"
+        "Ushbu tasvirni sinchkovlik bilan tekshiring va quyidagi 2 ta toifadan biriga moslab tahlil qiling:\n\n"
+        "A) AGAR TASVIR SKRINSHOT BO'LSA (SMS xabarnoma, Telegram/WhatsApp/Instagram chati, Click/Payme/Uzum cheki yoki ilovasi, soxta pul/yordam/sovrin, akkaunt bloklanishi haqida ogohlantirish):\n"
         "Javobni quyidagi tuzilmada Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) yozing:\n"
         "📱 <b>SMART VISION: SKRINSHOT VA FISHING AUDITI</b>\n"
         "• 📊 <b>Kiber-Xavf Indeksi:</b> [0% dan 100% gacha va holat: 🚨 KRITIK FISHING / ⚠️ SHUBHALI / ✅ XAVFSIZ]\n"
         "• 💬 <b>Aniqlangan Matn va Mazmun:</b> [Skrinshotdagi asosiy xabar, va'da qilingan summa yoki da'vo qisqacha]\n"
-        "• 🎭 <b>Manipulyatsiya va Soxta Brend:</b> [Qaysi bank/tashkilot (Click, Payme, Davlat portali, Telegram) niqob qilib olingan va psixologik bosim (shoshiltirish, tekinga pul, qo'rqitish)]\n"
+        "• 🎭 <b>Manipulyatsiya va Soxta Brend:</b> [Qaysi bank/tashkilot (Click, Payme, Davlat portali, Telegram) niqob qilib olingan va psixologik bosim usuli]\n"
         "• ⚠️ <b>Kiber-Tahdid:</b> [Karta raqami/SMS kod o'g'irlanishi, hisobni boy berish yoki virus yuklanishi]\n"
         "• 🛡️ <b>Xavfsizlik Choralari:</b>\n"
         "  1. <i>Havolaga aslo kirmang va hech narsa yuklab olmang!</i>\n"
         "  2. <i>SMS orqali kelgan tasdiqlash kodini hech kimga bermang!</i>\n"
         "  3. <i>Yuboruvchini bloklang va xabarni o'chirib tashlang.</i>\n"
         "• ⚖️ <b>Qonuniy asos:</b> O‘zR JK 168-moddasi (Firibgarlik).\n\n"
-        "B) AGAR TASVIR ODDIY FOTOSURAT BO'LSA (Maktab, xona, ko'cha, odamlar, buyumlar, peyzaj):\n"
+        "B) AGAR TASVIR REAL FOTOSURAT BO'LSA (Maktab, xona, ko'cha, hovli, odamlar, shahar manzarasi, selfi, buyumlar):\n"
+        "GPS koordinatalari yo'qligiga qaramasdan, orqa fondagi BILVOSITA OSINT BELGILARINI fosh qiling!\n"
         "Javobni quyidagi tuzilmada Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) yozing:\n"
-        "📸 <b>VIZUAL OSINT VA MAXFIYLIK TAHLILI:</b>\n"
-        "• 🏫 <b>Joylashuv va Fon:</b> [Surat qayerda olingan bo'lishi mumkin (maktab, sinf, uy, ko'cha, me'moriy belgilar)];\n"
-        "• ⚠️ <b>Shaxsiy ma'lumotlar sizishi:</b> [Hujjat, pasport, ID karta, kundalik, sinf raqami, ochiq kompyuter/telefon ekrani yoki shaxsiy buyumlar ko'rinyaptimi];\n"
-        "• 🛡️ <b>O'quvchi xavfsizligi bo'yicha xulosa:</b> [Ushbu suratni ijtimoiy tarmoqlarga ommaviy joylash xavfsizmi yoki qanday xavf tug'dirishi mumkin].\n\n"
-        "Javobni lo'nda, o'zbek tilida, aniq va ortiqcha so'zlarsiz taqdim eting."
+        "🛰️ <b>VISUAL OSINT: KO‘RINMAS JOYLAShUV AUDITI (GPS-SIZ TAHLIL)</b>\n"
+        "• 🚗 <b>Transport va Hudud Indekslari:</b> [Avtomobillar ko'ringan bo'lsa, davlat raqami va viloyat indeksini aniqlang: masalan, 01 Toshkent sh., 10 Toshkent vil., 20 Sirdaryo, 25 Jizzax, 30 Samarqand, 40 Qashqadaryo, 50 Surxondaryo, 60 Andijon, 70 Farg'ona, 75 Namangan, 80 Buxoro, 85 Navoiy, 90 Xorazm, 95 Qoraqalpog'iston; yoki xorijiy raqam. Agar avtomobil/raqam bo'lmasa, «Transport raqamlari aniqlanmadi» deb yozing];\n"
+        "• 🏪 <b>Peshlavha va Ko‘cha Belgilari:</b> [Do'kon, dorixona, kafe nomlari, reklama bannerlari, ko'cha nomi, bekat yoki shahar telefon kodlari (+998 71 va h.k.)];\n"
+        "• 🏫 <b>Ta’lim va Maktab Izlari:</b> [Maktab raqami, sinf xonasi lavhasi, devoriy stendlar, forma, galstuk, ko'krak nishoni yoki daftarlar ko'rinyaptimi];\n"
+        "• 🏛️ <b>Me’moriy Uslub va Relyef:</b> [Bino turi (masalan: 9 qavatli panelli uylar, yangi turar-joy majmuasi, shahar markazi, qishloq/hovli, metro 'M' belgisi, teleminora, tog' yoki daryo)];\n"
+        "• ☀️ <b>Xronolokatsiya va Soya:</b> [Quyosh nuri burchagi va soyalar yo'nalishidan taxminiy soat oralig'i (masalan: 13:00-15:00 kunduzgi yoki 18:00 botish), fasl alomatlari];\n"
+        "• 🎯 <b>Taxminiy Joylashuv Xulosasi:</b> [Barcha bilvosita izlar jamlanganda tasvir qayerda (qaysi shahar/tuman/hudud yoki qanday muassasada) olinganligi haqida aniq xulosa];\n"
+        "• 🚨 <b>O‘quvchi uchun Kiber-Ogohlik (WOW-Effekt):</b> [«Siz rasmimda GPS yo‘q, meni topib bo‘lmaydi deb o‘ylaysiz, ammo...» uslubida orqa fondagi aniqlangan belgilar orqali kiber-jinoyatchi yoki stalker uyni/maktabni qanday aniqlashi mumkinligini lo'nda va ta'sirli tushuntiring. Maslahat: ijtimoiy tarmoqqa joylashdan oldin orqa fonni xiralashtirish (blur) yoki kesib tashlash].\n\n"
+        "Javobni o'zbek tilida, aniq, lo'nda va professional kiberxavfsizlik eksperti uslubida taqdim eting. HTML teglari faqat <b>, <i>, <code> bo'lsin."
     )
     raw = await asyncio.to_thread(_query_gemini_api_sync, prompt, image_bytes, mime_type)
     return format_ai_to_tg_html(raw)
+
+async def audit_deepfake_with_ai(image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
+    """Uses Gemini Vision API to detect:
+    1. AI-generated faces, avatars, profiles (Midjourney, Stable Diffusion, DALL-E, Flux).
+    2. Deepfakes, face-swap manipulations, synthetic skin smoothing, pupil distortion, ear/finger anomalies.
+    3. Calculates AI Generation Probability (0-100%) and provides actionable student cybersecurity guidance.
+    """
+    prompt = (
+        "Siz «KiberIz-4» sud kiber-ekspertizasi, biometriya va Sun'iy Intellekt (Deepfake / Synthetic Media) mutaxassisisiz.\n"
+        "Ushbu tasvirni neyrotarmoqlar (Midjourney, Stable Diffusion, DALL-E 3, Flux, FaceSwap, Deepfake, FaceApp) orqali yaratilganlikka yoki soxtalashtirilganlikka chuqur tekshiring.\n\n"
+        "Quyidagi biometrik va vizual mezonlarni sinchkovlik bilan tekshiring:\n"
+        "1. 👁️ Ko'zlar va qorachiqlar: Qorachiq shakli dumaloqmi yoki qiyshiq? Ko'z ichidagi yorug'lik akslanishi (catchlights) bir xil burchakdan tushganmi yoki sun'iy nomutanosiblik bormi?\n"
+        "2. 👤 Teri teksturasi va silliqlik: Tabiiy teri poralari bormi yoki sun'iy 'plastik / mum haykal' (wax skin) effekti mavjudmi? Tishlar soni va lab chegaralari tabiiymi?\n"
+        "3. 👂 Quloqlar va soch chegaralari: Quloq suprasi va sirg'alar nosimmetrikmi? Soch tolalari orqa fonga erib ketganmi (melting artifacts)?\n"
+        "4. 🖐️ Qo'llar va barmoqlar (agar ko'rinsa): Barmoqlar soni, shakli, suyak bo'g'inlari to'g'rimi?\n"
+        "5. 🎨 Orqa fon va simmetriya: Orqa fondagi arxitektura chiziqlari qiyshayishi, mantiqsiz buyumlar, neyrotarmoq loyqalanishi (synthetic bokeh).\n\n"
+        "Javobni Telegram HTML formatida (faqat <b>, <i>, <code> teglari bilan) quyidagi qat'iy tuzilmada bering:\n"
+        "🎭 <b>DEEPFAKE VA SUN’IY INTELLEKT (AI) EKSPERTIZASI:</b>\n\n"
+        "• 📊 <b>AI Generatsiya Ehtimolligi:</b> [0% dan 100% gacha foiz va holat: masalan, <code>87% (🚨 YUQORI EHTIMOLLI AI / DEEPFAKE)</code> yoki <code>15% (✅ HAQIQIY FOTOSURAT)</code>]\n"
+        "• 👁️ <b>Yuz va Anatomiya Tahlili:</b> [Ko'z qorachiqlari akslanishi, teri teksturasi, soch va lab chegaralari bo'yicha aniq xulosa];\n"
+        "• 🔍 <b>Neyrotarmoq Artefaktlari:</b> [Aniqlangan AI xatolari: masalan, quloq asimmetriyasi, fonning erishi, plastik silliqlik, tishlar yoki akslanish anomaliyalari. Agar tabiiy bo'lsa, tabiiy kamera piksellari tasdiqlansin];\n"
+        "• 🎭 <b>Taxminiy Model / Usul:</b> [Midjourney / Stable Diffusion / DALL-E / Deepfake FaceSwap / Retush / Real Kamera];\n"
+        "• 🛡️ <b>Kiber-Tahdid Xulosasi (Catfishing & Shantaj):</b> [O'quvchi va ota-onalar uchun muhim ogohlantirish: bunday soxta suratlar internetda profil o'g'irlash, qizlar/yigitlar nomidan soxta akkaunt ochish (Catfishing), shantaj yoki ishonchga kirib pul undirishda qanday ishlatilishi va himoyalanish usuli].\n\n"
+        "Javobni o'zbek tilida, aniq, faktlarga asoslangan va ta'sirli qilib yozing."
+    )
+    raw = await asyncio.to_thread(_query_gemini_api_sync, prompt, image_bytes, mime_type)
+    return format_ai_to_tg_html(raw)
+
+SCAM_PHISHING_KEYWORDS = [
+    "yutdingiz", "yutuq", "500 ming", "500.000", "500 000", "1 000 000", "1.000.000", "1000000",
+    "moddiy yordam", "prezident yordami", "bir martalik", "ovoz ber", "ovoz bering",
+    "openbudget", "bepul premium", "telegram premium bepul", "premium tekinga", "click bonus",
+    "payme sovringa", "karta raqam", "tasdiqlash kodi", "akkaunt blok", "sovrinli aksiya",
+    "yutuqli o'yin", "pul tarqatilmoqda", "kompensatsiya", "davlat yordami", "fondi yordam"
+]
+
+SUSPICIOUS_TLDS = (
+    ".xyz", ".top", ".tk", ".ml", ".ga", ".cf", ".gq", ".buzz", ".icu",
+    ".work", ".click", ".link", ".rest", ".sbs", ".cfd", ".online", ".site",
+    ".space", ".quest", ".monster", ".skin", ".cam", ".vip"
+)
+
+def detect_group_scam_or_phishing(text: str) -> tuple:
+    """
+    Scans group message text for phishing links, financial scams, or malicious URLs.
+    Returns: (is_threat, threat_category, matched_detail)
+    """
+    if not text:
+        return False, "", ""
+    
+    low = text.lower()
+    urls = URL_REGEX.findall(text)
+    
+    # 1. Direct Phishing Scam Keyword Matching with URL
+    for kw in SCAM_PHISHING_KEYWORDS:
+        if kw in low:
+            if urls:
+                return True, "Soxta moddiy yordam / Karta o'g'irlash fishingi", f"{urls[0]} (Belgi: «{kw}»)"
+            elif any(sym in low for sym in ["http", "t.me", ".uz", ".com", ".ru", ".net"]):
+                return True, "Shubhali firibgarlik xabari", f"Kalit so‘z: «{kw}»"
+
+    # 2. Suspicious Phishing TLDs or domains
+    for u in urls:
+        parsed = urllib.parse.urlparse(u if u.startswith(('http://', 'https://')) else 'https://' + u)
+        domain = (parsed.netloc or parsed.path).lower().split(':')[0]
+        if any(domain.endswith(tld) for tld in SUSPICIOUS_TLDS):
+            return True, "Shubhali fishing domeni (.xyz/.top/noma'lum zona)", domain
+        for spoof in ["click-", "payme-", "humo-", "uzcard-", "uzum-", "openbudget-", "yordam-", "prezident-", "fond-"]:
+            if spoof in domain:
+                return True, f"Soxta brend niqobidagi fishing ({spoof.rstrip('-')})", domain
+
+    return False, "", ""
 
 async def audit_username_with_ai(raw_username: str) -> tuple:
     """Uses Gemini AI (gemini-2.5-flash / flash models) to perform deep OSINT profiling and anonymity scoring on a username."""
@@ -883,28 +1094,59 @@ async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     await context.bot.send_message(chat_id=chat_id, text=ai_intro_text, parse_mode="HTML", reply_markup=keyboard)
 
-# Main persistent reply keyboard with Telegram Premium icon custom emojis
-MAIN_KEYBOARD = ReplyKeyboardMarkup(
-    [
-        [
-            KeyboardButton("Surat & Skrinshot auditi", icon_custom_emoji_id=E["SEARCH"]),
-            KeyboardButton("5 daqiqalik Chek-list", icon_custom_emoji_id=E["SHIELD"])
-        ],
-        [
-            KeyboardButton("Nikneym & Havola auditi", icon_custom_emoji_id=E["HACKER"]),
-            KeyboardButton("Real keyslar: 3 ta xavf", icon_custom_emoji_id=E["WARNING"])
-        ],
-        [
-            KeyboardButton("\"Raqamli Iz\" Testi", icon_custom_emoji_id=E["TEST"]),
-            KeyboardButton("Kiber-Portal (Web App)", web_app=WebAppInfo(url="https://abduvoitov11.github.io/kiberiz4/"), icon_custom_emoji_id=E["GLOBE"])
-        ],
-        [
-            KeyboardButton("AI Kiber-Maslahatchi", icon_custom_emoji_id=E["LIGHT"]),
-            KeyboardButton("Anonim SOS / Yordam", icon_custom_emoji_id=E["SOS"])
-        ]
-    ],
-    resize_keyboard=True
-)
+# (MAIN_KEYBOARD is defined persistently above)
+
+async def deepfake_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Explains Deepfake and AI photo detection and prompts user to upload a face/profile photo."""
+    await prepare_clean_chat(update, context)
+    chat_id = update.effective_chat.id
+    context.user_data["waiting_for_deepfake"] = True
+    context.user_data["waiting_for_ai"] = False
+    context.user_data["waiting_for_audit"] = False
+    context.user_data["waiting_for_sos"] = False
+    
+    text = (
+        f"{p('ROBOT', '🎭')} <b>«DEEPFAKE VA AI RASM DETEKTORI» (SUN’IY INTELLEKTNI ANIQLASH)</b>\n\n"
+        f"Hozirgi kunda kiberjinoyatchilar neyrotarmoqlar (Midjourney, Stable Diffusion, DALL-E, FaceSwap, Deepfake) "
+        f"yordamida soxta profillar va sun’iy qizlar/yigitlar rasmlarini yasab, o‘quvchilarni aldash (Catfishing), "
+        f"ishonchiga kirish va shantaj qilish holatlari keskin avj olmoqda!\n\n"
+        f"🔍 <b>Bot qanday tekshiradi?</b>\n"
+        f"• {p('SEARCH', '👁️')} <b>Yuz va ko‘z qorachiqlari:</b> Yorug‘lik akslanishi va shakl buzilishlari;\n"
+        f"• {p('SEARCH', '👤')} <b>Teri teksturasi:</b> Sun’iy mum/plastik silliqligi va tishlar anomaliyasi;\n"
+        f"• {p('SEARCH', '👂')} <b>Quloq va sochlar:</b> Asimmetriya va orqa fonga erib ketish xatolari;\n"
+        f"• {p('SEARCH', '📊')} <b>AI Ehtimollik Ko‘rsatkichi:</b> <i>«Ushbu rasm 87% ehtimol bilan AI orqali yasalgan!»</i>\n\n"
+        f"👉 <i>Tekshirmoqchi bo‘lgan shubhali profil yoki inson fotosuratini shu yerga yuboring:</i>"
+    )
+    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
+
+async def group_shield_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Explains and manages the Classroom and School Group Cyber-Shield mode."""
+    chat = update.effective_chat
+    chat_id = chat.id
+    is_group = chat.type in ["group", "supergroup"]
+    
+    if is_group:
+        group_title = chat.title or "Sinf guruhi"
+        text = (
+            f"🛡️ <b>SINF VA MAKTAB GURUHI KIBER-QALQONI</b>\n"
+            f"👥 <b>Guruh nomi:</b> <i>{html.escape(group_title)}</i>\n\n"
+            f"✅ <b>Qalqon holati:</b> <code>FAOL (Real-time monitoring)</code>\n"
+            f"🤖 <b>Avtomatik himoya choralari:</b>\n"
+            f"• 🚨 <b>Fishing havolalar:</b> Tekin pul («500 ming so'm yordam»), soxta ovoz berish yoki soxta Telegram Premium havolalari aniqlanganda darhol o‘chiriladi va ogohlantirish beriladi.\n"
+            f"• 📦 <b>Zararli APK ilovalar:</b> Telefonni buzuvchi virusli .APK fayllar guruhga tashlanganda avtomatik bloklanadi.\n\n"
+            f"💡 <i>Eslatma: Bot xabarlarni avtomatik o‘chirishi uchun unga guruh administratorlar ro‘yxatida «Xabarlarni o‘chirish» (Delete messages) huquqi berilgan bo‘lishi lozim.</i>"
+        )
+    else:
+        text = (
+            f"👥 <b>SINF VA MAKTAB GURUHLARINI HIMOYALASH REJIMI (GROUP BOT)</b>\n\n"
+            f"Botni sinf, maktab yoki ota-onalar Telegram guruhlariga qo‘shib, guruhni kiber-xurujlardan real vaqtda himoya qilishingiz mumkin!\n\n"
+            f"🛡️ <b>Guruhda bot nima qiladi?</b>\n"
+            f"1. 🛑 <b>Fishing havolalarni tozalash:</b> «500 ming so‘m yutdingiz», soxta ovoz berish, soxta Telegram Premium tarqatuvchi firibgar xabarlarni darhol o‘chiradi va butun sinfni ogohlantiradi.\n"
+            f"2. 🚫 <b>Virusli .APK ilovalarni bloklash:</b> Guruhga yuborilgan xavfli viruslarni o‘chirib, bolalar telefonlari buzilishini oldini oladi.\n"
+            f"3. 👮‍♂️ <b>Real vaqtda kiber-qo‘riqchi:</b> Bot shunchaki ma’lumot beruvchi emas, 24/7 ishlovchi himoyachiga aylanadi.\n\n"
+            f"👉 <b>Guruhga qo‘shish:</b> Bot profiliga kiring ➔ <b>«Guruhga qo‘shish» (Add to Group)</b> tugmasini bosing va sinf guruhingizni tanlang. Botga «Xabarlarni o‘chirish» huquqini bering!"
+        )
+        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await prepare_clean_chat(update, context)
@@ -951,9 +1193,11 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 async def sample_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Sends a sample image with real GPS EXIF metadata for testing OSINT."""
+    """Sends sample images for testing: 1) GPS EXIF metadata, 2) Visual OSINT (GPS-stripped)."""
     await prepare_clean_chat(update, context)
     chat_id = update.effective_chat.id
+    
+    # 1. Send GPS EXIF Sample
     if os.path.exists(SAMPLE_PATH):
         with open(SAMPLE_PATH, "rb") as doc:
             await context.bot.send_document(
@@ -961,15 +1205,31 @@ async def sample_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 document=doc,
                 filename="sample_gps_school4.jpg",
                 caption=(
-                    f"{p('SEARCH', '🔍')} <b>OSINT SINOV UCHUN NAMUNA FOTOSURAT</b>\n\n"
+                    f"{p('SEARCH', '🔍')} <b>1-NAMUNA: GPS EXIF BILAN TAHLIL</b>\n\n"
                     f"Ushbu faylga <b>haqiqiy GPS koordinatalari (Toshkent, 4-maktab atrofi)</b> va qurilma ma’lumotlari biriktirilgan.\n\n"
-                    f"👉 <b>Tekshirish uchun:</b> Ushbu faylni yuklab olib, botga qayta yuboring (<b>'Fayl / Hujjat'</b> tarzida). "
+                    f"👉 <i>Tekshirish:</i> Ushbu faylni yuklab olib, botga 'Fayl / Hujjat' tarzida qayta yuboring. "
                     f"Bot 1 soniyada xaritadagi aniq nuqtani va qurilma modelini fosh qilib beradi!"
                 ),
                 parse_mode="HTML"
             )
-    else:
-        await context.bot.send_message(chat_id=chat_id, text="Namuna fayl topilmadi.", parse_mode="HTML")
+
+    # 2. Send Visual OSINT Sample (No GPS, indirect clues - WOW effect)
+    if os.path.exists(SAMPLE_VISUAL_PATH):
+        with open(SAMPLE_VISUAL_PATH, "rb") as doc:
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=doc,
+                filename="sample_visual_osint_test.jpg",
+                caption=(
+                    f"{p('ROBOT', '🛰️')} <b>2-NAMUNA: VISUAL OSINT (GPS-SIZ FOSh QILISh — WOW-EFFEKT)</b>\n\n"
+                    f"Diqqat: Ushbu suratda <b>GPS koordinatalari yo‘q</b> (tozalangan)!\n"
+                    f"Ammo orqa fonda avtomobil raqami (01 — Toshkent), dorixona peshlavhasi, ko‘cha nomi va shahar telefon kodi mavjud.\n\n"
+                    f"👉 <i>Tekshirish:</i> Ushbu faylni botga yuboring. Bot GPS bo‘lmasa ham orqa fondagi belgilar orqali "
+                    f"joylashuv va maktabni qanday fosh qilishini amalda ko‘ring!"
+                ),
+                parse_mode="HTML",
+                reply_markup=MAIN_KEYBOARD
+            )
 
 async def checklist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await prepare_clean_chat(update, context)
@@ -1259,6 +1519,18 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             await query.answer(f"Tozalashda xatolik yuz berdi: {e}", show_alert=True)
+    elif data == "audit_deepfake_last":
+        last_photo = context.user_data.get("last_photo")
+        if not last_photo:
+            await query.answer("Tahlil uchun rasm topilmadi. Iltimos, yangi fotosurat yuboring.", show_alert=True)
+            return
+        await query.answer("Sun’iy intellekt (Deepfake) ekspertizasi o‘tkazilmoqda...", show_alert=False)
+        try:
+            await query.message.chat.send_action("typing")
+        except Exception:
+            pass
+        report = await audit_deepfake_with_ai(last_photo)
+        await query.message.reply_text(report, parse_mode="HTML")
     elif data == "start_anon_sos":
         context.user_data["waiting_for_sos"] = True
         prompt = (
@@ -1766,7 +2038,10 @@ async def audit_apk_with_ai(apk_info: dict, file_name: str) -> str:
 
 async def handle_apk_analysis(msg, file_bytes: bytes, file_name: str):
     """Deep Android APK/package cyber security analysis with AAPT and Gemini AI."""
-    await msg.reply_chat_action("typing")
+    try:
+        await msg.reply_chat_action("typing")
+    except Exception:
+        pass
     apk_info = parse_apk_metadata(file_bytes, file_name)
     ai_verdict = await audit_apk_with_ai(apk_info, file_name)
     
@@ -1899,7 +2174,7 @@ async def handle_raw_image_analysis(msg, file_bytes: bytes, file_name: str):
             except Exception as qr_err:
                 logging.warning(f"RAW preview QR audit error: {qr_err}")
         try:
-            ai_vision_text = await analyze_image_with_gemini_vision(preview_bytes)
+            ai_vision_text = await analyze_image_with_gemini_vision(preview_bytes, has_gps=bool(coords))
         except Exception as ai_err:
             logging.warning(f"RAW preview AI vision error: {ai_err}")
 
@@ -2320,13 +2595,47 @@ def parse_single_image_exif(file_bytes, filename="surat"):
     coords = (lat_val, lon_val) if (lat_val is not None and lon_val is not None) else None
     return details, coords, None
 
+UZB_REGIONS = {
+    "01": "Toshkent shahri",
+    "10": "Toshkent viloyati",
+    "20": "Sirdaryo viloyati",
+    "25": "Jizzax viloyati",
+    "30": "Samarqand viloyati",
+    "40": "Qashqadaryo viloyati",
+    "50": "Surxondaryo viloyati",
+    "60": "Andijon viloyati",
+    "70": "Farg‘ona viloyati",
+    "75": "Namangan viloyati",
+    "80": "Buxoro viloyati",
+    "85": "Navoiy viloyati",
+    "90": "Xorazm viloyati",
+    "95": "Qoraqalpog‘iston Respublikasi"
+}
+
+UZB_DIAL_CODES = {
+    "71": "Toshkent shahri",
+    "66": "Samarqand viloyati",
+    "73": "Farg‘ona viloyati",
+    "74": "Andijon viloyati",
+    "69": "Namangan viloyati",
+    "65": "Buxoro viloyati",
+    "79": "Navoiy viloyati",
+    "75": "Qashqadaryo viloyati",
+    "76": "Surxondaryo viloyati",
+    "67": "Sirdaryo viloyati",
+    "72": "Jizzax viloyati",
+    "62": "Xorazm viloyati",
+    "61": "Qoraqalpog‘iston Respublikasi"
+}
+
 def analyze_visual_osint(image_bytes: bytes):
     """
     Performs AI-level Visual OSINT on an image:
     1. Chronolocation & Lighting analysis (day/golden hour/night/indoor).
-    2. OCR Text extraction (identifying school, room, street, or brand names).
-    3. Threat keywords detection (maktab, 4, sinf, uy, toshkent, etc.).
-    4. Calculates Visual Risk Score.
+    2. OCR Text extraction (identifying school, room, street, car license plates, or brand names).
+    3. Vehicle license plates & regional indexing (01-95).
+    4. Dialing codes and local threat keywords.
+    5. Calculates Visual Risk Score.
     """
     try:
         img = Image.open(io.BytesIO(image_bytes))
@@ -2360,17 +2669,38 @@ def analyze_visual_osint(image_bytes: bytes):
         detected_text = ""
         if pytesseract is not None:
             try:
-                if max(w, h) > 1500:
-                    scale = 1500 / max(w, h)
+                if max(w, h) > 1600:
+                    scale = 1600 / max(w, h)
                     small_img = img.resize((int(w * scale), int(h * scale)))
                 else:
                     small_img = img
-                detected_text = pytesseract.image_to_string(small_img, lang="eng+uzb", timeout=5).strip()
+                detected_text = pytesseract.image_to_string(small_img, lang="eng+uzb", timeout=6).strip()
             except Exception as ocr_err:
                 logging.warning(f"OCR warning: {ocr_err}")
             
         text_risk = 0
+        clues_summary = []
         if detected_text:
+            # 2a. Vehicle license plate regex (Uzbekistan regions 01-95)
+            # Matches formats: 01 | 777 AAA, 01 A 777 AA, 01 777 AAA, 01A777AA
+            plate_pattern = r'\b(01|10|20|25|30|40|50|60|70|75|80|85|90|95)\s*(?:\||[-–—])?\s*[A-Za-z]?\s*\d{3}\s*[A-Za-z]{2,3}\b'
+            plate_matches = re.findall(plate_pattern, detected_text)
+            for reg_code in sorted(list(set(plate_matches))):
+                reg_name = UZB_REGIONS.get(reg_code, "Noma'lum hudud")
+                ocr_found.append(f"🚗 <b>Avtoraqam indeksi:</b> <code>{reg_code}</code> — {reg_name}")
+                clues_summary.append(f"Avtoraqam: {reg_code} ({reg_name})")
+                text_risk += 35
+
+            # 2b. Landline / City dialing codes (+998 71, etc.)
+            phone_pattern = r'(?:\+?998[\s\-]?)?\(?(71|66|73|74|69|65|79|75|76|67|72|62|61)\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}'
+            phone_matches = re.findall(phone_pattern, detected_text)
+            for dial_code in sorted(list(set(phone_matches))):
+                dial_reg = UZB_DIAL_CODES.get(dial_code, "Hudud")
+                ocr_found.append(f"📞 <b>Shahar telefoni kodi:</b> <code>+{dial_code}</code> — {dial_reg}")
+                clues_summary.append(f"Telefon kodi: +{dial_code} ({dial_reg})")
+                text_risk += 25
+
+            # 2c. Regional and Landmark Keywords
             low_text = detected_text.lower()
             keywords = [
                 ("4-maktab", "🏫 4-maktab aniq nomi"),
@@ -2378,18 +2708,31 @@ def analyze_visual_osint(image_bytes: bytes):
                 ("sinf", "🎒 Sinf xonasi belgisi"),
                 ("xona", "🚪 Xona yoki kabinet raqami"),
                 ("kabinet", "🚪 Kabinet peshlavhasi"),
-                ("toshkent", "📍 Shahar nomi (Toshkent)"),
-                ("chilonzor", "📍 Tuman nomi"),
+                ("toshkent", "📍 Shahar: Toshkent"),
+                ("chilonzor", "📍 Tuman: Chilonzor"),
+                ("yunusobod", "📍 Tuman: Yunusobod"),
+                ("sergeli", "📍 Tuman: Sergeli"),
+                ("samarqand", "📍 Shahar: Samarqand"),
+                ("buxoro", "📍 Shahar: Buxoro"),
+                ("andijon", "📍 Shahar: Andijon"),
+                ("farg'ona", "📍 Shahar: Farg‘ona"),
+                ("namangan", "📍 Shahar: Namangan"),
                 ("ko'cha", "🛣️ Ko‘cha / Manzil yozuvi"),
-                ("korzinka", "🏬 Do‘kon peshlavhasi"),
-                ("havas", "🏬 Do‘kon peshlavhasi"),
-                ("makro", "🏬 Do‘kon peshlavhasi"),
+                ("mahalla", "🏘️ Mahalla nomi"),
+                ("dorixona", "💊 Dorixona peshlavhasi"),
+                ("apteka", "💊 Dorixona belgisi"),
+                ("pharmacy", "💊 Dorixona belgisi"),
+                ("korzinka", "🏬 Korzinka supermarketi"),
+                ("havas", "🏬 Havas do‘koni"),
+                ("makro", "🏬 Makro supermarketi"),
+                ("baraka", "🏬 Baraka do‘koni"),
                 ("bank", "🏦 Bank yoki moliya muassasasi"),
-                ("apteka", "💊 Dorixona belgisi")
+                ("metro", "🚇 Metro bekati belgisi")
             ]
             for kw, label in keywords:
                 if kw in low_text:
                     ocr_found.append(f"{label}: <i>«{kw}»</i>")
+                    clues_summary.append(f"{label}: {kw}")
                     text_risk += 15
                     
         return {
@@ -2397,9 +2740,10 @@ def analyze_visual_osint(image_bytes: bytes):
             "chrono_text": chrono_text,
             "chrono_badge": chrono_badge,
             "chrono_risk": chrono_risk,
-            "ocr_text": detected_text[:140] if detected_text else "",
+            "ocr_text": detected_text[:200] if detected_text else "",
             "ocr_found": ocr_found,
-            "text_risk": min(text_risk, 35)
+            "clues_summary": ", ".join(clues_summary) if clues_summary else "",
+            "text_risk": min(text_risk, 60)
         }
     except Exception as e:
         logging.error(f"Visual analysis error: {e}")
@@ -2571,7 +2915,10 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         await msg.reply_text(success_msg, parse_mode="HTML", reply_markup=MAIN_KEYBOARD)
         return
 
-    await msg.reply_chat_action("typing")
+    try:
+        await msg.reply_chat_action("typing")
+    except Exception:
+        pass
     
     is_doc = bool(msg.document)
     is_video = bool(msg.video) or bool(msg.video_note)
@@ -2645,6 +2992,95 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
     ext = os.path.splitext(file_name)[1].lower()
     mime = (msg.document.mime_type if msg.document else "").lower() if is_doc else ""
 
+    chat = update.effective_chat
+    chat_type = chat.type if chat else "private"
+    is_group = chat_type in ["group", "supergroup"]
+
+    # GROUP CYBER-SHIELD: Real-time malware (.APK, .EXE, droppers) blocking in groups
+    if is_group:
+        is_malware_file = (ext in apk_exts) or (ext in exec_exts) or ("android.package-archive" in mime) or ("application/x-dosexec" in mime)
+        
+        # Check ZIP archives for hidden APK or executables
+        if not is_malware_file and (ext in archive_exts or "zip" in mime):
+            try:
+                with zipfile.ZipFile(io.BytesIO(file_bytes), "r") as z:
+                    dang_check = (".apk", ".exe", ".bat", ".cmd", ".vbs", ".ps1", ".sh", ".scr", ".jar")
+                    if any(any(n.lower().endswith(dc) for dc in dang_check) for n in z.namelist()):
+                        is_malware_file = True
+            except Exception:
+                pass
+
+        if is_malware_file:
+            deleted = False
+            try:
+                await msg.delete()
+                deleted = True
+            except Exception as del_err:
+                logging.warning(f"Group malware delete failed: {del_err}")
+
+            user = update.effective_user
+            user_name = user.first_name if user else "Foydalanuvchi"
+            username_str = f"@{user.username}" if (user and user.username) else f"ID: {user.id}"
+            
+            status_text = (
+                "🗑️ <b>Holat:</b> <i>Zararli fayl guruhdan zudlik bilan o‘chirildi va bolalar telefonlari himoyalandi!</i>"
+                if deleted else
+                "⚠️ <b>Holat:</b> <i>Faylni o‘chirish uchun botga guruhda administratorlik (Xabarlarni o‘chirish) huquqini bering!</i>"
+            )
+            
+            alert_msg = (
+                f"🛡️ <b>SINF VA MAKTAB GURUHI KIBER-QALQONI</b>\n"
+                f"🚨 <b>KRITIK OGOHLANTIRISH: ZARARLI ILOVA (.APK / VIRUS) BLOKLANDI!</b>\n\n"
+                f"👤 <b>Yuboruvchi:</b> {html.escape(user_name)} (<code>{html.escape(username_str)}</code>)\n"
+                f"📦 <b>Zararli fayl:</b> <code>{html.escape(file_name)}</code>\n"
+                f"⚠️ <b>Tahdid darajasi:</b> 🚨 100% Virus / Troyan (SMS bank kodlarini o‘g‘irlovchi zararli ilova)\n"
+                f"{status_text}\n\n"
+                f"📢 <i>Hurmatli ota-onalar va o‘quvchilar! Telegram guruhlarida 'O‘yin', 'Sovg‘a', 'Rasm' yoki 'Yordam' nomi ostida tarqatiladigan .APK fayllar telefonni buzuvchi xakerlik dasturlaridir. Aslo yuklab olmang va o‘rnatmang!</i>"
+            )
+            await context.bot.send_message(chat_id=chat.id, text=alert_msg, parse_mode="HTML")
+            return
+
+        # If regular media in group, do not spam unless caption explicitly asks for audit
+        caption = (msg.caption or "").lower()
+        if not any(k in caption for k in ["/osint", "/check", "/deepfake", "/audit"]):
+            if msg.photo:
+                try:
+                    jpeg_tmp = convert_image_to_jpeg_bytes(file_bytes, file_name)
+                    q_data = scan_qr_code(jpeg_tmp)
+                    if q_data:
+                        is_t, c, d = detect_group_scam_or_phishing(q_data)
+                        if is_t:
+                            try:
+                                await msg.delete()
+                            except Exception:
+                                pass
+                            await context.bot.send_message(
+                                chat_id=chat.id,
+                                text=f"🛡️ <b>GURUH QALQONI:</b> Rasm ichidagi QR-kodda xavfli fishing havola aniqlandi va o‘chirildi!\n🔗 <code>{html.escape(q_data)}</code>",
+                                parse_mode="HTML"
+                            )
+                except Exception:
+                    pass
+            return
+
+    # In Private DM: Check if user specifically requested Deepfake detection
+    if context.user_data.get("waiting_for_deepfake"):
+        context.user_data["waiting_for_deepfake"] = False
+        jpeg_bytes = convert_image_to_jpeg_bytes(file_bytes, file_name)
+        context.user_data["last_photo"] = jpeg_bytes
+        try:
+            await msg.reply_chat_action("typing")
+        except Exception:
+            pass
+        report = await audit_deepfake_with_ai(jpeg_bytes)
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("Suratni tozalash (EXIF-siz)", callback_data="sanitize", icon_custom_emoji_id=E["SHIELD"])
+            ]
+        ])
+        await msg.reply_text(report, parse_mode="HTML", reply_markup=keyboard)
+        return
+
     # 1. Android APK
     if ext in apk_exts or "android.package-archive" in mime:
         await handle_apk_analysis(msg, file_bytes, file_name)
@@ -2708,7 +3144,7 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 except Exception as qr_e:
                     logging.debug(f"Video QR audit error: {qr_e}")
             try:
-                ai_vision_text = await analyze_image_with_gemini_vision(frame_bytes)
+                ai_vision_text = await analyze_image_with_gemini_vision(frame_bytes, has_gps=bool(coords))
             except Exception as ai_e:
                 logging.debug(f"Video AI vision error: {ai_e}")
 
@@ -2816,11 +3252,16 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     # Real Visual OSINT Analysis (Chronolocation & OCR)
     visual_info = analyze_visual_osint(jpeg_bytes)
+    extra_clues = visual_info.get("clues_summary", "") if visual_info else ""
     
     # Real AI Vision OSINT & Privacy Analysis (Gemini Multimodal Vision)
     ai_vision_text = ""
     try:
-        ai_vision_text = await analyze_image_with_gemini_vision(jpeg_bytes)
+        ai_vision_text = await analyze_image_with_gemini_vision(
+            jpeg_bytes, 
+            has_gps=bool(coords), 
+            extra_context=extra_clues
+        )
     except Exception as ai_v_err:
         logging.warning(f"AI Vision error: {ai_v_err}")
     
@@ -2841,6 +3282,11 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             risk_score = max(risk_score, 95)
         elif "SHUBHALI" in ai_upper or "FISHING" in ai_upper:
             risk_score = max(risk_score, 65)
+        elif not coords:
+            for kw in ["TOSHKENT", "CHILONZOR", "SAMARQAND", "AVTORAQAM", "RAQAMI", "DORIXONA", "MAKTABI", "KO'CHASI"]:
+                if kw in ai_upper:
+                    risk_score = max(risk_score, 65)
+                    break
 
     if qr_data:
         risk_score = max(risk_score, 30)
@@ -2864,11 +3310,14 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
 
     is_screenshot = ("SKRINSHOT" in ai_vision_text.upper()) and not coords
     is_qr_primary = bool(qr_data) and not coords and not details
+    is_visual_osint_primary = not coords and not is_screenshot and not is_qr_primary
 
     if is_screenshot:
         header_title = f"{p('ROBOT', '📱')} <b>SMART VISION: SKRINSHOT VA FISHING AUDITI ({html.escape(file_name)}):</b>"
     elif is_qr_primary:
         header_title = f"{p('SEARCH', '🏁')} <b>QUISHING: QR-KOD VA HAVOLA XAVFSIZLIGI TAHLILI ({html.escape(file_name)}):</b>"
+    elif is_visual_osint_primary:
+        header_title = f"{p('SEARCH', '🛰️')} <b>VISUAL OSINT: KO‘RINMAS JOYLAShUV AUDITI ({html.escape(file_name)}):</b>"
     else:
         header_title = f"{p('SEARCH', '🔍')} <b>KOMPLEKS OSINT TAHLIL ({html.escape(file_name)}):</b>"
         
@@ -2889,7 +3338,14 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 f"• ⚠️ <i>Kiber-Xavf: Notanish QR-kodlar orqali shaxsiy hisoblar yoki karta ma’lumotlari o‘g‘irlanishi (Quishing) mumkin!</i>\n\n"
             )
 
-    # 2. AI Vision (Screenshot Phishing or Visual OSINT)
+    # 2. Local OCR Findings (if car plates or regional indicators found by local OCR engine)
+    if visual_info and visual_info.get("ocr_found"):
+        analysis_msg += f"{p('SEARCH', '🔍')} <b>ANIQLANGAN REGIONAL VA MATN IZLARI (Lokal OCR):</b>\n"
+        for ofound in visual_info["ocr_found"]:
+            analysis_msg += f"• {ofound}\n"
+        analysis_msg += "\n"
+
+    # 3. AI Vision (Screenshot Phishing or Visual OSINT)
     if ai_vision_text:
         analysis_msg += f"{ai_vision_text}\n\n"
     elif visual_info:
@@ -2899,7 +3355,7 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             f"• <b>Yorug‘lik ko‘rsatkichi:</b> <code>{visual_info['brightness']} lx</code>\n\n"
         )
 
-    # 3. EXIF & Metadata section (if not pure screenshot/QR or if details exist)
+    # 4. EXIF & Metadata section (if not pure screenshot/QR or if details exist)
     if details or not (is_screenshot or is_qr_primary):
         analysis_msg += f"{p('LOCK', '🔐')} <b>METAMA’LUMOTLAR (EXIF / GPS):</b>\n"
         if details:
@@ -2909,13 +3365,21 @@ async def photo_or_doc_handler(update: Update, context: ContextTypes.DEFAULT_TYP
             if not is_doc:
                 analysis_msg += (
                     f"• {p('INFO', 'ℹ️')} <i>Fayl ichidagi GPS tozalangan (Instagram yoki Telegram avtomatik siqib tozalagan).</i>\n"
+                    f"   └ 💡 <b>O‘quvchi illyuziyasi:</b> <i>«GPS yo‘q, demak hech kim qayerdaligimni bilolmaydi!»</i>\n"
+                    f"   └ 🚨 <b>Haqiqat (WOW-Effekt):</b> <i>Yuqoridagi Visual OSINT orqa fondagi avtoraqam, peshlavha yoki arxitektura orqali lokatsiyani fosh qildi!</i>\n"
                 )
             else:
-                analysis_msg += f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi (tozalangan).</i>\n"
+                analysis_msg += (
+                    f"• {p('CHECK', '✅')} <i>GPS yoki kamera parametrlari topilmadi (tozalangan).</i>\n"
+                    f"   └ 💡 <b>Visual OSINT:</b> <i>GPS bo‘lmasa ham, yuqoridagi bilvosita izlar orqali tahlil bajarildi.</i>\n"
+                )
         analysis_msg += "\n"
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Suratni tozalash (EXIF-siz yuklab olish)", callback_data="sanitize", icon_custom_emoji_id=E["SHIELD"])]
+        [
+            InlineKeyboardButton("🎭 Deepfake & AI Tekshiruvi", callback_data="audit_deepfake_last", icon_custom_emoji_id=E["ROBOT"]),
+            InlineKeyboardButton("Suratni tozalash (EXIF-siz)", callback_data="sanitize", icon_custom_emoji_id=E["SHIELD"])
+        ]
     ])
     
     await msg.reply_text(analysis_msg.strip(), parse_mode="HTML", reply_markup=keyboard, disable_web_page_preview=True)
@@ -3014,7 +3478,62 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text:
         return
 
-    chat_id = update.effective_chat.id
+    chat = update.effective_chat
+    chat_id = chat.id if chat else 0
+    chat_type = chat.type if chat else "private"
+    is_group = chat_type in ["group", "supergroup"]
+
+    # GROUP CYBER-SHIELD: Real-time phishing link & scam moderation in school groups
+    if is_group:
+        is_threat, cat, detail = detect_group_scam_or_phishing(text)
+        if is_threat:
+            deleted = False
+            try:
+                await msg.delete()
+                deleted = True
+            except Exception as del_err:
+                logging.warning(f"Could not delete group phishing message: {del_err}")
+                
+            user = update.effective_user
+            user_name = user.first_name if user else "Foydalanuvchi"
+            username_str = f"@{user.username}" if (user and user.username) else f"ID: {user.id}"
+            
+            status_text = (
+                "🗑️ <b>Holat:</b> <i>Xabar darhol guruhdan o‘chirildi va tahdid zararsizlantirildi!</i>"
+                if deleted else
+                "⚠️ <b>Holat:</b> <i>Xabarni o‘chirish uchun botga guruhda administratorlik (Xabarlarni o‘chirish) huquqini bering!</i>"
+            )
+            
+            alert_msg = (
+                f"🛡️ <b>SINF VA MAKTAB GURUHI KIBER-QALQONI</b>\n"
+                f"🚨 <b>KRITIK OGOHLANTIRISH: FISHING TAHDI SHI BLOKLANDI!</b>\n\n"
+                f"👤 <b>Yuboruvchi:</b> {html.escape(user_name)} (<code>{html.escape(username_str)}</code>)\n"
+                f"⚠️ <b>Aniqlangan xavf:</b> {cat}\n"
+                f"🔗 <b>Xavfli havola / Belgisi:</b> <code>{html.escape(detail)}</code>\n"
+                f"{status_text}\n\n"
+                f"📢 <i>Hurmatli ota-onalar va o‘quvchilar! Guruhdagi 'tekin pul', '500 ming yordam', 'soxta ovoz berish' yoki 'Telegram Premium' "
+                f"va’da qiluvchi havolalarga aslo kirmang! Bu firibgarlar tuzog‘i bo‘lib, bank karta pullari yoki akkauntni o‘g‘irlashga qaratilgan (O‘zR JK 168-moddasi).</i>"
+            )
+            await context.bot.send_message(chat_id=chat_id, text=alert_msg, parse_mode="HTML")
+            return
+
+        if text.startswith("/group_shield") or text.startswith("/guruh"):
+            await group_shield_command(update, context)
+            return
+
+        bot_username = (context.bot.username or "kiberiz_bot").lower()
+        if f"@{bot_username}" in text.lower():
+            clean_q = text.lower().replace(f"@{bot_username}", "").strip()
+            if clean_q:
+                try:
+                    await msg.chat.send_action("typing")
+                except Exception:
+                    pass
+                ai_resp = await ask_gemini_cyber_mentor(clean_q, user_id=update.effective_user.id)
+                await msg.reply_text(f"💡 <b>AI KIBER-MASLAHATCHI:</b>\n\n{ai_resp}", parse_mode="HTML")
+            return
+        return  # In groups, normal conversation is not spammed by the bot
+
     await prepare_clean_chat(update, context)
 
     # 0. Cancel active modes
@@ -3101,7 +3620,8 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"   └ .APK ilovalar, MP4 videolar, PDF/Word/Excel hujjatlar va audio yozuvlar.\n\n"
                 f"👉 <i>Tekshirmoqchi bo‘lgan surat, skrinshot yoki faylingizni to‘g‘ridan-to‘g‘ri yuboring!</i>"
             ),
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=MAIN_KEYBOARD
         )
         return
     elif "Chek-list" in text:
@@ -3142,13 +3662,24 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"   └ <i>Bot uning firibgarlik (fishing) ekanligini bir zumda fosh qiladi!</i>\n\n"
                 f"👉 <i>Tekshirmoqchi bo‘lgan sayt havolasi yoki @nikneymni shu yerga yozib yuboring:</i>"
             ),
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=MAIN_KEYBOARD
         )
         return
     elif "Veb-Platforma" in text or "Kiber-Portal" in text or "Web App" in text:
         context.user_data["waiting_for_ai"] = False
         context.user_data["waiting_for_audit"] = False
         await web_command(update, context)
+        return
+    elif "Deepfake" in text or text.lower() in ["/deepfake", "/ai_rasm", "/ai_detector"]:
+        context.user_data["waiting_for_ai"] = False
+        context.user_data["waiting_for_audit"] = False
+        await deepfake_command(update, context)
+        return
+    elif "Guruh" in text or text.lower() in ["/group_shield", "/guruh", "/group"]:
+        context.user_data["waiting_for_ai"] = False
+        context.user_data["waiting_for_audit"] = False
+        await group_shield_command(update, context)
         return
 
     words = text.split()
@@ -3284,6 +3815,28 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     return
 
+async def new_group_member_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Greets when the bot is added to a school or classroom group and introduces the Cyber-Shield."""
+    msg = update.message
+    if not msg or not msg.new_chat_members:
+        return
+    bot_id = context.bot.id
+    for member in msg.new_chat_members:
+        if member.id == bot_id:
+            chat_title = update.effective_chat.title or "Sinf guruhi"
+            intro_text = (
+                f"🛡️ <b>«KiberIz-4» SINF VA MAKTAB GURUHI KIBER-QALQONI FAOLLAShTIRILDI!</b>\n\n"
+                f"Assalomu alaykum, <b>{html.escape(chat_title)}</b> a’zolari! 👋\n"
+                f"Ushbu guruh endi 4-maktab Kiber-Qalqon himoyasi ostiga olindi.\n\n"
+                f"🤖 <b>Bot guruhda nima qiladi?</b>\n"
+                f"• 🛑 <b>Fishing havolalarni tozalash:</b> «500 ming so‘m yordam», soxta ovoz berish, bepul Telegram Premium kabi firibgar havolalarni zudlik bilan o‘chiradi va ogohlantiradi.\n"
+                f"• 🚫 <b>Virusli .APK larni bloklash:</b> Guruhga yuborilgan zararli ilovalarni yo‘q qiladi.\n"
+                f"• 🛡️ <b>O‘quvchilar va ota-onalarni</b> kiber-tahdidlardan real vaqtda himoya qiladi.\n\n"
+                f"💡 <i>To‘liq himoya uchun: Botga guruhda <b>«Xabarlarni o‘chirish» (Delete messages)</b> administratorlik huquqini berish tavsiya etiladi!</i>"
+            )
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=intro_text, parse_mode="HTML")
+            break
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log the error gracefully without crashing."""
     logging.error(f"Telegram handler exception: {context.error}")
@@ -3310,8 +3863,13 @@ def main():
     app.add_handler(CommandHandler("quishing", qr_command))
     app.add_handler(CommandHandler("screenshot", screenshot_command))
     app.add_handler(CommandHandler("skrinshot", screenshot_command))
+    app.add_handler(CommandHandler("deepfake", deepfake_command))
+    app.add_handler(CommandHandler("ai_rasm", deepfake_command))
+    app.add_handler(CommandHandler("group_shield", group_shield_command))
+    app.add_handler(CommandHandler("guruh", group_shield_command))
     
     app.add_handler(CallbackQueryHandler(quiz_callback))
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_group_member_handler))
     app.add_handler(
         MessageHandler(
             filters.PHOTO
