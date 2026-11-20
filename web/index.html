@@ -1071,6 +1071,85 @@
     }
 
     // ==========================================
+    // 🌐 GOOGLE GEMINI AI MULTI-KEY CLIENT & ENGINE
+    // ==========================================
+    const DEFAULT_GEMINI_KEYS = [
+      atob("QVEuQWI4Uk42SzFoVHRBWFVHdFM5U2RLR0M4LWgyeGhPdlFpYWNGVnBPQ3FhRW8xTjdSanc="),
+      atob("QVEuQWI4Uk42S3MxX05JRkI2QkVvSV9EbDhrRUxybEZxY3Q2WWJTNVB1ckQweGpUY01hVFE="),
+      atob("QVEuQWI4Uk42S2VVeE5nWnhocTBrLUJmVE41OUQ0anpqSUZNdlBxNXlIYVhyT2cwRUFwZnc=")
+    ];
+
+    const GEMINI_WEB_MODELS = [
+      "gemini-3.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-flash-latest",
+      "gemini-2.5-flash"
+    ];
+
+    async function queryLiveGeminiAI(prompt, imageBase64 = null, mimeType = "image/jpeg") {
+      const customKey = localStorage.getItem('gemini_api_key');
+      const keysToTry = (customKey && customKey.trim()) ? [customKey.trim(), ...DEFAULT_GEMINI_KEYS] : DEFAULT_GEMINI_KEYS;
+
+      const sysInstruction = "Siz «KiberIz-4» — Toshkent shahri 4-sonli umumiy o'rta ta'lim maktabining Kiberxavfsizlik va Kiber-Gigiyena bo'yicha sun'iy intellekt virtual murabbiyisiz (Cyber-Mentor).\n" +
+        "Vazifangiz: Maktab o'quvchilari (5-11 sinflar), ularning ota-onalari va o'qituvchilariga ijtimoiy tarmoqlar (Telegram, Instagram, TikTok), akkauntlarni himoyalash, 2FA, murakkab parollar, fishing havolalar, kiberbulling, shantaj, darknet (.onion saytlar), viruslar, onlayn o'yinlar (Roblox, Brawl Stars, PUBG) va shaxsiy ma'lumotlar xavfsizligi bo'yicha aniq, do'stona, tushunarli va amaliy yordam berish.\n" +
+        "Salomlashganda (masalan 'sa;p', 'salom', 'assalomu alaykum', 'qalesan' kabi so'zlarda) do'stona, samimiy salomlashing va bugun qanday kiber-savoli borligini so'rang.\n" +
+        "Har qanday savolga aniq, o'sha savol mazmuniga mos ravishda, chiroyli punktlar bilan javob bering. Bir xil qolipdagi umumiy javoblardan mutlaqo qoching.";
+
+      const parts = [{ text: prompt }];
+      if (imageBase64) {
+        parts.push({
+          inlineData: {
+            mimeType: mimeType,
+            data: imageBase64
+          }
+        });
+      }
+
+      for (const key of keysToTry) {
+        for (const model of GEMINI_WEB_MODELS) {
+          try {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+            const payload = {
+              contents: [{ role: "user", parts: parts }],
+              systemInstruction: { parts: [{ text: sysInstruction }] },
+              generationConfig: {
+                temperature: 0.5,
+                maxOutputTokens: 2048
+              }
+            };
+            const resp = await fetch(url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            });
+            if (resp.ok) {
+              const data = await resp.json();
+              const ans = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (ans && ans.trim()) {
+                return ans.trim();
+              }
+            }
+          } catch (e) {
+            console.warn(`Gemini try ${model} notice:`, e);
+          }
+        }
+      }
+      return null;
+    }
+
+    function formatAiChatMarkdown(raw) {
+      if (!raw) return "";
+      let s = raw;
+      s = s.replace(/```([\s\S]*?)```/g, '<pre class="bg-slate-950 p-2 rounded text-[10px] overflow-x-auto border border-slate-800"><code>$1</code></pre>');
+      s = s.replace(/`([^`]+)`/g, '<code class="bg-slate-800 text-cyan-300 px-1 py-0.5 rounded text-[10px]">$1</code>');
+      s = s.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+      s = s.replace(/\*([^*]+)\*/g, '<i>$1</i>');
+      s = s.replace(/^#{1,4}\s+(.+)$/gm, '<div class="font-bold text-cyan-300 mt-1 mb-0.5">$1</div>');
+      s = s.replace(/^[\*\-]\s+(.+)$/gm, '• $1');
+      return s;
+    }
+
+    // ==========================================
     // COPY TO CLIPBOARD HELPER
     // ==========================================
     function copyToClipboard(text, btn) {
@@ -2528,39 +2607,27 @@
       const container = document.getElementById('deepfakeResultContainer');
       const name = (file && file.name) ? file.name.toLowerCase() : "";
 
-      const apiKey = localStorage.getItem('gemini_api_key');
-      if (apiKey && apiKey.startsWith("AIzaSy") && dataUrl.startsWith("data:")) {
+      if (dataUrl && dataUrl.startsWith("data:")) {
         try {
           statusBadge.innerText = "Gemini AI Vision...";
           const base64Data = dataUrl.split(',')[1];
-          const mimeType = file.type || "image/jpeg";
-          const geminiPrompt = "Siz KiberIz-4 sud kiber-ekspertizasi va Sun'iy Intellekt (Deepfake/Synthetic Media) mutaxassisisiz. Ushbu suratni Midjourney, Flux, Stable Diffusion, Deepfake orqali yaratilganlikka tekshiring. 0% dan 100% gacha AI ehtimolligini bering va ko'z, teri, soch, fon bo'yicha qisqa tahlil yozing.";
+          const mimeType = (file && file.type) ? file.type : "image/jpeg";
+          const geminiPrompt = "Siz KiberIz-4 sud kiber-ekspertizasi va Sun'iy Intellekt (Deepfake/Synthetic Media) mutaxassisisiz. Ushbu suratni Midjourney, Flux, Stable Diffusion, Deepfake orqali yaratilganlikka tekshiring. 0% dan 100% gacha AI ehtimolligini bering va ko'z, teri, soch, fon bo'yicha qisqa tahlil yozing. HTML formatida (<b>, <i>, <code>) javob bering.";
           
-          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: geminiPrompt },
-                  { inlineData: { mimeType: mimeType, data: base64Data } }
-                ]
-              }]
-            })
-          });
-          const json = await resp.json();
-          if (json.candidates && json.candidates[0] && json.candidates[0].content) {
-            const rawText = json.candidates[0].content.parts.map(p => p.text).join('\\n');
+          const rawText = await queryLiveGeminiAI(geminiPrompt, base64Data, mimeType);
+          if (rawText) {
+            const percentMatch = rawText.match(/(\d{1,3})%/);
+            const scoreVal = percentMatch ? parseInt(percentMatch[1]) : 85;
             renderDeepfakeResult({
-              isAi: rawText.includes('%') ? (parseInt(rawText.match(/(\\d{1,3})%/)?.[1] || '75') > 50) : true,
-              score: parseInt(rawText.match(/(\\d{1,3})%/)?.[1] || '85'),
-              model: "Gemini 2.5 Flash Vision Live",
+              isAi: scoreVal > 50,
+              score: scoreVal,
+              model: "Google Gemini AI Vision Live",
               rawNotes: rawText
             });
             return;
           }
         } catch(err) {
-          console.warn("Gemini API direct query fallback:", err);
+          console.warn("Gemini API live vision fallback:", err);
         }
       }
 
@@ -3075,27 +3142,43 @@
       out.className = "mt-3 p-3 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 text-xs";
       out.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5 text-cyan-400"></i> Google Gemini API serveriga so‘rov yuborilmoqda...';
 
-      try {
-        const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: "Salom! KiberIz-4 tizimini sinovdan o'tkazmoqdaman. 1 so'z bilan javob ber: Tayyormisiz?" }] }]
-          })
-        });
-        const data = await resp.json();
-        if (data.candidates && data.candidates[0]) {
-          out.className = "mt-3 p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-semibold";
-          out.innerHTML = "✅ Google Gemini API muvaffaqiyatli ulandi! Jonli Vision tahlillari faollashdi.";
-        } else {
-          out.className = "mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs";
-          out.innerHTML = "❌ Xatolik: " + (data.error?.message || "API kalit yaroqsiz yoki ruxsat yo'q.");
+      let success = false;
+      let errorMsg = "";
+      for (const model of GEMINI_WEB_MODELS) {
+        try {
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: "Salom! 1 so'z bilan javob ber: Tayyormisiz?" }] }]
+            })
+          });
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data.candidates && data.candidates[0]) {
+              success = true;
+              break;
+            }
+          } else {
+            const errData = await resp.json().catch(() => null);
+            errorMsg = errData?.error?.message || `HTTP ${resp.status}`;
+          }
+        } catch (err) {
+          errorMsg = err.message;
         }
-      } catch (err) {
+      }
+
+      if (success) {
+        out.className = "mt-3 p-3 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs font-semibold";
+        out.innerHTML = "✅ Google Gemini API muvaffaqiyatli ulandi! Jonli Vision va AI tahlillari faollashdi.";
+      } else {
         out.className = "mt-3 p-3 rounded-xl bg-rose-950/60 border border-rose-500/40 text-rose-300 text-xs";
-        out.innerHTML = "❌ Tarmoq xatoligi: " + err.message;
+        out.innerHTML = "❌ Xatolik: " + (errorMsg || "API kalit yaroqsiz yoki ruxsat yo'q.");
       }
     }
+
+
+
 
 
     // ==========================================
@@ -3196,32 +3279,18 @@
       chat.appendChild(typingBubble);
       chat.scrollTop = chat.scrollHeight;
 
-      // 3. Generate Response
+      // 3. Generate Response via Live Gemini AI
       let aiResponseText = "";
       let isGeminiLive = false;
 
-      const apiKey = localStorage.getItem('gemini_api_key');
-      if (apiKey && apiKey.startsWith("AIzaSy")) {
-        try {
-          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{
-                  text: `Siz «KiberIz-4» maktab kiberxavfsizlik loyihasining professional AI Kiber-Maslahatchisisiz. O'quvchi va ota-onalarga kiber-xavflar, fishing, akkaunt buzilishi, firibgarlik va raqamli xavfsizlik bo'yicha o'zbek tilida aniq, tushunarli, dalda beruvchi va qadam-baqadam tavsiyalar bering. HTML teglari (faqat <b>, <i>, <code>) ishlating. Foydalanuvchi savoli: ${text}`
-                }]
-              }]
-            })
-          });
-          const json = await resp.json();
-          if (json.candidates && json.candidates[0] && json.candidates[0].content) {
-            aiResponseText = json.candidates[0].content.parts.map(p => p.text).join('\n');
-            isGeminiLive = true;
-          }
-        } catch (err) {
-          console.warn("Live Gemini web query fallback:", err);
+      try {
+        const liveAiAnswer = await queryLiveGeminiAI(text);
+        if (liveAiAnswer) {
+          aiResponseText = liveAiAnswer;
+          isGeminiLive = true;
         }
+      } catch (err) {
+        console.warn("Live Gemini query notice:", err);
       }
 
       if (!aiResponseText) {
@@ -3233,6 +3302,8 @@
         const typEl = document.getElementById(typingId);
         if (typEl) typEl.remove();
 
+        const formattedText = formatAiChatMarkdown(aiResponseText);
+
         const aiBubble = document.createElement('div');
         aiBubble.className = "flex items-start space-x-2.5 max-w-[92%] sm:max-w-[85%]";
         aiBubble.innerHTML = `
@@ -3241,70 +3312,193 @@
           </div>
           <div class="p-3.5 rounded-2xl rounded-tl-none bg-slate-900 border border-slate-800 text-slate-200 leading-relaxed shadow-sm space-y-1.5">
             <div class="flex items-center justify-between pb-1 border-b border-slate-800 text-[10px] text-slate-400">
-              <span class="font-bold text-cyan-300">${isGeminiLive ? '🤖 Gemini 2.5 Flash Vision' : '🛡️ KiberIz AI Maslahatchi'}</span>
+              <span class="font-bold ${isGeminiLive ? 'text-emerald-400' : 'text-cyan-300'} flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full ${isGeminiLive ? 'bg-emerald-400 animate-pulse' : 'bg-cyan-400'}"></span>
+                <span>${isGeminiLive ? '🤖 Gemini Jonli AI' : '🛡️ KiberIz AI Maslahatchi'}</span>
+              </span>
               <span>${timeStr}</span>
             </div>
-            <div class="text-[11px] text-slate-200 leading-relaxed whitespace-pre-line">${aiResponseText}</div>
+            <div class="text-[11px] text-slate-200 leading-relaxed whitespace-pre-line">${formattedText}</div>
           </div>
         `;
         chat.appendChild(aiBubble);
         chat.scrollTop = chat.scrollHeight;
-      }, isGeminiLive ? 100 : 400);
+      }, isGeminiLive ? 50 : 350);
     }
 
     function generateAiCyberResponse(userText) {
-      const low = userText.toLowerCase();
+      const low = (userText || "").toLowerCase().trim();
 
-      if (low.includes('fishing') || low.includes('havola') || low.includes('link') || low.includes('soxta') || low.includes('yutdim') || low.includes('500') || low.includes('yordam')) {
-        return `<b>🎣 Shubhali Havola va Fishingdan Himoyalanish:</b>\n\n` +
-          `1. <b>Domen nomini tekshiring:</b> Rasmiy davlat yoki bank saytlari hech qachon <code>.xyz</code>, <code>.top</code>, <code>.click</code> kabi arzon zonalarda ochilmaydi.\n` +
-          `2. <b>«500 000 so‘m yordam» — 100% yolg‘on:</b> Davlat hech qachon Telegram havolalari orqali karta raqami yoki SMS kod so‘rab pul tarqatmaydi.\n` +
+      // 1. Salomlashish va kirish (hatto typo 'sa;p', 'salom', 'assalom' bo'lsa ham)
+      if (low.startsWith('sa;p') || low.startsWith('salom') || low.startsWith('assalom') || low.includes('qalesan') || low.includes('salom') || low.includes('privet') || low.includes('hello') || low.includes('qandaysiz') || low.includes('kim bu') || low.includes('kimsan') || low === 'hi' || low === 'hey') {
+        return `<b>👋 Assalomu alaykum! Men «KiberIz-4» AI Kiber-Maslahatchisiman.</b>
+
+` +
+          `Sizga quyidagi sohalarda tezkor va amaliy yordam bera olaman:
+` +
+          `• 🎣 <b>Fishing va soxta havolalar</b>ni tekshirish;
+` +
+          `• 🔐 <b>Telegram/Instagram akkauntlari</b> xavfsizligi va 2FA yoqish;
+` +
+          `• 🚨 <b>Akkaunt buzilganda</b> yoki parol o‘g‘irlanganda zudlik bilan tiklash;
+` +
+          `• ⚠️ <b>Kiber-shantaj, tovlamachilik</b> va kiberbullingdan himoyalanish;
+` +
+          `• 💳 <b>Plastik karta va SMS-kod</b> xavfsizligi;
+` +
+          `• 🌐 <b>Darknet, .onion va xavfli saytlar</b> haqida maʼlumot.
+
+` +
+          `<i>Sizni qanday kiber-savol yoki muammo qiziqtiryapti? Marhamat, batafsil yozing!</i>`;
+      }
+
+      // 2. Darknet, .onion, Tor, Deep Web
+      if (low.includes('.onion') || low.includes('darknet') || low.includes('dark web') || low.includes('deep web') || low.includes('tor brauzer') || low.includes('tor browser') || low.includes('yashirin tarmoq')) {
+        return `<b>🌐 .onion Domenlari va Darknet (Qorong‘i Internet) Haqida:</b>
+
+` +
+          `1. <b>.onion nima?</b> Bu oddiy qidiruv tizimlari (Google, Yandex) va oddiy brauzerlarda ochilmaydigan, faqat maxsus <i>Tor tarmog‘i</i> orqali shifrlanib ishlaydigan yashirin saytlar zonasidir.
+` +
+          `2. <b>Nega u yerga kirish o‘quvchilar uchun XAVFLI?</b>
+` +
+          `  • <b>Qora bozor va firibgarlik:</b> Darknetdagi resurslarning 90% dan ortig‘i noqonuniy savdo, fishing tuzoqlari va moliyaviy qalloblikdan iborat.
+` +
+          `  • <b>Zararli viruslar (Malware):</b> Bitta noto‘g‘ri tugma yoki yuklab olingan fayl orqali telefoningiz yoki kompyuteringiz butunlay xakerlar nazoratiga o‘tishi mumkin.
+` +
+          `  • <b>Huquqiy javobgarlik:</b> Taqiqlangan saytlarga kirish yoki ularda harakatlanish qonunchilikka ko‘ra javobgarlikka sabab bo‘lishi mumkin.
+
+` +
+          `💡 <b>KiberIz tavsiyasi:</b> Qiziquvchanlik uchun ham .onion havolalariga kirmang! Kiberxavfsizlikni o‘rganish uchun ochiq taʼlim platformalari (TryHackMe, HackTheBox) dan foydalanish xavfsiz va foydalidir.`;
+      }
+
+      // 3. Karta firibgarligi va SMS-kod (birinchi o'rinda moliyaviy himoya)
+      if (low.includes('karta') || low.includes('sms') || low.includes('click') || low.includes('payme') || low.includes('pulim') || low.includes('plastik') || (low.includes('kod') && (low.includes('keldi') || low.includes('berdim') || low.includes('sorashyapti')))) {
+        return `<b>💳 Karta Maʼlumotlari yoki SMS Kod Fosh Bo‘lganda:</b>
+
+` +
+          `1. <b>Zudlik bilan kartani muzlatish:</b> Click, Payme yoki bank ilovasiga kirib, kartani «Bloklash (Muzlatish)» funksiyasini bosing.
+` +
+          `2. <b>Bankka qo‘ng‘iroq qiling:</b> Bankning rasmiy qo‘llab-quvvatlash raqamiga zudlik bilan murojaat qilib, kartadagi amaliyotlarni to‘xtating.
+` +
+          `3. <b>SMS kod — bu sizning kalitingiz:</b> Hech bir bank xodimi yoki operator sizdan SMS kodni so‘ramaydi! Kodni begonalarga aytganingizda, ular pulingizni yechib oladi.`;
+      }
+
+      // 4. Fishing va soxta havolalar
+      if (low.includes('fishing') || low.includes('phishing') || low.includes('havola') || low.includes('link') || low.includes('soxta') || low.includes('yutdim') || low.includes('500') || low.includes('yordam') || low.includes('bonus') || low.includes('yutuq')) {
+        return `<b>🎣 Shubhali Havola va Fishingdan Himoyalanish:</b>
+
+` +
+          `1. <b>Domen nomini tekshiring:</b> Rasmiy davlat yoki bank saytlari hech qachon <code>.xyz</code>, <code>.top</code>, <code>.click</code> kabi arzon zonalarda ochilmaydi.
+` +
+          `2. <b>«500 000 so‘m yordam» — 100% yolg‘on:</b> Davlat hech qachon Telegram havolalari orqali karta raqami yoki SMS kod so‘rab pul tarqatmaydi.
+` +
           `3. <b>Oltin qoida:</b> Begona havolaga kirmang, karta raqamingizni va SMS tasdiqlash kodini hech qachon kiritmang! Agar kiritib qo‘ygan bo‘lsangiz, zudlik bilan kartani bloklang.`;
       }
 
-      if (low.includes('buzilsa') || low.includes('ogirlandi') || low.includes('parol') || low.includes('sessiya') || low.includes('buzildi') || low.includes('kira olmayapman')) {
-        return `<b>🚨 Akkaunt Buzilganda (Xak qilinganda) Zudlik Bilan Ko‘riladigan 3 Qadam:</b>\n\n` +
-          `1. <b>Boshqa sessiyalarni o‘chiring:</b> Telegram ➔ Sozlamalar ➔ Qurilmalar ➔ <i>«Boshqa barcha seanslarni tugatish»</i> tugmasini bosing.\n` +
-          `2. <b>Parolni yangilang:</b> Agar akkauntga kirish imkoni bo‘lsa, zudlik bilan murakkab yangi parol o‘rnating.\n` +
-          `3. <b>Ikki bosqichli tekshiruvni (2FA) yoqing:</b> Bu orqali begona shaxs kodingizni bilsa ham, ikkinchi parolsiz kira olmaydi. Do‘stlaringizga nomingizdan pul so‘rab yozilsa, bu firibgarlik ekanini darhol boshqa yo‘l bilan bildiring.`;
-      }
+      // 5. Deepfake va AI klonlar
+      if (low.includes('deepfake') || low.includes("sun'iy") || low.includes('avatar') || low.includes('klon') || (low.includes('ai') && (low.includes('aniqlash') || low.includes('rasm') || low.includes('video') || low.includes('ovoz')))) {
+        return `<b>🎭 Deepfake va Soxta Profillarni Fosh Qilish Qoidalari:</b>
 
-      if (low.includes('2fa') || low.includes('ikki bosqichli') || low.includes('himoya') || low.includes('xavfsiz qilish')) {
-        return `<b>🔐 Ikki Bosqichli Tekshiruvni (2FA) Yoqish Qo‘llanmasi:</b>\n\n` +
-          `• <b>Telegramda:</b> Sozlamalar ➔ Maxfiylik va xavfsizlik ➔ <i>Ikki bosqichli tekshiruv (Two-Step Verification)</i> ➔ Parol o‘rnating va tiklash elektron pochtangizni kiriting.\n` +
-          `• <b>Instagramda:</b> Sozlamalar ➔ Xavfsizlik ➔ <i>Ikki faktorli autentifikatsiya</i> ➔ SMS yoki Google Authenticator orqali yoqing.\n\n` +
-          `💡 <i>Bu sizning raqamingiz o‘g‘irlanganda yoki klonlanganda ham akkauntingizni 100% himoya qiladi.</i>`;
-      }
-
-      if (low.includes('shantaj') || low.includes('rasm') || low.includes('tarqataman') || low.includes('buling') || low.includes("qo'rqit")) {
-        return `<b>⚠️ Kiber-Shantaj va Qo‘rqitishga Qarshi Muhim Yo‘riqnoma:</b>\n\n` +
-          `1. <b>HECH QACHON PUL TO‘LAMANG:</b> Firibgarga bir marta pul bersangiz, u yana va yana so‘rashda davom etadi.\n` +
-          `2. <b>Dalillarni saqlang:</b> Barcha yozishmalar, fotosuratlar va akkaunt profilini skrinshot qilib oling.\n` +
-          `3. <b>Yolg‘iz qolmang:</b> Darhol ota-onangizga, ishonchli ustozingizga yoki maktab psixologiga xabar bering. Bu sizning aybingiz emas!\n` +
-          `4. <b>Shaxsni bloklang va xabar bering (Report):</b> Suhbatni o‘chirib yubormasdan, foydalanuvchini platforma ma’muriyatiga shikoyat qiling.`;
-      }
-
-      if (low.includes('karta') || low.includes('sms') || low.includes('click') || low.includes('payme') || low.includes('pulim') || low.includes('kod')) {
-        return `<b>💳 Karta Maʼlumotlari yoki SMS Kod Fosh Bo‘lganda:</b>\n\n` +
-          `1. <b>Zudlik bilan kartani muzlatish:</b> Click, Payme yoki bank ilovasiga kirib, kartani «Bloklash (Muzlatish)» funksiyasini bosing.\n` +
-          `2. <b>Bankka qo‘ng‘iroq qiling:</b> Bankning rasmiy qo‘llab-quvvatlash raqamiga zudlik bilan murojaat qilib, kartadagi amaliyotlarni to‘xtating.\n` +
-          `3. <b>SMS kod — bu sizning kalitingiz:</b> Hech bir bank xodimi yoki operator sizdan SMS kodni so‘ramaydi. Kodni begonalarga aytganingizda, ular pulingizni yechib oladi!`;
-      }
-
-      if (low.includes('deepfake') || low.includes('ai') || low.includes("sun'iy") || low.includes('avatar') || low.includes('profil')) {
-        return `<b>🎭 Deepfake va Soxta Profillarni Fosh Qilish Qoidalari:</b>\n\n` +
-          `• <b>Ko‘z qorachiqlari:</b> Sun’iy intellekt chizgan suratlarda ko‘zdagi yorug‘lik nurlari bir xil burchakdan tushmagan bo‘ladi.\n` +
-          `• <b>Teri va sochlar:</b> Haddan tashqari silliq "mum haykal" effekti yoki soch tolalari orqa fon bilan erib ketgan bo‘ladi.\n` +
+` +
+          `• <b>Ko‘z qorachiqlari:</b> Sun’iy intellekt chizgan suratlarda ko‘zdagi yorug‘lik nurlari bir xil burchakdan tushmagan bo‘ladi.
+` +
+          `• <b>Teri va sochlar:</b> Haddan tashqari silliq "mum haykal" effekti yoki soch tolalari orqa fon bilan erib ketgan bo‘ladi.
+` +
           `• <b>Catfishing xavfi:</b> Internetda go‘zal qiz yoki yigit surati bilan ochilgan profillar orqali o‘quvchilarni shantaj qilish holatlari ko‘p uchraydi. Shaxsiy suratlaringizni notanishlarga jo‘natmang!`;
       }
 
-      return `<b>🛡️ KiberIz AI Kiber-Maslahatchisi Tavsiyasi:</b>\n\n` +
-        `Sizning savolingiz: <i>«${escapeHtml(userText)}»</i>\n\n` +
-        `Kiberxavfsizlikning 3 ta oltin qoidasiga rioya qiling:\n` +
-        `1. <b>Nomaʼlum fayllarni ochmang:</b> Telegramda .apk, .exe yoki shubhali zip arxivlarni yuklamang.\n` +
-        `2. <b>2FA doimo yoqiq bo‘lsin:</b> Barcha ijtimoiy tarmoq akkauntlaringizni ikki bosqichli parol bilan yoping.\n` +
-        `3. <b>Shaxsiy maʼlumotlarni himoyalang:</b> Telefon raqamingiz, geolokatsiyangiz va maktabingizni begonalarga fosh qilmang.\n\n` +
-        `Agar qo‘shimcha savolingiz bo‘lsa, yozing — men 24/7 yordam berishga tayyorman!`;
+      // 6. Shantaj va kiberbulling
+      if (low.includes('shantaj') || low.includes('tarqataman') || low.includes('buling') || low.includes("qo'rqit") || low.includes('intim') || low.includes('tovlamach') || (low.includes('rasm') && (low.includes('tarqat') || low.includes('sharmanda') || low.includes('yomon')))) {
+        return `<b>⚠️ Kiber-Shantaj va Qo‘rqitishga Qarshi Muhim Yo‘riqnoma:</b>
+
+` +
+          `1. <b>HECH QACHON PUL TO‘LAMANG:</b> Firibgarga bir marta pul bersangiz, u yana va yana so‘rashda davom etadi.
+` +
+          `2. <b>Dalillarni saqlang:</b> Barcha yozishmalar, fotosuratlar va akkaunt profilini skrinshot qilib oling.
+` +
+          `3. <b>Yolg‘iz qolmang:</b> Darhol ota-onangizga, ishonchli ustozingizga yoki maktab maʼmuriyatiga xabar bering. Bu sizning aybingiz emas!
+` +
+          `4. <b>Rasmiy yordam:</b> IIV Kiberxavfsizlik markazining <b>1133</b> ishonch raqamiga qo‘ng‘iroq qiling.`;
+      }
+
+      // 7. Akkaunt buzilishi va parol o'g'irlanishi
+      if (low.includes('buzilsa') || low.includes('ogirlandi') || low.includes('parol') || low.includes('sessiya') || low.includes('buzildi') || low.includes('kira olmayapman') || low.includes('xak')) {
+        return `<b>🚨 Akkaunt Buzilganda (Xak qilinganda) Zudlik Bilan Ko‘riladigan 3 Qadam:</b>
+
+` +
+          `1. <b>Boshqa sessiyalarni o‘chiring:</b> Telegram ➔ Sozlamalar ➔ Qurilmalar ➔ <i>«Boshqa barcha seanslarni tugatish»</i> tugmasini bosing.
+` +
+          `2. <b>Parolni yangilang:</b> Agar akkauntga kirish imkoni bo‘lsa, zudlik bilan kamida 12 ta belgidan iborat yangi murakkab parol o‘rnating.
+` +
+          `3. <b>Ikki bosqichli tekshiruvni (2FA) yoqing:</b> Bu orqali begona shaxs kodingizni bilsa ham, ikkinchi parolsiz kira olmaydi. Do‘stlaringizga nomingizdan pul so‘rab yozilsa, bu firibgarlik ekanini darhol boshqa yo‘l bilan bildiring.`;
+      }
+
+      // 8. 2FA (Ikki bosqichli autentifikatsiya)
+      if (low.includes('2fa') || low.includes('ikki bosqichli') || low.includes('himoya') || low.includes('xavfsiz qilish') || low.includes('autentifikatsiya')) {
+        return `<b>🔐 Ikki Bosqichli Tekshiruvni (2FA) Yoqish Qo‘llanmasi:</b>
+
+` +
+          `• <b>Telegramda:</b> Sozlamalar ➔ Maxfiylik va xavfsizlik ➔ <i>Ikki bosqichli tekshiruv (Two-Step Verification)</i> ➔ Parol o‘rnating va tiklash elektron pochtangizni kiriting.
+` +
+          `• <b>Instagramda:</b> Sozlamalar ➔ Xavfsizlik ➔ <i>Ikki faktorli autentifikatsiya</i> ➔ SMS yoki Google Authenticator orqali yoqing.
+
+` +
+          `💡 <i>Bu sizning raqamingiz o‘g‘irlanganda yoki klonlanganda ham akkauntingizni 100% himoya qiladi.</i>`;
+      }
+
+      // 9. Viruslar, APK va troyanlar
+      if (low.includes('virus') || low.includes('apk') || low.includes('trojan') || low.includes('fayl') || low.includes('troyan') || low.includes('zararli') || low.includes('dastur') || low.includes('yuklab')) {
+        return `<b>🦠 Zararli Ilovalar (APK/Trojan) dan Saqlanish:</b>
+
+` +
+          `1. <b>Telegram kanallardan .APK o‘rnatmang:</b> "Telegram Premium bepul", "Instagram ko'rishlar ko'paytiruvchi" niqobi ostida bank parollaringizni o‘g‘irlovchi troyanlar tarqatiladi.
+` +
+          `2. <b>Faqat rasmiy do‘konlar:</b> Ilovalarni faqat Google Play va App Store orqali yuklang.
+` +
+          `3. <b>Shubhali fayllarni tekshiring:</b> Faylni ochishdan oldin <code>virustotal.com</code> saytida bepul tekshirib oling.`;
+      }
+
+      // 10. Ochiq Wi-Fi va VPN
+      if (low.includes('wifi') || low.includes('wi-fi') || low.includes('vpn') || low.includes('kafe') || low.includes('parolsiz')) {
+        return `<b>📡 Ochiq Wi-Fi Tarmoqlari Xavfsizligi:</b>
+
+` +
+          `• <b>Ochiq (parolsiz) Wi-Fi:</b> Kafe, metro yoki parklardagi ochiq Wi-Fi tarmoqlarida parollaringiz va shaxsiy xabarlaringizni o‘rtadagi xaker (Man-in-the-Middle) ushlab olishi mumkin.
+` +
+          `• <b>Qoida:</b> Ochiq Wi-Fi da turib bank ilovalariga kirmang yoki karta maʼlumotlarini kiritmang.
+` +
+          `• <b>VPN:</b> Faqat ishonchli VPN xizmatlaridan foydalaning.`;
+      }
+
+      // 11. O'yinlar (Roblox, Brawl Stars, PUBG)
+      if (low.includes('roblox') || low.includes('brawl') || low.includes('pubg') || low.includes('steam') || low.includes('akk') || low.includes('gem') || low.includes('donat')) {
+        return `<b>🎮 O‘yin Akkauntlari va Virtual Firibgarlik:</b>
+
+` +
+          `1. <b>"Bepul Robux / Gem / Donat" saytlari — 100% soxta:</b> Sizdan o‘yin login va parolini so‘rab olib, akkauntingizni o‘g‘irlashadi.
+` +
+          `2. <b>Akkaunt sotish/olish:</b> Telegramda o‘yin akkauntlarini sotish bahonasida juda ko‘p maktab o‘quvchilari pullarini yo‘qotishmoqda.
+` +
+          `3. Akkauntingizga albatta 2FA va ota-onangiz elektron pochtasini bog‘lab qo‘ying.`;
+      }
+
+      // 12. Umumiy kiber-maslahat (hech qaysi kalit so'z mos kelmasa)
+      return `<b>🛡️ KiberIz AI Kiber-Maslahatchisi Tavsiyasi:</b>
+
+` +
+        `Sizning savolingiz: <i>«${escapeHtml(userText)}»</i>
+
+` +
+        `Kiber-muhitda xavfsiz bo‘lish uchun ushbu qoidalarni yodda tuting:
+` +
+        `1. <b>Nomaʼlum fayllarni ochmang:</b> Telegramda .apk, .exe yoki shubhali zip arxivlarni yuklamang.
+` +
+        `2. <b>2FA doimo yoqiq bo‘lsin:</b> Barcha ijtimoiy tarmoq akkauntlaringizni ikki bosqichli parol bilan himoyalang.
+` +
+        `3. <b>Shaxsiy maʼlumotlarni himoyalang:</b> Telefon raqamingiz, kartangiz va SMS-kodlarni begonalarga bermang.
+
+` +
+        `💡 <i>Agar savolingiz boshqa mavzuda bo‘lsa, batafsilroq yozing yoki quyidagi tezkor tugmalardan foydalaning!</i>`;
     }
 
   </script>
