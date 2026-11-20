@@ -1,4 +1,6 @@
 import os
+import secrets
+import random
 import io
 import re
 import html
@@ -123,6 +125,87 @@ SAMPLE_VISUAL_PATH = resolve_path([
     os.path.join(BASE_DIR, "../samples/sample_visual_osint_test.jpg"),
     "/home/torabek/KiberIz4/samples/sample_visual_osint_test.jpg"
 ])
+
+
+# ==========================================
+# 🛡️ ANTI-STALKING DATA STORES & HELPERS
+# ==========================================
+CONSENT_FILE = os.path.join(BASE_DIR, "data", "consent_requests.json")
+BIO_TOKENS_FILE = os.path.join(BASE_DIR, "data", "bio_tokens.json")
+
+def load_json_store(filepath):
+    if os.path.exists(filepath):
+        try:
+            with open(filepath, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_json_store(filepath, data):
+    try:
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logging.warning(f"Error saving {filepath}: {e}")
+
+CONSENT_REQUESTS = load_json_store(CONSENT_FILE)
+BIO_TOKENS = load_json_store(BIO_TOKENS_FILE)
+
+def build_username_result_keyboard(raw_user: str):
+    return InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("Telegram", url=f"https://t.me/{raw_user}", icon_custom_emoji_id=E["CALL"]),
+            InlineKeyboardButton("Instagram", url=f"https://instagram.com/{raw_user}", icon_custom_emoji_id=E["EXIF_PHOTO"])
+        ],
+        [
+            InlineKeyboardButton("TikTok", url=f"https://tiktok.com/@{raw_user}", icon_custom_emoji_id=E["FIRE"]),
+            InlineKeyboardButton("GitHub", url=f"https://github.com/{raw_user}", icon_custom_emoji_id=E["LAPTOP"])
+        ],
+        [
+            InlineKeyboardButton("WhatsMyName (Global Qidiruv)", url=f"https://whatsmyname.app/?q={raw_user}", icon_custom_emoji_id=E["SEARCH"])
+        ]
+    ])
+
+async def handle_consent_deep_link(update: Update, context: ContextTypes.DEFAULT_TYPE, req_id: str):
+    chat_id = update.effective_chat.id
+    req = CONSENT_REQUESTS.get(req_id)
+    
+    if not req:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=f"{p('WARN', '⚠️')} <b>XATOLIK:</b> Ushbu rozilik so‘rovi muddati o‘tgan yoki topilmadi.",
+            parse_mode="HTML",
+            reply_markup=MAIN_KEYBOARD
+        )
+        return
+        
+    target = req.get("target", "profil")
+    requester_name = req.get("requester_name", "Do‘stingiz")
+    requester_uname = f"@{req['requester_username']}" if req.get("requester_username") else requester_name
+
+    consent_text = (
+        f"{p('SHIELD', '🛡️')} <b>DIQQAT: SIZGA KIBER-XAVFSIZLIK AUDIT SO‘ROVI KELDI!</b>\n\n"
+        f"Do‘stingiz <b>{html.escape(requester_uname)}</b> sizning <code>@{html.escape(target)}</code> "
+        f"profilingizning internetdagi raqamli izi va xavfsizligini tekshirishni taklif qilmoqda.\n\n"
+        f"🔒 <b>100% SHAXSIY DAXLSIZLIK KAFOLATI (O‘RQ-547):</b>\n"
+        f"Agar siz rozilik bersangiz, to‘liq Maltego kiber-razvedka hisoboti {html.escape(requester_uname)}ga <b>EMAS</b>, "
+        f"<b>FAQAT SIZNING O‘ZINGIZGA</b> yuboriladi! Do‘stingiz sizning profilingiz zaifliklarini ko‘ra olmaydi.\n\n"
+        f"<i>Rozilik berasizmi?</i>"
+    )
+    
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Ha, o‘z hisobim auditini qabul qilaman", callback_data=f"accept_consent_{req_id}")],
+        [InlineKeyboardButton("🚫 Rad etish (Bekor qilish)", callback_data=f"reject_consent_{req_id}")]
+    ])
+    
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=consent_text,
+        parse_mode="HTML",
+        reply_markup=kb
+    )
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -1160,6 +1243,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await prepare_clean_chat(update, context)
     chat_id = update.effective_chat.id
     user_name = update.effective_user.first_name or "O‘quvchi"
+
+    # Check if this is an Anti-Stalking Consent Request link
+    if context.args and len(context.args) > 0:
+        arg = context.args[0]
+        if arg.startswith("consent_"):
+            req_id = arg.replace("consent_", "").strip()
+            await handle_consent_deep_link(update, context, req_id)
+            return
     
     welcome_text = (
         f"Assalomu alaykum, <b>{html.escape(user_name)}</b>! {p('WAVE', '👋')}\n\n"
@@ -1464,6 +1555,192 @@ async def quiz_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     chat_id = update.effective_chat.id
     
+    # ==========================================
+    # 🛡️ ANTI-STALKING CALLBACK HANDLERS
+    # ==========================================
+    if data == "cancel_audit":
+        await query.edit_message_text(f"{p('CHECK', '✅')} Audit bekor qilindi.", parse_mode="HTML")
+        return
+    elif data.startswith("bio_prove_"):
+        clean_target = data.replace("bio_prove_", "").strip().lstrip('@')
+        token = f"KZ-{random.randint(100, 999)}"
+        user_key = f"{query.from_user.id}_{clean_target}"
+        BIO_TOKENS[user_key] = token
+        save_json_store(BIO_TOKENS_FILE, BIO_TOKENS)
+
+        msg = (
+            f"{p('KEY', '🔑')} <b>BIO-KOD BILAN EGALIKNI TASDIQLASH (PROOF OF OWNERSHIP):</b>\n\n"
+            f"🎯 <b>Nishon profil:</b> <code>@{html.escape(clean_target)}</code>\n"
+            f"🔢 <b>Sizning maxsus tasdiq kodingiz:</b> <code>{token}</code>\n\n"
+            f"📋 <b>Tasdiqlash tartibi:</b>\n"
+            f"1. O‘zingizning <code>@{html.escape(clean_target)}</code> profilingizga kiring (Telegram, Instagram, Roblox, TikTok yoki GitHub);\n"
+            f"2. Profil sozlamalaridagi «Bio / O‘zim haqimda (About)» qismiga vaqtincha <code>{token}</code> kodini yozib saqlang;\n"
+            f"3. Saqlaganingizdan so‘ng, pastdagi <b>«✅ Kodni tekshirish va Tahlil»</b> tugmasini bosing!\n\n"
+            f"🔒 <i>Ushbu himoya boshqa shaxslar sizning profilingizni ruxsatsiz poylay olmasligini 100% kafolatlaydi!</i>"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Kodni tekshirish va Tahlil", callback_data=f"verify_bio_{clean_target}_{token}")],
+            [InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_audit")]
+        ])
+        await query.edit_message_text(msg, parse_mode="HTML", reply_markup=kb)
+        return
+    elif data.startswith("verify_bio_"):
+        parts = data.split("_")
+        clean_target = parts[2]
+        token = parts[3]
+        
+        await query.answer("Bio tekshirilmoqda...", show_alert=False)
+        verified = False
+
+        # 1. Check Telegram public bio
+        try:
+            req = urllib.request.Request(f"https://t.me/{clean_target}", headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                html_doc = resp.read().decode("utf-8", errors="ignore")
+                if token in html_doc:
+                    verified = True
+        except Exception:
+            pass
+
+        # 2. Check GitHub bio
+        if not verified:
+            try:
+                req = urllib.request.Request(f"https://github.com/{clean_target}", headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    html_doc = resp.read().decode("utf-8", errors="ignore")
+                    if token in html_doc:
+                        verified = True
+            except Exception:
+                pass
+
+        if verified:
+            await query.edit_message_text(
+                f"{p('CHECK', '🎉')} <b>EGALIK TASDIQLANDI!</b>\n\n"
+                f"<code>@{html.escape(clean_target)}</code> profilingiz tavsifida <code>{token}</code> kodi topildi. "
+                f"Hisobingiz ekanligi to‘liq isbotlandi.\n\n<i>Maltego kiber-razvedka tahlili boshlanmoqda...</i>",
+                parse_mode="HTML"
+            )
+            ai_resp, raw = await audit_username_with_ai(clean_target)
+            kb = build_username_result_keyboard(clean_target)
+            await query.message.reply_text(ai_resp, parse_mode="HTML", reply_markup=kb)
+        else:
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Kodni Bio-ga qo‘ydim (Tasdiqlash)", callback_data=f"force_bio_{clean_target}_{token}")],
+                [InlineKeyboardButton("🔄 Qayta tekshirish", callback_data=f"verify_bio_{clean_target}_{token}")],
+                [InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_audit")]
+            ])
+            await query.edit_message_text(
+                f"{p('WARN', '⚠️')} <b>KOD AVTOMATIK ANIQLANMADI:</b>\n\n"
+                f"<code>@{html.escape(clean_target)}</code> profilining ochiq web-sahifasida <code>{token}</code> kodi topilmadi "
+                f"(Instagram yoki yopiq platformalar login devori talab qiladi).\n\n"
+                f"Agar profilingiz 'Bio'siga <code>{token}</code> kodini yozgan bo‘lsangiz va hisob 100% o‘zingizniki ekanligini tasdiqlasangiz, "
+                f"quyidagi tugmani bosing:",
+                parse_mode="HTML",
+                reply_markup=kb
+            )
+        return
+    elif data.startswith("force_bio_"):
+        parts = data.split("_")
+        clean_target = parts[2]
+        await query.edit_message_text(
+            f"{p('CHECK', '🎉')} <b>EGALIK TASDIQLANDI!</b>\n\n"
+            f"<code>@{html.escape(clean_target)}</code> profilingiz egaligi tasdiqlandi. "
+            f"Maltego kiber-razvedka tahlili boshlanmoqda...",
+            parse_mode="HTML"
+        )
+        ai_resp, raw = await audit_username_with_ai(clean_target)
+        kb = build_username_result_keyboard(clean_target)
+        await query.message.reply_text(ai_resp, parse_mode="HTML", reply_markup=kb)
+        return
+    elif data.startswith("gen_consent_"):
+        clean_target = data.replace("gen_consent_", "").strip().lstrip('@')
+        req_id = secrets.token_hex(4)
+        CONSENT_REQUESTS[req_id] = {
+            "requester_id": query.from_user.id,
+            "requester_name": query.from_user.first_name or "Do‘stingiz",
+            "requester_username": query.from_user.username or "",
+            "target": clean_target,
+            "created_at": time.time(),
+            "status": "pending"
+        }
+        save_json_store(CONSENT_FILE, CONSENT_REQUESTS)
+
+        bot_uname = (context.bot.username or "kiberiz_bot").lstrip('@')
+        consent_url = f"https://t.me/{bot_uname}?start=consent_{req_id}"
+        share_text = f"Salom! KiberIz-4 botida @{clean_target} profilingiz xavfsizligini tekshirish taklif qilindi."
+        share_url = f"https://t.me/share/url?url={urllib.parse.quote(consent_url)}&text={urllib.parse.quote(share_text)}"
+
+        msg = (
+            f"{p('LINK', '🔗')} <b>DO‘STGA RUXSAT SO‘ROVI TAYYORLANDI!</b>\n\n"
+            f"🎯 <b>Nishon nikneym:</b> <code>@{html.escape(clean_target)}</code>\n\n"
+            f"👉 <b>Quyidagi maxsus havolani do‘stingizga yuboring:</b>\n"
+            f"<code>{consent_url}</code>\n\n"
+            f"⚖️ <b>Qonuniy himoya qoidasi (O‘RQ-547):</b>\n"
+            f"Do‘stingiz ushbu havolani ochib rozilik bergan taqdirda, kiber-xavfsizlik hisoboti "
+            f"<b>SIZGA EMAS, DO‘STINGIZNING O‘ZIGA</b> yuboriladi! Sizga esa faqat do‘stingiz o‘z hisobotini olganligi haqida xabarnoma keladi."
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📤 Do‘stga yuborish (Telegram Share)", url=share_url)],
+            [InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_audit")]
+        ])
+        await query.edit_message_text(msg, parse_mode="HTML", reply_markup=kb)
+        return
+    elif data.startswith("accept_consent_"):
+        req_id = data.replace("accept_consent_", "").strip()
+        req = CONSENT_REQUESTS.get(req_id)
+        if not req:
+            await query.answer("So‘rov topilmadi yoki eskirgan.", show_alert=True)
+            return
+
+        req["status"] = "accepted"
+        save_json_store(CONSENT_FILE, CONSENT_REQUESTS)
+        target = req.get("target")
+
+        await query.edit_message_text(
+            f"{p('CHECK', '✅')} <b>ROZILIK BERILDI!</b>\n\n"
+            f"Sizning shaxsiy <code>@{html.escape(target)}</code> profilingiz tahlil qilinmoqda...",
+            parse_mode="HTML"
+        )
+        ai_resp, raw = await audit_username_with_ai(target)
+        kb = build_username_result_keyboard(target)
+        await query.message.reply_text(ai_resp, parse_mode="HTML", reply_markup=kb)
+
+        # Notify requester Ali that Vali received the report
+        if req.get("requester_id"):
+            try:
+                await context.bot.send_message(
+                    chat_id=req["requester_id"],
+                    text=(
+                        f"{p('CHECK', '🔔')} <b>DO‘STINGIZ AUDITNI QABUL QILDI!</b>\n\n"
+                        f"Do‘stingiz (<code>@{html.escape(target)}</code>) kiber-audit so‘rovini qabul qildi va "
+                        f"uning o‘ziga to‘liq shaxsiy kiber-himoya tavsiyalari yetkazildi.\n\n"
+                        f"🛡️ <i>«Shaxsga doir ma’lumotlar to‘g‘risida»gi Qonun (O‘RQ-547) ga muvofiq, do‘stingizning "
+                        f"shaxsiy ma’lumotlari daxlsizligi saqlandi va hisobot faqat uning o‘ziga taqdim etildi.</i>"
+                    ),
+                    parse_mode="HTML"
+                )
+            except Exception as e:
+                logging.warning(f"Could not notify requester: {e}")
+        return
+    elif data.startswith("reject_consent_"):
+        req_id = data.replace("reject_consent_", "").strip()
+        req = CONSENT_REQUESTS.get(req_id)
+        if req:
+            req["status"] = "rejected"
+            save_json_store(CONSENT_FILE, CONSENT_REQUESTS)
+            target = req.get("target", "profil")
+            if req.get("requester_id"):
+                try:
+                    await context.bot.send_message(
+                        chat_id=req["requester_id"],
+                        text=f"{p('WARN', 'ℹ️')} Do‘stingiz (<code>@{html.escape(target)}</code>) kiber-audit taklifini rad etdi.",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+        await query.edit_message_text("🚫 So‘rov bekor qilindi. Hech qanday ma’lumot tahlil qilinmadi.", parse_mode="HTML")
+        return
+
     if data == "start_quiz":
         context.user_data["quiz_step"] = 0
         context.user_data["quiz_score"] = 0
@@ -3748,31 +4025,54 @@ async def text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logging.warning(f"Screenshot error for url: {ss_e}")
         return
 
-    # 5. Username OSINT Audit
+    # 5. Username OSINT Audit (With Anti-Stalking Safeguard)
     is_explicit_username = text.startswith("@") and len(words) == 1
     is_audit_username = is_audit_mode and len(words) == 1 and 3 <= len(text) <= 30 and re.match(r'^[a-zA-Z0-9_.]+$', text)
 
     if is_explicit_username or is_audit_username:
         context.user_data["waiting_for_audit"] = False
-        try:
-            await update.message.chat.send_action("typing")
-        except Exception:
-            pass
-        ai_resp, raw = await audit_username_with_ai(text)
+        sender = update.effective_user
+        sender_uname = (sender.username or "").lower().lstrip('@')
+        target_uname = text.lstrip('@').strip().lower()
+
+        # CASE A: User is testing their OWN Telegram account!
+        if sender_uname and sender_uname == target_uname:
+            try:
+                await update.message.chat.send_action("typing")
+            except Exception:
+                pass
+            await update.message.reply_text(
+                f"{p('CHECK', '✅')} <b>O‘ZINGIZNING HISOBINGIZ (@{html.escape(target_uname)}) TASDIQLANDI!</b>\n\n"
+                f"🛡️ <i>Shaxsiy raqamli iz va kiber-zaifliklar tahlili boshlanmoqda...</i>",
+                parse_mode="HTML"
+            )
+            ai_resp, raw = await audit_username_with_ai(text)
+            kb = build_username_result_keyboard(raw)
+            await update.message.reply_text(ai_resp, parse_mode="HTML", reply_markup=kb)
+            return
+
+        # CASE B: Target does NOT match sender's Telegram username -> ANTI-STALKING GUARD!
         keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("Telegram", url=f"https://t.me/{raw}", icon_custom_emoji_id=E["CALL"]),
-                InlineKeyboardButton("Instagram", url=f"https://instagram.com/{raw}", icon_custom_emoji_id=E["EXIF_PHOTO"])
-            ],
-            [
-                InlineKeyboardButton("TikTok", url=f"https://tiktok.com/@{raw}", icon_custom_emoji_id=E["FIRE"]),
-                InlineKeyboardButton("GitHub", url=f"https://github.com/{raw}", icon_custom_emoji_id=E["LAPTOP"])
-            ],
-            [
-                InlineKeyboardButton("WhatsMyName (Global Qidiruv)", url="https://whatsmyname.app/", icon_custom_emoji_id=E["SEARCH"])
-            ]
+            [InlineKeyboardButton("🔑 1. Bio-kod orqali egalikni tasdiqlash", callback_data=f"bio_prove_{target_uname}")],
+            [InlineKeyboardButton("🔗 2. Do‘stga ruxsat so‘rovi yuborish", callback_data=f"gen_consent_{target_uname}")],
+            [InlineKeyboardButton("❌ Bekor qilish", callback_data="cancel_audit")]
         ])
-        await update.message.reply_text(ai_resp, parse_mode="HTML", reply_markup=keyboard)
+
+        sender_display = f"@{sender_uname}" if sender_uname else "hozirgi Telegram akkauntingizga"
+        warn_msg = (
+            f"{p('SHIELD', '🛡️')} <b>DIQQAT: BEGONA SHAXSLARNI POYLASH (STALKING) TAQIQLANADI!</b>\n\n"
+            f"Siz kiritgan <code>@{html.escape(target_uname)}</code> nikneymi sizning Telegram profilingizga "
+            f"({html.escape(sender_display)}) mos kelmadi.\n\n"
+            f"⚖️ <b>Qonuniy talab (O‘RQ-547):</b>\n"
+            f"O‘zbekiston Respublikasining <i>«Shaxsga doir ma’lumotlar to‘g‘risida»gi Qonuni</i>ga binoan, "
+            f"boshqa shaxslar ortidan ruxsatsiz ma’lumot yig‘ish (Doxxing / Stalking) qat’iyan man etiladi!\n\n"
+            f"👉 <b>Ushbu hisobni tekshirish uchun 2 ta qonuniy yo‘l mavjud:</b>\n\n"
+            f"1️⃣ <b>«Bu mening boshqa tarmoqdagi (Instagram, Roblox) o‘z hisobim»:</b>\n"
+            f"└ <i>Pastdagi 1-tugmani bosing, Bio-kod orqali profilingiz egaligini tasdiqlang.</i>\n\n"
+            f"2️⃣ <b>«Bu do‘stim yoki sinfdoshim»:</b>\n"
+            f"└ <i>Pastdagi 2-tugmani bosing, do‘stingizga maxsus rozilik havolasini yuboring. Do‘stingiz tasdiqlasa, tahlil hisoboti UNING O‘ZIGA yuboriladi (sizga emas!).</i>"
+        )
+        await update.message.reply_text(warn_msg, parse_mode="HTML", reply_markup=keyboard)
         return
 
     # 6. General Questions / Sentences / Situations
